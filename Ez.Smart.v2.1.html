@@ -233,21 +233,24 @@
                     
                     let cloudList = 'Checking...';
                     let supabaseStatus = 'Unknown';
+                    let client = null;
                     
-                    // Try to initialize Supabase first
-                    if (window.SupabaseConfig && window.SupabaseConfig.init) {
-                        window.SupabaseConfig.init();
+                    // Direct client creation (most reliable)
+                    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+                    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+                    
+                    if (window.supabase && window.supabase.createClient) {
+                        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                        supabaseStatus = 'Connected (direct)';
+                    } else if (window.SupabaseConfig?.getClient?.()) {
+                        client = window.SupabaseConfig.getClient();
+                        supabaseStatus = 'Connected (config)';
+                    } else {
+                        supabaseStatus = 'SDK not available: ' + (typeof window.supabase);
+                        cloudList = supabaseStatus;
                     }
                     
-                    // Check Supabase status
-                    const client = window.SupabaseConfig?.getClient?.();
-                    if (!client) {
-                        // Try direct initialization
-                        const createClient = window.supabase?.createClient || window.supabaseJs?.createClient;
-                        supabaseStatus = createClient ? 'SDK found but client not created' : 'SDK NOT LOADED';
-                        cloudList = supabaseStatus;
-                    } else {
-                        supabaseStatus = 'Connected';
+                    if (client) {
                         // Try to get cloud users
                         const { data, error } = await client
                             .from('tenant_data')
@@ -256,20 +259,19 @@
                             .eq('data_key', 'ezcubic_users');
                         
                         if (error) {
-                            cloudList = 'Error: ' + error.message;
+                            cloudList = 'DB Error: ' + error.message;
                         } else if (data && data.length > 0) {
                             const cloudUsers = data[0].data?.value || [];
                             cloudList = cloudUsers.map(u => u.email + ' (' + u.role + ')').join('\\n') || 'None in cloud';
                         } else {
-                            cloudList = 'Empty (no users synced to cloud yet)';
+                            cloudList = 'Empty (no users synced yet)';
                         }
                     }
                     
-                    alert('📱 LOCAL USERS:\\n' + localList + '\\n\\n☁️ CLOUD USERS:\\n' + cloudList + '\\n\\n⚙️ Supabase: ' + supabaseStatus);
+                    alert('📱 LOCAL USERS:\\n' + localList + '\\n\\n☁️ CLOUD USERS:\\n' + cloudList + '\\n\\n⚙️ Status: ' + supabaseStatus);
                     
                     // Offer to force sync
                     if (client && confirm('Upload local users to cloud?')) {
-                        // Direct upload
                         const { error: uploadError } = await client
                             .from('tenant_data')
                             .upsert({
@@ -286,11 +288,11 @@
                         if (uploadError) {
                             alert('❌ Upload error: ' + uploadError.message);
                         } else {
-                            alert('✅ Uploaded ' + localUsers.length + ' users to cloud!\\nNow refresh on other device.');
+                            alert('✅ Uploaded ' + localUsers.length + ' users to cloud!\\nRefresh other device now.');
                         }
                     }
                 } catch (err) {
-                    alert('Error: ' + err.message + '\\n\\nStack: ' + err.stack);
+                    alert('Error: ' + err.message);
                 }
             });
             </script>

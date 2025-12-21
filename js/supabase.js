@@ -10,17 +10,34 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabase = null;
 
 function initSupabase() {
-    // Try multiple ways to access Supabase SDK (v1 vs v2 differences)
-    const createClient = window.supabase?.createClient || 
-                         window.supabaseJs?.createClient ||
-                         (typeof supabaseJs !== 'undefined' ? supabaseJs.createClient : null);
+    if (supabase) return true; // Already initialized
     
-    if (createClient) {
+    // The CDN version exposes supabase.createClient directly
+    // Try all possible ways the SDK might be exposed
+    let createClient = null;
+    
+    if (typeof window.supabase !== 'undefined') {
+        // v2 CDN: window.supabase.createClient
+        if (typeof window.supabase.createClient === 'function') {
+            createClient = window.supabase.createClient;
+        }
+        // Or it might already be the createClient function
+        else if (typeof window.supabase === 'function') {
+            createClient = window.supabase;
+        }
+    }
+    
+    if (!createClient) {
+        console.warn('⚠️ Supabase SDK not found, retrying...');
+        return false;
+    }
+    
+    try {
         supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('🐱 Supabase initialized successfully');
         return true;
-    } else {
-        console.warn('⚠️ Supabase SDK not loaded yet');
+    } catch (err) {
+        console.error('❌ Supabase init error:', err);
         return false;
     }
 }
@@ -31,6 +48,15 @@ function getSupabase() {
         initSupabase();
     }
     return supabase;
+}
+
+// Auto-initialize on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(initSupabase, 100);
+    });
+} else {
+    setTimeout(initSupabase, 100);
 }
 
 // ============================================
