@@ -10,19 +10,19 @@
   "scope": "./",
   "icons": [
     {
-      "src": "images/lazyhuman.pdf.svg",
+      "src": "images/lazyhuman.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "images/lazyhuman.pdf.svg",
+      "src": "images/lazyhuman.svg",
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "images/lazyhuman.pdf.svg",
+      "src": "images/lazyhuman.svg",
       "sizes": "192x192",
       "type": "image/svg+xml",
       "purpose": "any"
