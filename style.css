@@ -12614,3 +12614,84 @@ body.logged-out {
         font-size: 11px;
     }
 }
+
+/* ==================== MOBILE STYLING ==================== */
+@media (max-width: 768px) {
+    /* Basic mobile layout */
+    .app-container {
+        padding: 10px;
+        padding-top: 70px;
+    }
+    
+    .main-content {
+        gap: 12px;
+    }
+    
+    /* Cards */
+    .content-card {
+        padding: 15px;
+        border-radius: 10px;
+    }
+    
+    /* Stats */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .stat-card {
+        padding: 12px 10px;
+    }
+    
+    .stat-value {
+        font-size: 16px !important;
+    }
+    
+    .stat-label {
+        font-size: 11px !important;
+    }
+    
+    /* Form inputs - 16px to prevent iOS zoom */
+    input, select, textarea {
+        font-size: 16px;
+    }
+    
+    /* Tables - allow horizontal scroll */
+    .data-table {
+        font-size: 12px;
+        display: block;
+        overflow-x: auto;
+    }
+    
+    /* Modals */
+    .modal-content {
+        width: 95%;
+        max-width: 95%;
+        margin: 20px auto;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+    
+    /* Filter bars */
+    .filter-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    
+    .filter-bar input,
+    .filter-bar select {
+        width: 100%;
+    }
+    
+    /* Tabs - scrollable */
+    .tabs {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        gap: 5px;
+    }
+    
+    .tab-btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+}

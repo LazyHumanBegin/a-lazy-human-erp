@@ -206,6 +206,20 @@ let currentUser = null;
 function initializeUserSystem() {
     loadUsers();
     
+    // Quick check - if no valid session, show login immediately (no flash)
+    const session = localStorage.getItem(CURRENT_USER_KEY);
+    const hasValidSession = session && JSON.parse(session).id;
+    
+    if (!hasValidSession) {
+        // No session - show login page immediately, hide app
+        showLoginPage();
+        return;
+    }
+    
+    // Has session - show app container
+    const appContainer = document.getElementById('appContainer');
+    if (appContainer) appContainer.style.display = '';
+    
     // CLOUD SYNC: Try to sync users from cloud before checking session
     // This ensures Phone B gets user01 created on Phone A
     loadUsersFromCloud().then(() => {
@@ -711,6 +725,10 @@ async function tryLoginWithCloudSync(email, password) {
         // Load user's tenant data (their isolated business data)
         loadUserTenantData(user);
         
+        // Show app container (it was hidden during login check)
+        const appContainer = document.getElementById('appContainer');
+        if (appContainer) appContainer.style.display = '';
+        
         updateAuthUI();
         closeLoginModal();
         hideLoginPage(); // Hide full-screen login page
@@ -734,6 +752,11 @@ async function tryLoginWithCloudSync(email, password) {
             setTimeout(() => applyUserPermissions(), 50);
         }
         
+        // ALWAYS show dashboard after login (reset to dashboard)
+        if (typeof showSection === 'function') {
+            showSection('dashboard');
+        }
+        
         // Force refresh ALL UI components after login with delay
         // Wait for tenant data to finish loading (150ms) plus buffer
         setTimeout(() => {
@@ -747,15 +770,6 @@ async function tryLoginWithCloudSync(email, password) {
             
             // Update dashboard with fresh tenant data
             if (typeof updateDashboard === 'function') updateDashboard();
-            
-            // Refresh the current active section
-            const activeSection = document.querySelector('.content-section.active');
-            if (activeSection) {
-                const sectionId = activeSection.id;
-                if (typeof showSection === 'function') {
-                    showSection(sectionId);
-                }
-            }
         }, 300);
         
         return true;

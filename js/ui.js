@@ -123,6 +123,11 @@ function showSection(sectionId) {
     else if (sectionId === 'aging-reports') {
         if (typeof renderAgingReportsContent === 'function') renderAgingReportsContent();
     }
+    
+    // Scroll to top of page when changing sections
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    
+    // Close mobile menu if on mobile
     if (window.innerWidth <= 768) {
         toggleMobileMenu();
     }

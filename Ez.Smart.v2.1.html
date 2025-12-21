@@ -38,13 +38,112 @@
     <link rel="stylesheet" href="style.css?v=1766330000">
 </head>
 <body>
-    <!-- Mobile Menu Button -->
-    <button class="mobile-menu-btn" onclick="toggleMobileMenu()">
+    <!-- Mobile Menu Button (Draggable) -->
+    <button class="mobile-menu-btn" id="mobileMenuBtn">
         <img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 24px; height: 24px;">
     </button>
     <div class="mobile-overlay" onclick="toggleMobileMenu()"></div>
     
-    <div class="app-container">
+    <!-- Draggable Mobile Button Script -->
+    <script>
+    (function() {
+        const btn = document.getElementById('mobileMenuBtn');
+        if (!btn) return;
+        
+        let isDragging = false;
+        let wasDragged = false;
+        let startX, startY, startLeft, startTop;
+        
+        // Load saved position
+        const savedPos = localStorage.getItem('mobileMenuBtnPosition');
+        if (savedPos) {
+            const pos = JSON.parse(savedPos);
+            btn.style.left = pos.left;
+            btn.style.top = pos.top;
+            btn.style.right = 'auto';
+            btn.style.bottom = 'auto';
+        }
+        
+        function onStart(e) {
+            isDragging = true;
+            wasDragged = false;
+            
+            const touch = e.touches ? e.touches[0] : e;
+            startX = touch.clientX;
+            startY = touch.clientY;
+            
+            const rect = btn.getBoundingClientRect();
+            startLeft = rect.left;
+            startTop = rect.top;
+            
+            btn.style.transition = 'none';
+        }
+        
+        function onMove(e) {
+            if (!isDragging) return;
+            
+            const touch = e.touches ? e.touches[0] : e;
+            const deltaX = touch.clientX - startX;
+            const deltaY = touch.clientY - startY;
+            
+            // Only count as drag if moved more than 8px
+            if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+                wasDragged = true;
+                e.preventDefault();
+            }
+            
+            if (wasDragged) {
+                let newLeft = startLeft + deltaX;
+                let newTop = startTop + deltaY;
+                
+                // Keep within bounds
+                const btnSize = btn.offsetWidth;
+                newLeft = Math.max(5, Math.min(window.innerWidth - btnSize - 5, newLeft));
+                newTop = Math.max(5, Math.min(window.innerHeight - btnSize - 5, newTop));
+                
+                btn.style.left = newLeft + 'px';
+                btn.style.top = newTop + 'px';
+                btn.style.right = 'auto';
+                btn.style.bottom = 'auto';
+            }
+        }
+        
+        function onEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            btn.style.transition = 'all 0.3s';
+            
+            // Save position if dragged
+            if (wasDragged) {
+                localStorage.setItem('mobileMenuBtnPosition', JSON.stringify({
+                    left: btn.style.left,
+                    top: btn.style.top
+                }));
+            }
+        }
+        
+        // Touch events
+        btn.addEventListener('touchstart', onStart, { passive: true });
+        document.addEventListener('touchmove', onMove, { passive: false });
+        document.addEventListener('touchend', onEnd);
+        
+        // Mouse events
+        btn.addEventListener('mousedown', onStart);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onEnd);
+        
+        // Handle click - only toggle menu if not dragged
+        btn.addEventListener('click', function(e) {
+            if (!wasDragged) {
+                toggleMobileMenu();
+            }
+            wasDragged = false;
+        });
+    })();
+    </script>
+    
+    <div class="app-container" style="display: none;" id="appContainer">
         <!-- Navigation Panel -->
         <div class="nav-panel" id="navPanel">
             <div class="logo">
@@ -3457,9 +3556,6 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-users-cog"></i> User Management</h2>
-                        <button class="btn-primary" onclick="showAddUserModal('staff')">
-                            <i class="fas fa-user-plus"></i> Add User
-                        </button>
                     </div>
                     <div id="userManagementContent">
                         <!-- Rendered by users.js -->
