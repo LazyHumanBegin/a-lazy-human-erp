@@ -3753,6 +3753,30 @@
                                 </button>
                             </div>
                             <div id="backupInfo"></div>
+                            
+                            <!-- Auto-Backup Section -->
+                            <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border-radius: 10px; border: 1px solid #334155;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <div>
+                                        <h4 style="margin: 0; color: #f8fafc; font-size: 14px;">
+                                            <i class="fas fa-clock" style="color: #10b981;"></i> Auto-Backup
+                                        </h4>
+                                        <p style="margin: 4px 0 0; color: #94a3b8; font-size: 12px;">Automatic backups every 24 hours</p>
+                                    </div>
+                                    <span id="autoBackupStatus" style="background: #10b981; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                        ✓ Active
+                                    </span>
+                                </div>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <button class="btn-secondary" onclick="triggerAutoBackup()" style="background: #334155; color: white; border: 1px solid #475569; font-size: 13px;">
+                                        <i class="fas fa-save"></i> Backup Now
+                                    </button>
+                                    <button class="btn-secondary" onclick="showAutoBackupRestore()" style="background: #334155; color: white; border: 1px solid #475569; font-size: 13px;">
+                                        <i class="fas fa-history"></i> Restore from Auto-Backup
+                                    </button>
+                                </div>
+                                <div id="lastAutoBackupInfo" style="margin-top: 10px; color: #94a3b8; font-size: 12px;"></div>
+                            </div>
                         </div>
                         
                         <div class="form-group">

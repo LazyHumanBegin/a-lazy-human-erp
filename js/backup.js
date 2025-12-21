@@ -333,10 +333,240 @@ function showBackupHelpTooltip() {
 // Initialize backup info on page load
 document.addEventListener('DOMContentLoaded', function() {
     updateBackupInfo();
+    initAutoBackup();
 });
+
+// ==================== AUTO-BACKUP SYSTEM ====================
+const AUTO_BACKUP_KEY = 'alazyhumanAutoBackup';
+const AUTO_BACKUP_SETTINGS_KEY = 'alazyhumanAutoBackupSettings';
+
+// Default settings
+function getAutoBackupSettings() {
+    const defaults = {
+        enabled: true,
+        intervalHours: 24, // Auto-backup every 24 hours
+        maxBackups: 5, // Keep last 5 backups
+        lastAutoBackup: null,
+        showReminder: true
+    };
+    try {
+        const saved = localStorage.getItem(AUTO_BACKUP_SETTINGS_KEY);
+        return saved ? { ...defaults, ...JSON.parse(saved) } : defaults;
+    } catch {
+        return defaults;
+    }
+}
+
+function saveAutoBackupSettings(settings) {
+    localStorage.setItem(AUTO_BACKUP_SETTINGS_KEY, JSON.stringify(settings));
+}
+
+// Initialize auto-backup system
+function initAutoBackup() {
+    const settings = getAutoBackupSettings();
+    
+    if (!settings.enabled) return;
+    
+    // Check if auto-backup is needed
+    const now = new Date();
+    const lastBackup = settings.lastAutoBackup ? new Date(settings.lastAutoBackup) : null;
+    const hoursSinceBackup = lastBackup ? (now - lastBackup) / (1000 * 60 * 60) : Infinity;
+    
+    if (hoursSinceBackup >= settings.intervalHours) {
+        // Perform auto-backup
+        performAutoBackup();
+    }
+    
+    // Set up periodic check (every hour)
+    setInterval(() => {
+        const currentSettings = getAutoBackupSettings();
+        if (currentSettings.enabled) {
+            const checkNow = new Date();
+            const checkLast = currentSettings.lastAutoBackup ? new Date(currentSettings.lastAutoBackup) : null;
+            const checkHours = checkLast ? (checkNow - checkLast) / (1000 * 60 * 60) : Infinity;
+            
+            if (checkHours >= currentSettings.intervalHours) {
+                performAutoBackup();
+            }
+        }
+    }, 60 * 60 * 1000); // Check every hour
+}
+
+// Perform auto-backup (saves to IndexedDB/localStorage)
+function performAutoBackup() {
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || localStorage.getItem('currentUser') || 'null');
+        
+        // Create backup data
+        const backupData = {
+            metadata: {
+                exportDate: new Date().toISOString(),
+                exportedBy: currentUser?.email || 'auto',
+                version: '2.1',
+                appName: 'A Lazy Human ERP',
+                backupType: 'auto-backup',
+                isAutoBackup: true
+            },
+            data: {}
+        };
+        
+        // Gather all relevant data
+        const keysToBackup = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            // Skip auto-backup storage itself to avoid recursion
+            if (key && !key.startsWith('alazyhumanAutoBackup')) {
+                keysToBackup.push(key);
+            }
+        }
+        
+        keysToBackup.forEach(key => {
+            backupData.data[key] = localStorage.getItem(key);
+        });
+        
+        // Get existing auto-backups
+        let autoBackups = [];
+        try {
+            autoBackups = JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY) || '[]');
+        } catch {
+            autoBackups = [];
+        }
+        
+        // Add new backup
+        const settings = getAutoBackupSettings();
+        autoBackups.unshift({
+            timestamp: new Date().toISOString(),
+            data: JSON.stringify(backupData),
+            size: JSON.stringify(backupData).length
+        });
+        
+        // Keep only last N backups
+        if (autoBackups.length > settings.maxBackups) {
+            autoBackups = autoBackups.slice(0, settings.maxBackups);
+        }
+        
+        // Save auto-backups
+        localStorage.setItem(AUTO_BACKUP_KEY, JSON.stringify(autoBackups));
+        
+        // Update settings
+        settings.lastAutoBackup = new Date().toISOString();
+        saveAutoBackupSettings(settings);
+        
+        console.log('[Auto-Backup] Backup completed:', new Date().toLocaleString());
+        
+        // Show subtle notification (non-intrusive)
+        if (typeof showToast === 'function') {
+            showToast('Auto-backup saved ✓', 'success');
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('[Auto-Backup] Error:', error);
+        return false;
+    }
+}
+
+// Restore from auto-backup
+function showAutoBackupRestore() {
+    const autoBackups = JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY) || '[]');
+    
+    if (autoBackups.length === 0) {
+        showNotification('No Auto-Backups', 'No auto-backups available yet. Auto-backup runs every 24 hours.', 'info');
+        return;
+    }
+    
+    let backupListHTML = autoBackups.map((backup, index) => {
+        const date = new Date(backup.timestamp);
+        const size = formatBytes(backup.size);
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: ${index === 0 ? '#f0f9ff' : '#f8fafc'}; border-radius: 8px; margin-bottom: 8px; border: 1px solid ${index === 0 ? '#bae6fd' : '#e2e8f0'};">
+                <div>
+                    <div style="font-weight: 600; color: #1e293b;">${date.toLocaleDateString()} ${date.toLocaleTimeString()}</div>
+                    <div style="font-size: 12px; color: #64748b;">${size} ${index === 0 ? '(Latest)' : ''}</div>
+                </div>
+                <button onclick="restoreAutoBackup(${index})" class="btn-primary" style="padding: 8px 16px; font-size: 13px;">
+                    <i class="fas fa-undo"></i> Restore
+                </button>
+            </div>
+        `;
+    }).join('');
+    
+    const modalHTML = `
+        <div class="modal show" id="autoBackupModal" style="z-index: 10000;">
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-history"></i> Auto-Backup Recovery</h3>
+                    <button class="modal-close" onclick="closeModal('autoBackupModal')">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: #64748b; margin-bottom: 15px;">Select a backup to restore. This will replace current data.</p>
+                    ${backupListHTML}
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeModal('autoBackupModal')">Cancel</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existing = document.getElementById('autoBackupModal');
+    if (existing) existing.remove();
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function restoreAutoBackup(index) {
+    const autoBackups = JSON.parse(localStorage.getItem(AUTO_BACKUP_KEY) || '[]');
+    
+    if (!autoBackups[index]) {
+        showNotification('Error', 'Backup not found', 'error');
+        return;
+    }
+    
+    if (!confirm('⚠️ This will restore data from this backup and replace current data. Continue?')) {
+        return;
+    }
+    
+    try {
+        const backupData = JSON.parse(autoBackups[index].data);
+        
+        // Restore all data
+        Object.keys(backupData.data).forEach(key => {
+            if (backupData.data[key] !== null) {
+                localStorage.setItem(key, backupData.data[key]);
+            }
+        });
+        
+        showNotification('Restore Complete', 'Data restored successfully! Page will reload.', 'success');
+        
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Restore error:', error);
+        showNotification('Restore Failed', 'Error restoring backup: ' + error.message, 'error');
+    }
+}
+
+// Manual trigger for auto-backup
+function triggerAutoBackup() {
+    if (performAutoBackup()) {
+        showNotification('Backup Complete', 'Auto-backup saved successfully!', 'success');
+    } else {
+        showNotification('Backup Failed', 'Could not create auto-backup.', 'error');
+    }
+}
 
 // Export functions to window
 window.exportBackup = exportBackup;
 window.importBackup = importBackup;
 window.updateBackupInfo = updateBackupInfo;
 window.showBackupHelpTooltip = showBackupHelpTooltip;
+window.showAutoBackupRestore = showAutoBackupRestore;
+window.restoreAutoBackup = restoreAutoBackup;
+window.triggerAutoBackup = triggerAutoBackup;
+window.performAutoBackup = performAutoBackup;
+window.getAutoBackupSettings = getAutoBackupSettings;
+window.saveAutoBackupSettings = saveAutoBackupSettings;
