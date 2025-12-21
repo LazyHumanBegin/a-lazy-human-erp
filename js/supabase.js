@@ -10,8 +10,13 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabase = null;
 
 function initSupabase() {
-    if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Try multiple ways to access Supabase SDK (v1 vs v2 differences)
+    const createClient = window.supabase?.createClient || 
+                         window.supabaseJs?.createClient ||
+                         (typeof supabaseJs !== 'undefined' ? supabaseJs.createClient : null);
+    
+    if (createClient) {
+        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('🐱 Supabase initialized successfully');
         return true;
     } else {
