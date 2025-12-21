@@ -379,6 +379,16 @@ function setBalanceSheetView(view) {
             viewElement.classList.add('active');
         }
         
+        // Toggle visibility of detailed breakdown section
+        const detailedSection = document.querySelector('.detailed-balance-sheet');
+        if (detailedSection) {
+            if (view === 'double-entry') {
+                detailedSection.style.display = 'none';
+            } else {
+                detailedSection.style.display = 'block';
+            }
+        }
+        
         if (view === 'history') {
             loadBalanceHistory();
         } else if (view === 'double-entry') {
@@ -1160,145 +1170,279 @@ function calculateBalanceSheetFromCOA() {
  * Display balance sheet with COA data if available
  */
 function displayEnhancedBalanceSheet() {
-    const coaData = calculateBalanceSheetFromCOA();
+    // Try to get COA data first, otherwise calculate from transactions
+    let coaData = calculateBalanceSheetFromCOA();
     
+    // If no COA, calculate Double Entry view from transactions
     if (!coaData) {
-        // Fall back to simple balance sheet
-        displaySimpleBalanceSheet();
-        return;
+        coaData = calculateDoubleEntryFromTransactions();
     }
     
-    const container = document.getElementById('simpleBalanceSheetView');
+    const container = document.getElementById('simpleBalanceSummary');
     if (!container) return;
     
     const html = `
-        <div class="enhanced-balance-sheet">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="double-entry-balance-sheet" style="padding: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
                 <h3 style="margin: 0; color: #1e293b;">
                     <i class="fas fa-balance-scale-left"></i> Balance Sheet (Double-Entry)
                 </h3>
                 <span style="font-size: 12px; padding: 5px 12px; border-radius: 15px; ${coaData.isBalanced ? 'background: #dcfce7; color: #16a34a;' : 'background: #fee2e2; color: #dc2626;'}">
-                    ${coaData.isBalanced ? '✓ Balanced' : '⚠ Out of Balance: RM ' + Math.abs(coaData.difference).toFixed(2)}
+                    ${coaData.isBalanced ? '✓ Balanced' : '⚠ Difference: RM ' + Math.abs(coaData.difference).toFixed(2)}
                 </span>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                <!-- Assets Column -->
-                <div>
-                    <div style="background: #eff6ff; padding: 15px; border-radius: 10px; border-left: 4px solid #2563eb;">
-                        <h4 style="margin: 0 0 15px 0; color: #1e40af;"><i class="fas fa-building"></i> Assets</h4>
-                        
-                        ${coaData.assets.current.length > 0 ? `
-                            <div style="margin-bottom: 15px;">
-                                <div style="font-weight: 600; color: #64748b; font-size: 12px; margin-bottom: 8px;">Current Assets</div>
-                                ${coaData.assets.current.filter(a => a.balance !== 0).map(a => `
-                                    <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px;">
-                                        <span>${a.name}</span>
-                                        <span style="font-family: monospace;">RM ${(a.balance || 0).toFixed(2)}</span>
-                                    </div>
-                                `).join('')}
+            <!-- Two Column Layout for Assets and Liabilities+Equity -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                
+                <!-- LEFT: ASSETS -->
+                <div style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 15px; border-radius: 12px; border: 1px solid #bfdbfe;">
+                    <h4 style="margin: 0 0 15px 0; color: #1e40af; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-coins"></i> ASSETS
+                    </h4>
+                    
+                    <!-- Current Assets -->
+                    <div style="margin-bottom: 12px;">
+                        <div style="font-weight: 600; color: #3b82f6; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                            Current Assets
+                        </div>
+                        ${coaData.assets.current.map(item => `
+                            <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: white; border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
+                                <span style="color: #334155;">${item.name}</span>
+                                <span style="font-family: monospace; font-weight: 500; color: #1e40af;">RM ${item.balance.toFixed(2)}</span>
                             </div>
-                        ` : ''}
-                        
-                        ${coaData.assets.nonCurrent.length > 0 ? `
-                            <div style="margin-bottom: 15px;">
-                                <div style="font-weight: 600; color: #64748b; font-size: 12px; margin-bottom: 8px;">Non-Current Assets</div>
-                                ${coaData.assets.nonCurrent.filter(a => a.balance !== 0).map(a => `
-                                    <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px;">
-                                        <span>${a.name}</span>
-                                        <span style="font-family: monospace;">RM ${(a.balance || 0).toFixed(2)}</span>
-                                    </div>
-                                `).join('')}
+                        `).join('')}
+                    </div>
+                    
+                    <!-- Non-Current Assets -->
+                    ${coaData.assets.nonCurrent.length > 0 ? `
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-weight: 600; color: #3b82f6; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                                Non-Current Assets
                             </div>
-                        ` : ''}
-                        
-                        <div style="border-top: 2px solid #2563eb; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; font-weight: 700;">
-                            <span>Total Assets</span>
+                            ${coaData.assets.nonCurrent.map(item => `
+                                <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: white; border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
+                                    <span style="color: #334155;">${item.name}</span>
+                                    <span style="font-family: monospace; font-weight: 500; color: #1e40af;">RM ${item.balance.toFixed(2)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <!-- Total Assets -->
+                    <div style="border-top: 2px solid #2563eb; padding-top: 10px; margin-top: 10px;">
+                        <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px;">
+                            <span style="color: #1e40af;">TOTAL ASSETS</span>
                             <span style="font-family: monospace; color: #1e40af;">RM ${coaData.assets.total.toFixed(2)}</span>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Liabilities & Equity Column -->
+                <!-- RIGHT: LIABILITIES + EQUITY -->
                 <div>
-                    <div style="background: #fef2f2; padding: 15px; border-radius: 10px; border-left: 4px solid #dc2626; margin-bottom: 15px;">
-                        <h4 style="margin: 0 0 15px 0; color: #991b1b;"><i class="fas fa-hand-holding-usd"></i> Liabilities</h4>
+                    <!-- Liabilities -->
+                    <div style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); padding: 15px; border-radius: 12px; border: 1px solid #fca5a5; margin-bottom: 15px;">
+                        <h4 style="margin: 0 0 15px 0; color: #991b1b; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-file-invoice-dollar"></i> LIABILITIES
+                        </h4>
                         
-                        ${coaData.liabilities.current.length > 0 ? `
-                            <div style="margin-bottom: 15px;">
-                                <div style="font-weight: 600; color: #64748b; font-size: 12px; margin-bottom: 8px;">Current Liabilities</div>
-                                ${coaData.liabilities.current.filter(a => a.balance !== 0).map(a => `
-                                    <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px;">
-                                        <span>${a.name}</span>
-                                        <span style="font-family: monospace;">RM ${(a.balance || 0).toFixed(2)}</span>
-                                    </div>
-                                `).join('')}
+                        <!-- Current Liabilities -->
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-weight: 600; color: #dc2626; font-size: 11px; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.5px;">
+                                Current Liabilities
                             </div>
-                        ` : ''}
+                            ${coaData.liabilities.current.length > 0 ? coaData.liabilities.current.map(item => `
+                                <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: white; border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
+                                    <span style="color: #334155;">${item.name}</span>
+                                    <span style="font-family: monospace; font-weight: 500; color: #991b1b;">RM ${item.balance.toFixed(2)}</span>
+                                </div>
+                            `).join('') : `
+                                <div style="padding: 6px 8px; background: white; border-radius: 6px; font-size: 13px; color: #94a3b8; font-style: italic;">
+                                    No current liabilities
+                                </div>
+                            `}
+                        </div>
                         
-                        <div style="border-top: 2px solid #dc2626; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; font-weight: 700;">
-                            <span>Total Liabilities</span>
-                            <span style="font-family: monospace; color: #991b1b;">RM ${coaData.liabilities.total.toFixed(2)}</span>
+                        <!-- Total Liabilities -->
+                        <div style="border-top: 2px solid #dc2626; padding-top: 10px; margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px;">
+                                <span style="color: #991b1b;">TOTAL LIABILITIES</span>
+                                <span style="font-family: monospace; color: #991b1b;">RM ${coaData.liabilities.total.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
                     
-                    <div style="background: #f5f3ff; padding: 15px; border-radius: 10px; border-left: 4px solid #7c3aed;">
-                        <h4 style="margin: 0 0 15px 0; color: #5b21b6;"><i class="fas fa-landmark"></i> Equity</h4>
+                    <!-- Equity -->
+                    <div style="background: linear-gradient(135deg, #f5f3ff 0%, #e9d5ff 100%); padding: 15px; border-radius: 12px; border: 1px solid #c4b5fd;">
+                        <h4 style="margin: 0 0 15px 0; color: #5b21b6; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-landmark"></i> OWNER'S EQUITY
+                        </h4>
                         
-                        ${coaData.equity.items.filter(a => a.balance !== 0).map(a => `
-                            <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px;">
-                                <span>${a.name}</span>
-                                <span style="font-family: monospace;">RM ${(a.balance || 0).toFixed(2)}</span>
+                        ${coaData.equity.items.map(item => `
+                            <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: white; border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
+                                <span style="color: #334155;">${item.name}</span>
+                                <span style="font-family: monospace; font-weight: 500; color: #5b21b6;">RM ${item.balance.toFixed(2)}</span>
                             </div>
                         `).join('')}
                         
-                        <div style="display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; color: #16a34a;">
-                            <span>Retained Earnings (Net Income)</span>
-                            <span style="font-family: monospace;">RM ${coaData.equity.retainedEarnings.toFixed(2)}</span>
+                        <!-- Retained Earnings -->
+                        <div style="display: flex; justify-content: space-between; padding: 6px 8px; background: #dcfce7; border-radius: 6px; margin-bottom: 4px; font-size: 13px;">
+                            <span style="color: #166534;">Retained Earnings</span>
+                            <span style="font-family: monospace; font-weight: 500; color: #166534;">RM ${coaData.equity.retainedEarnings.toFixed(2)}</span>
                         </div>
                         
-                        <div style="border-top: 2px solid #7c3aed; padding-top: 10px; margin-top: 10px; display: flex; justify-content: space-between; font-weight: 700;">
-                            <span>Total Equity</span>
-                            <span style="font-family: monospace; color: #5b21b6;">RM ${coaData.equity.totalWithRetained.toFixed(2)}</span>
+                        <!-- Total Equity -->
+                        <div style="border-top: 2px solid #7c3aed; padding-top: 10px; margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px;">
+                                <span style="color: #5b21b6;">TOTAL EQUITY</span>
+                                <span style="font-family: monospace; color: #5b21b6;">RM ${coaData.equity.totalWithRetained.toFixed(2)}</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Accounting Equation Check -->
-            <div style="margin-top: 20px; background: #f8fafc; padding: 15px; border-radius: 10px; text-align: center;">
-                <div style="font-size: 14px; color: #64748b; margin-bottom: 10px;">Accounting Equation</div>
-                <div style="font-size: 18px; font-weight: 600;">
-                    <span style="color: #2563eb;">Assets (RM ${coaData.assets.total.toFixed(2)})</span>
-                    <span style="color: #64748b;"> = </span>
-                    <span style="color: #dc2626;">Liabilities (RM ${coaData.liabilities.total.toFixed(2)})</span>
-                    <span style="color: #64748b;"> + </span>
-                    <span style="color: #7c3aed;">Equity (RM ${coaData.equity.totalWithRetained.toFixed(2)})</span>
+            <!-- Accounting Equation Box -->
+            <div style="margin-top: 20px; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #cbd5e1;">
+                <div style="font-size: 12px; color: #64748b; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">The Accounting Equation</div>
+                <div style="font-size: 16px; font-weight: 600; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <span style="background: #2563eb; color: white; padding: 8px 16px; border-radius: 8px;">Assets<br><span style="font-size: 14px;">RM ${coaData.assets.total.toFixed(2)}</span></span>
+                    <span style="color: #64748b; font-size: 24px;">=</span>
+                    <span style="background: #dc2626; color: white; padding: 8px 16px; border-radius: 8px;">Liabilities<br><span style="font-size: 14px;">RM ${coaData.liabilities.total.toFixed(2)}</span></span>
+                    <span style="color: #64748b; font-size: 24px;">+</span>
+                    <span style="background: #7c3aed; color: white; padding: 8px 16px; border-radius: 8px;">Equity<br><span style="font-size: 14px;">RM ${coaData.equity.totalWithRetained.toFixed(2)}</span></span>
                 </div>
             </div>
             
-            <!-- Income Summary -->
+            <!-- Income Statement Summary -->
             <div style="margin-top: 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 20px; border-radius: 12px; color: white;">
-                <h4 style="margin: 0 0 15px 0;"><i class="fas fa-chart-line"></i> Income Summary</h4>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 12px; opacity: 0.8;">Total Revenue</div>
-                        <div style="font-size: 20px; font-weight: 700;">RM ${coaData.incomeStatement.revenue.toFixed(2)}</div>
+                <h4 style="margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-chart-line"></i> Income Statement Summary
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; text-align: center;">
+                    <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px;">
+                        <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase;">Revenue</div>
+                        <div style="font-size: 18px; font-weight: 700;">RM ${coaData.incomeStatement.revenue.toFixed(2)}</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 12px; opacity: 0.8;">Total Expenses</div>
-                        <div style="font-size: 20px; font-weight: 700;">RM ${coaData.incomeStatement.expenses.toFixed(2)}</div>
+                    <div style="background: rgba(255,255,255,0.15); padding: 12px; border-radius: 8px;">
+                        <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase;">Expenses</div>
+                        <div style="font-size: 18px; font-weight: 700;">RM ${coaData.incomeStatement.expenses.toFixed(2)}</div>
                     </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 12px; opacity: 0.8;">Net Income</div>
-                        <div style="font-size: 20px; font-weight: 700;">RM ${coaData.incomeStatement.netIncome.toFixed(2)}</div>
+                    <div style="background: rgba(255,255,255,0.25); padding: 12px; border-radius: 8px;">
+                        <div style="font-size: 11px; opacity: 0.9; text-transform: uppercase;">Net Income</div>
+                        <div style="font-size: 18px; font-weight: 700;">RM ${coaData.incomeStatement.netIncome.toFixed(2)}</div>
                     </div>
                 </div>
+            </div>
+            
+            <!-- Professional Accounting Note -->
+            <div style="margin-top: 15px; padding: 12px; background: #fefce8; border-radius: 8px; border-left: 4px solid #eab308; font-size: 12px; color: #713f12;">
+                <i class="fas fa-info-circle"></i> <strong>Double-Entry Note:</strong> Every transaction affects at least two accounts. 
+                Assets = Liabilities + Equity must always balance. Retained Earnings = Total Revenue - Total Expenses.
             </div>
         </div>
     `;
     
     container.innerHTML = html;
+}
+
+/**
+ * Calculate Double Entry balance sheet from transactions (when no COA exists)
+ */
+function calculateDoubleEntryFromTransactions() {
+    const transactions = getTransactionsFromStorage();
+    const bills = getBillsFromStorage();
+    const bankAccounts = JSON.parse(localStorage.getItem(BANK_ACCOUNTS_KEY)) || [];
+    const creditCards = JSON.parse(localStorage.getItem('ezcubic_credit_cards')) || [];
+    const manualBalances = JSON.parse(localStorage.getItem(MANUAL_BALANCES_KEY)) || {};
+    
+    // Calculate from transactions
+    const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    
+    const totalExpenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+    
+    const cashBalance = totalIncome - totalExpenses;
+    
+    // Calculate bank account totals
+    let totalBankBalance = 0;
+    bankAccounts.forEach(account => {
+        totalBankBalance += parseFloat(account.balance) || 0;
+    });
+    
+    // Calculate unpaid bills as Accounts Payable
+    const accountsPayable = bills
+        .filter(b => b.status !== 'paid')
+        .reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+    
+    // Calculate credit card balances
+    let totalCreditCards = 0;
+    creditCards.forEach(card => {
+        totalCreditCards += parseFloat(card.balance) || 0;
+    });
+    
+    // Get manual entries for fixed assets
+    const equipment = manualBalances['bs-equipment'] || 0;
+    const vehicle = manualBalances['bs-vehicle'] || 0;
+    const furniture = manualBalances['bs-furniture'] || 0;
+    const loan = manualBalances['bs-loan'] || 0;
+    const carLoan = manualBalances['bs-car-loan'] || 0;
+    const startingCapital = manualBalances['bs-starting-capital'] || 0;
+    
+    // Build the data structure
+    const currentAssets = [
+        { name: 'Cash (from Transactions)', balance: cashBalance },
+        { name: 'Bank Accounts', balance: totalBankBalance }
+    ];
+    
+    const nonCurrentAssets = [];
+    if (equipment > 0) nonCurrentAssets.push({ name: 'Equipment', balance: equipment });
+    if (vehicle > 0) nonCurrentAssets.push({ name: 'Vehicle', balance: vehicle });
+    if (furniture > 0) nonCurrentAssets.push({ name: 'Furniture & Fixtures', balance: furniture });
+    
+    const currentLiabilities = [];
+    if (accountsPayable > 0) currentLiabilities.push({ name: 'Accounts Payable (Unpaid Bills)', balance: accountsPayable });
+    if (totalCreditCards > 0) currentLiabilities.push({ name: 'Credit Card Payable', balance: totalCreditCards });
+    if (loan > 0) currentLiabilities.push({ name: 'Bank Loan', balance: loan });
+    if (carLoan > 0) currentLiabilities.push({ name: 'Car Loan', balance: carLoan });
+    
+    const totalAssets = cashBalance + totalBankBalance + equipment + vehicle + furniture;
+    const totalLiabilities = accountsPayable + totalCreditCards + loan + carLoan;
+    const retainedEarnings = totalIncome - totalExpenses;
+    const totalEquity = startingCapital + retainedEarnings;
+    
+    // Check if balanced
+    const difference = totalAssets - (totalLiabilities + totalEquity);
+    const isBalanced = Math.abs(difference) < 0.01;
+    
+    return {
+        assets: {
+            current: currentAssets,
+            nonCurrent: nonCurrentAssets,
+            total: totalAssets
+        },
+        liabilities: {
+            current: currentLiabilities,
+            nonCurrent: [],
+            total: totalLiabilities
+        },
+        equity: {
+            items: startingCapital > 0 ? [{ name: "Owner's Capital", balance: startingCapital }] : [],
+            total: startingCapital,
+            retainedEarnings: retainedEarnings,
+            totalWithRetained: totalEquity
+        },
+        incomeStatement: {
+            revenue: totalIncome,
+            expenses: totalExpenses,
+            netIncome: retainedEarnings
+        },
+        isBalanced: isBalanced,
+        difference: difference
+    };
 }
 
 // Global scope exports
@@ -1317,3 +1461,4 @@ window.loadBalanceHistory = loadBalanceHistory;
 window.clearBalanceHistory = clearBalanceHistory;
 window.calculateBalanceSheetFromCOA = calculateBalanceSheetFromCOA;
 window.displayEnhancedBalanceSheet = displayEnhancedBalanceSheet;
+window.calculateDoubleEntryFromTransactions = calculateDoubleEntryFromTransactions;

@@ -1,5 +1,13 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Prevent iOS text size adjustment on orientation change */
+html {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 /* Platform Admin elements - Hidden by default, only shown for Founder via JS */
 .platform-admin-nav {
     display: none !important;
@@ -39,7 +47,7 @@ body {
 /* Landscape mode on phones - show desktop layout */
 @media (max-width: 991px) and (min-width: 568px) and (orientation: landscape) {
     .app-container {
-        grid-template-columns: 260px 1fr;
+        grid-template-columns: 220px 1fr;
     }
     
     .nav-panel {
@@ -49,6 +57,39 @@ body {
         height: auto !important;
         max-height: calc(100vh - 30px);
         overflow-y: auto;
+        padding: 12px;
+        font-size: 13px;
+    }
+    
+    /* Ensure nav categories are expanded in landscape */
+    .nav-category {
+        max-height: 1000px !important;
+        display: flex !important;
+    }
+    
+    .nav-category.collapsed {
+        max-height: 1000px !important;
+    }
+    
+    .nav-separator .collapse-icon {
+        display: none !important;
+    }
+    
+    .nav-btn {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    .logo h1 {
+        font-size: 18px;
+    }
+    
+    .logo .tagline {
+        font-size: 10px;
+    }
+    
+    .logo .version {
+        font-size: 10px;
     }
     
     .mobile-menu-btn {
@@ -57,6 +98,57 @@ body {
     
     .mobile-overlay {
         display: none !important;
+    }
+    
+    /* Main content adjustments for landscape */
+    .main-content {
+        padding: 10px;
+    }
+    
+    .content-card {
+        padding: 15px;
+    }
+    
+    .card-header h3 {
+        font-size: 14px;
+    }
+    
+    /* Top auth bar compact */
+    .top-auth-bar {
+        padding: 8px 12px;
+        font-size: 12px;
+    }
+    
+    /* Dashboard grid adjustments */
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+    
+    .stat-value {
+        font-size: 18px;
+    }
+    
+    /* Form adjustments */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    /* Table adjustments */
+    .table-container {
+        font-size: 11px;
+    }
+    
+    /* Modal adjustments */
+    .modal-content {
+        max-width: 90vw;
+        max-height: 85vh;
+        margin: 5vh auto;
     }
 }
 
