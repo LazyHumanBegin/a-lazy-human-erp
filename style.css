@@ -10104,7 +10104,7 @@ td.negative {
 
 /* ==================== USER MANAGEMENT STYLES ==================== */
 
-/* Top Auth Bar */
+/* Top Auth Bar - Sticky on scroll */
 .top-auth-bar {
     display: flex;
     justify-content: space-between;
@@ -10115,6 +10115,9 @@ td.negative {
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     border: 1px solid rgba(37, 99, 235, 0.1);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
 .top-auth-left {
@@ -10698,6 +10701,11 @@ td.negative {
     .top-auth-bar {
         flex-direction: column;
         gap: 12px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        margin-left: 60px; /* Space for mobile menu button */
+        border-radius: 0 12px 12px 12px;
     }
     
     .user-menu-btn {
