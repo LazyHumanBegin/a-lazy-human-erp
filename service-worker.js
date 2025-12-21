@@ -50,7 +50,9 @@ const ASSETS_TO_CACHE = [
   './js/audit-log.js',
   './js/chatbot.js',
   './js/ai-assistant.js',
-  './js/lhdn-export.js'
+  './js/lhdn-export.js',
+  './js/supabase.js',
+  './js/cloud-sync.js'
 ];
 
 // Install - cache assets for offline use

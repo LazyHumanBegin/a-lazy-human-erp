@@ -31,7 +31,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=1766071463">
+    
+    <!-- Supabase Cloud Database SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <link rel="stylesheet" href="style.css?v=1766291570">
 </head>
 <body>
     <!-- Mobile Menu Button -->
@@ -3777,6 +3781,33 @@
                                 </div>
                                 <div id="lastAutoBackupInfo" style="margin-top: 10px; color: #94a3b8; font-size: 12px;"></div>
                             </div>
+                            
+                            <!-- Cloud Sync Section -->
+                            <div style="margin-top: 20px; padding: 15px; background: linear-gradient(135deg, #1e3a5f 0%, #0c1f33 100%); border-radius: 10px; border: 1px solid #2563eb;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <div>
+                                        <h4 style="margin: 0; color: #f8fafc; font-size: 14px;">
+                                            <i class="fas fa-cloud" style="color: #3b82f6;"></i> Cloud Sync
+                                        </h4>
+                                        <p style="margin: 4px 0 0; color: #94a3b8; font-size: 12px;">Sync data across devices with Supabase</p>
+                                    </div>
+                                    <span id="cloudSyncStatus" style="background: #475569; color: white; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                                        <i class="fas fa-circle" style="color: #fbbf24;"></i> Offline
+                                    </span>
+                                </div>
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                                    <button class="btn-secondary" onclick="cloudSignIn()" id="cloudSignInBtn" style="background: #2563eb; color: white; border: none; font-size: 13px;">
+                                        <i class="fas fa-sign-in-alt"></i> Sign In to Cloud
+                                    </button>
+                                    <button class="btn-secondary" onclick="cloudSyncNow()" id="cloudSyncBtn" style="background: #334155; color: white; border: 1px solid #475569; font-size: 13px; display: none;">
+                                        <i class="fas fa-sync"></i> Sync Now
+                                    </button>
+                                    <button class="btn-secondary" onclick="cloudSignOut()" id="cloudSignOutBtn" style="background: #dc2626; color: white; border: none; font-size: 13px; display: none;">
+                                        <i class="fas fa-sign-out-alt"></i> Sign Out
+                                    </button>
+                                </div>
+                                <div id="cloudSyncInfo" style="margin-top: 10px; color: #94a3b8; font-size: 12px;"></div>
+                            </div>
                         </div>
                         
                         <div class="form-group">
@@ -5789,6 +5820,10 @@
     <script src="js/multi-tenant.js?v=1766071463"></script>
     <script src="js/users.js?v=1766071468"></script>
     <script src="js/platform-control.js?v=1766071469"></script>
+    
+    <!-- Cloud Database (Supabase) -->
+    <script src="js/supabase.js?v=1766291570"></script>
+    <script src="js/cloud-sync.js?v=1766291570"></script>
     
     <!-- Audit Log (System Tracking) -->
     <script src="js/audit-log.js?v=1766071463"></script>
