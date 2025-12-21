@@ -12,7 +12,7 @@ const USER_SESSIONS_KEY = 'ezcubic_sessions';
 // Default Founder Account (You)
 const DEFAULT_FOUNDER = {
     id: 'founder_001',
-    email: 'founder@lazyhumanbegin.com',
+    email: 'founder@ezcubic.com',
     password: 'founder123', // In production, this would be hashed
     name: 'Founder',
     role: 'founder',
