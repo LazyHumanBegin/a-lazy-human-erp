@@ -57,7 +57,7 @@ function exportFullBackup() {
         const dataStr = JSON.stringify(fullBackup, null, 2);
         const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
         
-        const businessName = (businessData.settings?.businessName || 'EZCubic').replace(/\s+/g, '-');
+        const businessName = (businessData.settings?.businessName || 'A-Lazy-Human').replace(/\s+/g, '-');
         const exportFileName = `${businessName}-FULL-backup-${new Date().toISOString().slice(0,10)}.json`;
         
         const linkElement = document.createElement('a');

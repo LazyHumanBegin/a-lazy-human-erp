@@ -8,7 +8,7 @@
 const PLATFORM_SETTINGS_KEY = 'ezcubic_platform_settings';
 
 const DEFAULT_PLATFORM_SETTINGS = {
-    platformName: 'EZCubic ERP',
+    platformName: 'A Lazy Human ERP',
     platformLogo: null,
     
     // Registration & Onboarding

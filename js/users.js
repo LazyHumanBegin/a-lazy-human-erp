@@ -1898,7 +1898,7 @@ function showLoginModal() {
                         <div class="login-logo">
                             <i class="fas fa-cube"></i>
                         </div>
-                        <h2>EZCubic ERP</h2>
+                        <h2><i class="fas fa-cat"></i> A Lazy Human</h2>
                         <p>Sign in to continue</p>
                     </div>
                     <form id="loginForm" onsubmit="handleLogin(event)">

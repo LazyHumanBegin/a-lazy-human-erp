@@ -1354,7 +1354,7 @@ function showReceipt(sale) {
     const modal = document.getElementById('receiptModal');
     const content = document.getElementById('receiptContent');
     
-    const businessName = settings.businessName || 'EZCubic Business';
+    const businessName = settings.businessName || 'A Lazy Human Business';
     const businessAddress = settings.businessAddress || '';
     const sst = settings.sstNumber || '';
     const branchName = sale.branchName || 'Main Branch';

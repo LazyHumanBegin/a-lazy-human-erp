@@ -651,7 +651,7 @@ function generateAIResponse(query) {
     // Getting started / How to start
     if (lowerQuery.includes('get started') || lowerQuery.includes('how do i start') || lowerQuery.includes('where to start') || lowerQuery.includes('new here')) {
         return {
-            text: `<strong>🚀 Welcome to EZCubic! Let me guide you through setup:</strong>
+            text: `<strong>🚀 Welcome to A Lazy Human! Let me guide you through setup:</strong>
                 <div style="margin-top: 15px;">
                     <div style="background: rgba(59, 130, 246, 0.2); padding: 15px; border-radius: 8px; margin-bottom: 10px;">
                         <strong>Step 1: Set Up Your Business Profile</strong>
@@ -1510,7 +1510,7 @@ function startLearning(topic) {
 let tutorialStep = 0;
 const tutorialSteps = [
     {
-        title: "Welcome to EZCubic! 🎉",
+        title: "Welcome to A Lazy Human! 🎉",
         content: `
             <div style="line-height: 1.8;">
                 <p>Hi there! I'm your AI accounting assistant. Don't worry if you've <strong>never done accounting before</strong> - I'll make it super easy!</p>

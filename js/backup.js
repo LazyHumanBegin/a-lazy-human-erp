@@ -44,7 +44,7 @@ function exportBackup() {
                 exportedByRole: currentUser.role || 'founder',
                 exportedByUID: currentUser.uid,
                 version: '2.1',
-                appName: 'EZCubic ERP'
+                appName: 'A Lazy Human ERP'
             },
             data: {}
         };

@@ -76,7 +76,7 @@ function initializeApp() {
             if (welcomeBanner) welcomeBanner.style.display = 'block';
         }
         
-        console.log('EZCubic Malaysia initialized successfully');
+        console.log('A Lazy Human ERP initialized successfully');
     } catch (error) {
         console.error('Error initializing app:', error);
         showNotification('Error initializing app. Some features may not work.', 'error');
