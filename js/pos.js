@@ -1570,7 +1570,10 @@ function loadPOSBranchSelector() {
     const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : window.currentUser;
     const settings = typeof getPlatformSettings === 'function' ? getPlatformSettings() : null;
     
-    if (currentUser && settings && settings.plans) {
+    // Founder and ERP Assistant always have unlimited branch access
+    if (currentUser && (currentUser.role === 'founder' || currentUser.role === 'erp_assistant')) {
+        canUseMultiBranch = true;
+    } else if (currentUser && settings && settings.plans) {
         const userPlan = currentUser.plan || 'starter';
         const planData = settings.plans[userPlan];
         if (planData && planData.limits) {

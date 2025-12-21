@@ -213,24 +213,30 @@ function renderOutletDropdowns() {
     const currentUser = window.currentUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
     const settings = typeof getPlatformSettings === 'function' ? getPlatformSettings() : null;
     
-    console.log('renderOutletDropdowns - currentUser:', currentUser?.name, 'plan:', currentUser?.plan);
+    console.log('renderOutletDropdowns - currentUser:', currentUser?.name, 'role:', currentUser?.role, 'plan:', currentUser?.plan);
     
     if (currentUser) {
-        const userPlan = currentUser.plan || 'starter';
-        
-        // Check plan directly - Professional and Enterprise always get multi-outlet
-        if (userPlan === 'professional' || userPlan === 'enterprise') {
+        // Founder and ERP Assistant have unlimited access
+        if (currentUser.role === 'founder' || currentUser.role === 'erp_assistant') {
             isRestricted = false;
-        }
-        
-        // Also check via settings if available
-        if (settings && settings.plans) {
-            const planData = settings.plans[userPlan];
-            if (planData && planData.limits) {
-                branchLimit = planData.limits.branches;
-                // Unrestricted if branches > 1 or unlimited (-1)
-                if (branchLimit === -1 || branchLimit > 1) {
-                    isRestricted = false;
+            branchLimit = -1; // Unlimited
+        } else {
+            const userPlan = currentUser.plan || 'starter';
+            
+            // Check plan directly - Professional and Enterprise always get multi-outlet
+            if (userPlan === 'professional' || userPlan === 'enterprise') {
+                isRestricted = false;
+            }
+            
+            // Also check via settings if available
+            if (settings && settings.plans) {
+                const planData = settings.plans[userPlan];
+                if (planData && planData.limits) {
+                    branchLimit = planData.limits.branches;
+                    // Unrestricted if branches > 1 or unlimited (-1)
+                    if (branchLimit === -1 || branchLimit > 1) {
+                        isRestricted = false;
+                    }
                 }
             }
         }

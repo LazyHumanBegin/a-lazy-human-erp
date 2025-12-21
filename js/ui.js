@@ -127,17 +127,46 @@ function showSection(sectionId) {
     // Scroll to top of page when changing sections
     window.scrollTo({ top: 0, behavior: 'instant' });
     
-    // Close mobile menu if on mobile
+    // Close mobile menu if on mobile (only if it's open)
     if (window.innerWidth <= 768) {
-        toggleMobileMenu();
+        closeMobileMenu();
     }
 }
 
 function toggleMobileMenu() {
     const navPanel = document.getElementById('navPanel');
     const overlay = document.querySelector('.mobile-overlay');
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    
     navPanel.classList.toggle('active');
     overlay.classList.toggle('active');
+    
+    // Hide/show mobile button when nav bar toggles
+    if (mobileBtn) {
+        if (navPanel.classList.contains('active')) {
+            mobileBtn.style.opacity = '0';
+            mobileBtn.style.pointerEvents = 'none';
+        } else {
+            mobileBtn.style.opacity = '1';
+            mobileBtn.style.pointerEvents = 'auto';
+        }
+    }
+}
+
+// Close mobile menu (only if open) - used by showSection
+function closeMobileMenu() {
+    const navPanel = document.getElementById('navPanel');
+    const overlay = document.querySelector('.mobile-overlay');
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    
+    if (navPanel && navPanel.classList.contains('active')) {
+        navPanel.classList.remove('active');
+        if (overlay) overlay.classList.remove('active');
+        if (mobileBtn) {
+            mobileBtn.style.opacity = '1';
+            mobileBtn.style.pointerEvents = 'auto';
+        }
+    }
 }
 
 function hideWelcomeBanner() {
@@ -284,6 +313,7 @@ function toggleHelpTooltip(tooltipId) {
 // Export functions to window for onclick handlers
 window.showSection = showSection;
 window.toggleMobileMenu = toggleMobileMenu;
+window.closeMobileMenu = closeMobileMenu;
 window.hideWelcomeBanner = hideWelcomeBanner;
 window.showTaxTab = showTaxTab;
 window.quickAddIncome = quickAddIncome;

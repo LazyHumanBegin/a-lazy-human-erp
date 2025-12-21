@@ -89,8 +89,14 @@ function getBranchLimit() {
     const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : window.currentUser;
     const settings = typeof getPlatformSettings === 'function' ? getPlatformSettings() : null;
     
-    console.log('getBranchLimit - currentUser:', currentUser?.name, 'plan:', currentUser?.plan);
+    console.log('getBranchLimit - currentUser:', currentUser?.name, 'role:', currentUser?.role, 'plan:', currentUser?.plan);
     console.log('getBranchLimit - settings available:', !!settings);
+    
+    // Founder and ERP Assistant have unlimited branches
+    if (currentUser && (currentUser.role === 'founder' || currentUser.role === 'erp_assistant')) {
+        console.log('getBranchLimit - founder/erp_assistant detected, returning unlimited (-1)');
+        return -1; // Unlimited
+    }
     
     if (!currentUser || !settings || !settings.plans) {
         console.log('getBranchLimit - missing data, defaulting to 1');
@@ -114,16 +120,21 @@ function canAddBranch() {
     const limit = getBranchLimit();
     const currentCount = branches.length;
     
+    console.log('canAddBranch - limit:', limit, 'current:', currentCount);
+    
     // -1 means unlimited
     if (limit === -1) {
+        console.log('canAddBranch - unlimited, returning allowed:true');
         return { allowed: true, current: currentCount, limit: -1 };
     }
     
-    return {
+    const result = {
         allowed: currentCount < limit,
         current: currentCount,
         limit: limit
     };
+    console.log('canAddBranch - result:', result);
+    return result;
 }
 window.canAddBranch = canAddBranch;
 

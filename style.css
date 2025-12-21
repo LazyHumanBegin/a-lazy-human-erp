@@ -36,6 +36,30 @@ body {
     }
 }
 
+/* Landscape mode on phones - show desktop layout */
+@media (max-width: 991px) and (min-width: 568px) and (orientation: landscape) {
+    .app-container {
+        grid-template-columns: 260px 1fr;
+    }
+    
+    .nav-panel {
+        position: relative !important;
+        left: 0 !important;
+        width: auto !important;
+        height: auto !important;
+        max-height: calc(100vh - 30px);
+        overflow-y: auto;
+    }
+    
+    .mobile-menu-btn {
+        display: none !important;
+    }
+    
+    .mobile-overlay {
+        display: none !important;
+    }
+}
+
 /* Navigation Panel - EZCubic Theme */
 .nav-panel {
     background: white;

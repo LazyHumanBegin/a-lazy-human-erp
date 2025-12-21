@@ -654,12 +654,28 @@ function getPlanFeaturesSummary(planId) {
  * Get current user's plan limits
  */
 function getCurrentPlanLimits() {
-    const user = window.currentUser;
+    const user = window.currentUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
     if (!user) return null;
+    
+    // Founder/ERP Assistant = unlimited everything
+    if (user.role === 'founder' || user.role === 'erp_assistant') {
+        return {
+            transactions: -1,
+            products: -1,
+            customers: -1,
+            users: -1,
+            branches: -1,
+            storage: -1,
+            quotations: -1,
+            projects: -1
+        };
+    }
     
     const settings = getPlatformSettings();
     const planId = user.plan || 'starter';
     const plan = settings.plans[planId];
+    
+    console.log('getCurrentPlanLimits - user:', user.name, 'role:', user.role, 'plan:', planId, 'limits:', plan?.limits);
     
     return plan ? plan.limits : null;
 }
@@ -668,7 +684,7 @@ function getCurrentPlanLimits() {
  * Get current usage counts for the logged-in user's tenant
  */
 function getCurrentUsage() {
-    const user = window.currentUser;
+    const user = window.currentUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
     if (!user || !user.tenantId) return null;
     
     const tenantKey = 'ezcubic_tenant_' + user.tenantId;
@@ -757,8 +773,12 @@ function getCurrentUsage() {
  * @returns {object} - { allowed: boolean, current: number, limit: number, message: string }
  */
 function checkLimit(limitType) {
-    // Founder has no limits - always allowed
-    if (window.currentUser?.role === 'founder') {
+    // Get current user from multiple sources
+    const currentUser = window.currentUser || (typeof getCurrentUser === 'function' ? getCurrentUser() : null);
+    
+    // Founder and ERP Assistant have no limits - always allowed
+    if (currentUser?.role === 'founder' || currentUser?.role === 'erp_assistant') {
+        console.log('checkLimit - founder/erp_assistant detected, unlimited access');
         return { allowed: true, current: 0, limit: -1, message: '' };
     }
     

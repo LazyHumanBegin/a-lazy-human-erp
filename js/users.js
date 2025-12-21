@@ -8,6 +8,12 @@
 const USERS_KEY = 'ezcubic_users';
 const CURRENT_USER_KEY = 'ezcubic_current_user';
 const USER_SESSIONS_KEY = 'ezcubic_sessions';
+const SESSION_TOKEN_KEY = 'ezcubic_session_token';
+
+// Generate unique session token
+function generateSessionToken() {
+    return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+}
 
 // Default Founder Account (You)
 const DEFAULT_FOUNDER = {
@@ -232,7 +238,27 @@ function initializeUserSystem() {
         checkSession();
         updateAuthUI();
     });
+    
+    // Start periodic session validation (every 30 seconds)
+    startSessionValidation();
 }
+
+// Periodic session validation for single-device login
+let sessionValidationInterval = null;
+function startSessionValidation() {
+    // Clear any existing interval
+    if (sessionValidationInterval) {
+        clearInterval(sessionValidationInterval);
+    }
+    
+    // Check session every 30 seconds
+    sessionValidationInterval = setInterval(() => {
+        if (currentUser && currentUser.id) {
+            validateSessionToken(currentUser);
+        }
+    }, 30000); // 30 seconds
+}
+window.startSessionValidation = startSessionValidation;
 
 function loadUsers() {
     const stored = localStorage.getItem(USERS_KEY);
@@ -588,6 +614,9 @@ function checkSession() {
                 // This ensures the correct data is loaded BEFORE modules initialize
                 loadUserTenantData(user);
                 
+                // Check session token for single-device login (async, runs in background)
+                validateSessionToken(user);
+                
                 return true;
             } else {
                 logout();
@@ -598,6 +627,98 @@ function checkSession() {
         }
     }
     return false;
+}
+
+// Validate session token against cloud - force logout if another device logged in
+async function validateSessionToken(user) {
+    const localToken = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (!localToken) return; // No token to validate
+    
+    try {
+        // Get session token from cloud
+        const cloudToken = await getCloudSessionToken(user.id);
+        
+        if (cloudToken && cloudToken !== localToken) {
+            console.log('⚠️ Session invalidated - another device logged in');
+            // Another device has logged in - force logout
+            forceLogoutOtherDevice();
+        }
+    } catch (err) {
+        console.warn('Session validation error:', err);
+    }
+}
+
+// Get session token from cloud
+async function getCloudSessionToken(userId) {
+    try {
+        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+        
+        let client = null;
+        if (window.supabase && window.supabase.createClient) {
+            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+        if (!client) return null;
+        
+        const { data, error } = await client
+            .from('tenant_data')
+            .select('data')
+            .eq('tenant_id', 'sessions')
+            .eq('data_key', 'session_' + userId)
+            .single();
+        
+        if (error || !data) return null;
+        return data.data?.sessionToken || null;
+    } catch (err) {
+        return null;
+    }
+}
+
+// Save session token to cloud
+async function saveCloudSessionToken(userId, token, deviceInfo) {
+    try {
+        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+        
+        let client = null;
+        if (window.supabase && window.supabase.createClient) {
+            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+        if (!client) return false;
+        
+        const { error } = await client
+            .from('tenant_data')
+            .upsert({
+                tenant_id: 'sessions',
+                data_key: 'session_' + userId,
+                data: {
+                    sessionToken: token,
+                    deviceInfo: deviceInfo,
+                    loginTime: new Date().toISOString()
+                },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+        
+        return !error;
+    } catch (err) {
+        console.warn('Failed to save session token to cloud:', err);
+        return false;
+    }
+}
+
+// Force logout when another device logs in
+function forceLogoutOtherDevice() {
+    // Clear local session
+    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+    currentUser = null;
+    window.currentUser = null;
+    
+    // Show message and redirect to login
+    alert('You have been logged out because your account was accessed from another device.');
+    
+    // Show login page
+    showLoginPage();
 }
 
 // Main login function - tries cloud sync first for multi-device support
@@ -694,6 +815,22 @@ async function tryLoginWithCloudSync(email, password) {
     if (user) {
         currentUser = user;
         window.currentUser = user; // CRITICAL: Expose to window for other modules
+        
+        // Generate unique session token for single-device login
+        const sessionToken = generateSessionToken();
+        const deviceInfo = {
+            userAgent: navigator.userAgent,
+            platform: navigator.platform,
+            language: navigator.language,
+            screenSize: `${window.screen.width}x${window.screen.height}`
+        };
+        
+        // Save session token locally
+        localStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
+        
+        // Save session token to cloud (invalidates other devices)
+        saveCloudSessionToken(user.id, sessionToken, deviceInfo);
+        
         localStorage.setItem(CURRENT_USER_KEY, JSON.stringify({
             id: user.id,
             email: user.email,
@@ -1173,6 +1310,13 @@ function logout() {
     currentUser = null;
     window.currentUser = null;
     localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem(SESSION_TOKEN_KEY); // Clear session token on logout
+    
+    // Stop session validation interval
+    if (sessionValidationInterval) {
+        clearInterval(sessionValidationInterval);
+        sessionValidationInterval = null;
+    }
     
     // Reset all data to empty state to prevent data leakage
     resetToEmptyData();
@@ -1708,14 +1852,6 @@ function showLoginPage() {
                                 <i class="fas fa-user-plus"></i>
                                 Create Free Account
                             </button>
-                            
-                            <!-- Debug Sync Button - Inside Login Form -->
-                            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #e2e8f0; text-align: center;">
-                                <button type="button" onclick="debugSyncFromLoginPage()" style="padding: 12px 24px; background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);">
-                                    🔧 DEBUG SYNC (Cloud ↔ Local)
-                                </button>
-                                <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Sync users between devices</p>
-                            </div>
                         </div>
                         
                         <!-- REGISTER FORM -->
