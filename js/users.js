@@ -205,8 +205,19 @@ let currentUser = null;
 // ==================== INITIALIZATION ====================
 function initializeUserSystem() {
     loadUsers();
-    checkSession();
-    updateAuthUI();
+    
+    // CLOUD SYNC: Try to sync users from cloud before checking session
+    // This ensures Phone B gets user01 created on Phone A
+    loadUsersFromCloud().then(() => {
+        // Reload users in case cloud had updates
+        loadUsers();
+        checkSession();
+        updateAuthUI();
+    }).catch(() => {
+        // Fallback to local-only if cloud fails
+        checkSession();
+        updateAuthUI();
+    });
 }
 
 function loadUsers() {
@@ -405,7 +416,46 @@ window.forceMigration = function() {
 
 function saveUsers() {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    
+    // CLOUD SYNC: Automatically sync users to cloud after any change
+    if (window.CloudSync && typeof window.CloudSync.syncUsersNow === 'function') {
+        // Use setTimeout to avoid blocking the UI
+        setTimeout(() => {
+            window.CloudSync.syncUsersNow().then(() => {
+                console.log('👥 Users synced to cloud');
+            }).catch(err => {
+                console.warn('⚠️ Users cloud sync failed:', err);
+            });
+        }, 100);
+    }
 }
+
+// Load users from cloud on startup (for multi-device support)
+async function loadUsersFromCloud() {
+    if (window.CloudSync && typeof window.CloudSync.downloadGlobalData === 'function') {
+        try {
+            console.log('☁️ Checking cloud for user updates...');
+            await window.CloudSync.downloadGlobalData();
+            
+            // Reload users array from localStorage after cloud sync
+            const stored = localStorage.getItem(USERS_KEY);
+            if (stored) {
+                users = JSON.parse(stored);
+                console.log('👥 Users loaded from cloud:', users.length);
+            }
+        } catch (err) {
+            console.warn('⚠️ Could not load users from cloud:', err);
+        }
+    }
+}
+
+// Expose for cloud-sync module
+window.loadUsers = function() {
+    const stored = localStorage.getItem(USERS_KEY);
+    if (stored) {
+        users = JSON.parse(stored);
+    }
+};
 
 // ==================== AUTHENTICATION ====================
 // Session timeout in hours (24 hours by default)

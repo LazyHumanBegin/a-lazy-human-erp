@@ -141,19 +141,23 @@ async function supabaseResetPassword(email) {
 // Create or update tenant data
 async function saveTenantData(tenantId, tableName, data) {
     try {
+        // Extract data_key from data object for proper upsert
+        const dataKey = data.key || 'default';
+        
         const { data: result, error } = await getSupabase()
             .from(tableName)
             .upsert({
                 tenant_id: tenantId,
+                data_key: dataKey,
                 data: data,
                 updated_at: new Date().toISOString()
             }, {
-                onConflict: 'tenant_id'
+                onConflict: 'tenant_id,data_key'
             });
         
         if (error) throw error;
         
-        console.log(`✅ Saved ${tableName} for tenant ${tenantId}`);
+        console.log(`✅ Saved ${tableName}/${dataKey} for tenant ${tenantId}`);
         return { success: true, data: result };
     } catch (error) {
         console.error(`❌ Save ${tableName} error:`, error.message);
@@ -416,6 +420,32 @@ function getCurrentTenantIdForCloud() {
     return session.tenantId || localStorage.getItem('currentTenantId') || 'default';
 }
 
+// Force sync users to cloud (for testing/debugging)
+async function forceSyncUsers() {
+    console.log('🔄 Force syncing users to cloud...');
+    if (window.CloudSync && typeof window.CloudSync.syncUsersNow === 'function') {
+        const result = await window.CloudSync.syncUsersNow();
+        console.log('Force sync result:', result);
+        return result;
+    }
+    return { success: false, error: 'CloudSync not available' };
+}
+
+// Force download users from cloud
+async function forceDownloadUsers() {
+    console.log('📥 Force downloading users from cloud...');
+    if (window.CloudSync && typeof window.CloudSync.downloadGlobalData === 'function') {
+        const result = await window.CloudSync.downloadGlobalData();
+        console.log('Force download result:', result);
+        // Reload users
+        if (typeof window.loadUsers === 'function') {
+            window.loadUsers();
+        }
+        return result;
+    }
+    return { success: false, error: 'CloudSync not available' };
+}
+
 // Check and update cloud status on page load
 async function initCloudSyncUI() {
     if (!window.SupabaseConfig) {
@@ -440,6 +470,8 @@ if (document.readyState === 'loading') {
 window.cloudSignIn = cloudSignIn;
 window.cloudSignOut = cloudSignOut;
 window.cloudSyncNow = cloudSyncNow;
+window.forceSyncUsers = forceSyncUsers;
+window.forceDownloadUsers = forceDownloadUsers;
 window.updateCloudSyncUI = updateCloudSyncUI;
 
 console.log('🐱 Supabase module loaded');

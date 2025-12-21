@@ -9,7 +9,7 @@ const CloudSync = {
     syncInterval: null,
     realtimeChannels: [],
 
-    // Data keys to sync to cloud
+    // Data keys to sync to cloud (tenant-specific data)
     syncableKeys: [
         'customers',
         'invoices', 
@@ -23,7 +23,16 @@ const CloudSync = {
         'journal_entries',
         'chart_of_accounts',
         'tax_settings',
-        'company_settings'
+        'company_settings',
+        'employees',
+        'payroll',
+        'stockMovements'
+    ],
+
+    // Global keys (shared across all devices, not tenant-specific)
+    globalSyncKeys: [
+        'ezcubic_users',      // User accounts - CRITICAL for multi-device login
+        'ezcubic_tenants'     // Tenant registry
     ],
 
     // ============================================
@@ -66,6 +75,136 @@ const CloudSync = {
     },
 
     // ============================================
+    // GLOBAL DATA SYNC (Users, Tenants - shared across devices)
+    // ============================================
+
+    // Upload global data (users, tenants) to cloud - CRITICAL for multi-device
+    async uploadGlobalData() {
+        console.log('☁️ Uploading global data (users, tenants)...');
+        const results = [];
+
+        try {
+            for (const key of this.globalSyncKeys) {
+                const localData = localStorage.getItem(key);
+                if (localData) {
+                    const { data, error } = await window.SupabaseConfig.getClient()
+                        .from('tenant_data')
+                        .upsert({
+                            tenant_id: 'global',  // Use 'global' for shared data
+                            data_key: key,
+                            data: {
+                                key: key,
+                                value: JSON.parse(localData),
+                                synced_at: new Date().toISOString()
+                            },
+                            updated_at: new Date().toISOString()
+                        }, {
+                            onConflict: 'tenant_id,data_key'
+                        });
+
+                    if (error) {
+                        console.error(`❌ Failed to upload ${key}:`, error);
+                        results.push({ key, success: false, error: error.message });
+                    } else {
+                        console.log(`☁️ Uploaded global: ${key}`);
+                        results.push({ key, success: true });
+                    }
+                }
+            }
+            return { success: true, results };
+        } catch (error) {
+            console.error('❌ Global upload error:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    // Download global data from cloud (users, tenants)
+    async downloadGlobalData() {
+        console.log('☁️ Downloading global data (users, tenants)...');
+
+        try {
+            const { data, error } = await window.SupabaseConfig.getClient()
+                .from('tenant_data')
+                .select('*')
+                .eq('tenant_id', 'global');
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                for (const record of data) {
+                    const key = record.data?.key || record.data_key;
+                    const value = record.data?.value;
+                    
+                    if (key && value && this.globalSyncKeys.includes(key)) {
+                        // Merge users intelligently (don't overwrite, add missing)
+                        if (key === 'ezcubic_users') {
+                            await this.mergeUsers(value);
+                        } else {
+                            localStorage.setItem(key, JSON.stringify(value));
+                        }
+                        console.log(`📥 Downloaded global: ${key}`);
+                    }
+                }
+            }
+
+            console.log('✅ Global download complete');
+            return { success: true };
+        } catch (error) {
+            console.error('❌ Global download error:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    // Merge users from cloud with local (avoid duplicates, newer wins)
+    async mergeUsers(cloudUsers) {
+        const localUsersStr = localStorage.getItem('ezcubic_users');
+        const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+        
+        // Create map of local users by ID
+        const userMap = new Map();
+        localUsers.forEach(u => userMap.set(u.id, u));
+        
+        // Merge cloud users
+        let updated = false;
+        for (const cloudUser of cloudUsers) {
+            const localUser = userMap.get(cloudUser.id);
+            
+            if (!localUser) {
+                // New user from cloud - add it
+                userMap.set(cloudUser.id, cloudUser);
+                updated = true;
+                console.log(`👤 Added user from cloud: ${cloudUser.email}`);
+            } else {
+                // User exists - compare timestamps, newer wins
+                const localTime = new Date(localUser.updatedAt || localUser.createdAt || 0);
+                const cloudTime = new Date(cloudUser.updatedAt || cloudUser.createdAt || 0);
+                
+                if (cloudTime > localTime) {
+                    userMap.set(cloudUser.id, cloudUser);
+                    updated = true;
+                    console.log(`👤 Updated user from cloud: ${cloudUser.email}`);
+                }
+            }
+        }
+        
+        if (updated) {
+            const mergedUsers = Array.from(userMap.values());
+            localStorage.setItem('ezcubic_users', JSON.stringify(mergedUsers));
+            
+            // Reload users array if the function exists
+            if (typeof window.loadUsers === 'function') {
+                window.loadUsers();
+            }
+        }
+    },
+
+    // Sync users immediately (call after creating/updating user)
+    async syncUsersNow() {
+        console.log('🔄 Syncing users to cloud...');
+        await this.uploadGlobalData();
+    },
+
+    // ============================================
     // SYNC OPERATIONS
     // ============================================
 
@@ -88,6 +227,10 @@ const CloudSync = {
         const results = [];
 
         try {
+            // Upload global data first (users, tenants)
+            await this.uploadGlobalData();
+
+            // Then upload tenant-specific data
             for (const key of this.syncableKeys) {
                 const localData = localStorage.getItem(`${tenantId}_${key}`);
                 if (localData) {
@@ -127,12 +270,15 @@ const CloudSync = {
         this.syncInProgress = true;
         const tenantId = this.getCurrentTenantId();
         
+        // Always download global data first (users needed for login)
+        await this.downloadGlobalData();
+
         if (!tenantId) {
             this.syncInProgress = false;
-            return { success: false, reason: 'no_tenant' };
+            return { success: true, reason: 'global_only' };
         }
 
-        console.log('☁️ Downloading data from cloud...');
+        console.log('☁️ Downloading tenant data from cloud...');
 
         try {
             const { data, error } = await window.SupabaseConfig.getClient()
