@@ -504,13 +504,30 @@ function checkSession() {
     return false;
 }
 
+// Main login function - tries cloud sync first for multi-device support
 function login(email, password) {
-    // Reload users from localStorage to ensure we have the latest data
-    loadUsers();
+    // Show loading state
+    const loginBtn = document.querySelector('#loginForm button[type="submit"], .login-form button[type="submit"]');
+    const originalBtnText = loginBtn ? loginBtn.innerHTML : '';
+    if (loginBtn) {
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+        loginBtn.disabled = true;
+    }
     
-    console.log('Login attempt:', email);
-    console.log('Users in system:', users.map(u => ({ email: u.email, status: u.status })));
+    // Try to sync from cloud first, then attempt login
+    tryLoginWithCloudSync(email, password).finally(() => {
+        // Restore button state
+        if (loginBtn) {
+            loginBtn.innerHTML = originalBtnText || '<i class="fas fa-sign-in-alt"></i> Login';
+            loginBtn.disabled = false;
+        }
+    });
     
+    return false; // Prevent form submission, async handles it
+}
+
+// Async login that checks cloud first
+async function tryLoginWithCloudSync(email, password) {
     // Helper to show login error
     function showLoginError(message) {
         // Try inline error first (for login page)
@@ -535,6 +552,20 @@ function login(email, password) {
             showToast(message, 'error');
         }
     }
+    
+    // First try to sync users from cloud (for multi-device login)
+    try {
+        console.log('☁️ Checking cloud for user updates before login...');
+        await loadUsersFromCloud();
+    } catch (err) {
+        console.warn('⚠️ Cloud sync failed, using local data:', err);
+    }
+    
+    // Now reload users from localStorage (includes any cloud updates)
+    loadUsers();
+    
+    console.log('Login attempt:', email);
+    console.log('Users in system:', users.map(u => ({ email: u.email, status: u.status })));
     
     // First check if email exists
     const userByEmail = users.find(u => u.email.toLowerCase() === email.toLowerCase());
