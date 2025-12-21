@@ -12,7 +12,7 @@ const USER_SESSIONS_KEY = 'ezcubic_sessions';
 // Default Founder Account (You)
 const DEFAULT_FOUNDER = {
     id: 'founder_001',
-    email: 'founder@ezcubic.com',
+    email: 'founder@lazyhumanbegin.com',
     password: 'founder123', // In production, this would be hashed
     name: 'Founder',
     role: 'founder',
@@ -37,7 +37,7 @@ const ROLES = {
     erp_assistant: {
         name: 'ERP Assistant',
         level: 2,
-        description: 'EZCubic Staff - Platform management only',
+        description: 'A Lazy Human Staff - Platform management only',
         color: '#2563eb',
         icon: 'fa-user-tie',
         canManage: ['business_admin', 'personal', 'manager', 'staff'],
@@ -1475,9 +1475,9 @@ function showLoginPage() {
                 <div class="login-page-container">
                     <div class="login-page-brand">
                         <div class="brand-logo">
-                            <i class="fas fa-cube"></i>
+                            <i class="fas fa-cat"></i>
                         </div>
-                        <h1>EZCubic</h1>
+                        <h1>A Lazy Human</h1>
                         <div class="tagline">Malaysian Business Accounting & Tax Platform</div>
                     </div>
                     
@@ -1524,7 +1524,7 @@ function showLoginPage() {
                             </form>
                             
                             <div class="divider">
-                                <span>New to EZCubic?</span>
+                                <span>New to A Lazy Human?</span>
                             </div>
                             
                             <button type="button" class="register-btn" onclick="showRegisterView();">
@@ -1534,7 +1534,7 @@ function showLoginPage() {
                             
                             <div class="demo-credentials">
                                 <strong>Demo Credentials</strong>
-                                founder@ezcubic.com / founder123
+                                founder@lazyhumanbegin.com / founder123
                             </div>
                         </div>
                         
@@ -1896,7 +1896,7 @@ function showLoginModal() {
                 <div class="modal-content" style="max-width: 400px;">
                     <div class="login-header">
                         <div class="login-logo">
-                            <i class="fas fa-cube"></i>
+                            <i class="fas fa-cat"></i>
                         </div>
                         <h2><i class="fas fa-cat"></i> A Lazy Human</h2>
                         <p>Sign in to continue</p>
@@ -1928,7 +1928,7 @@ function showLoginModal() {
                     </form>
                     <div class="login-footer">
                         <p style="color: #64748b; font-size: 12px; margin-top: 20px; text-align: center;">
-                            Default: founder@ezcubic.com / founder123
+                            Default: founder@lazyhumanbegin.com / founder123
                         </p>
                     </div>
                 </div>
