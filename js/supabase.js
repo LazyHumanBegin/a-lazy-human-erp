@@ -474,4 +474,35 @@ window.forceSyncUsers = forceSyncUsers;
 window.forceDownloadUsers = forceDownloadUsers;
 window.updateCloudSyncUI = updateCloudSyncUI;
 
+// DEBUG: Check what users are in cloud vs local
+window.debugUserSync = async function() {
+    console.log('=== DEBUG USER SYNC ===');
+    
+    // 1. Check local users
+    const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    console.log('📱 LOCAL users:', localUsers.map(u => ({ id: u.id, email: u.email, role: u.role })));
+    
+    // 2. Check cloud users
+    try {
+        const { data, error } = await window.SupabaseConfig.getClient()
+            .from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global')
+            .eq('data_key', 'ezcubic_users');
+        
+        if (error) {
+            console.error('❌ Cloud query error:', error);
+        } else if (data && data.length > 0) {
+            const cloudUsers = data[0].data?.value || [];
+            console.log('☁️ CLOUD users:', cloudUsers.map(u => ({ id: u.id, email: u.email, role: u.role })));
+        } else {
+            console.log('☁️ CLOUD: No users found in cloud');
+        }
+    } catch (err) {
+        console.error('❌ Debug error:', err);
+    }
+    
+    console.log('=== END DEBUG ===');
+};
+
 console.log('🐱 Supabase module loaded');
