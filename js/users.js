@@ -1531,11 +1531,6 @@ function showLoginPage() {
                                 <i class="fas fa-user-plus"></i>
                                 Create Free Account
                             </button>
-                            
-                            <div class="demo-credentials">
-                                <strong>Demo Credentials</strong>
-                                founder@lazyhumanbegin.com / founder123
-                            </div>
                         </div>
                         
                         <!-- REGISTER FORM -->
@@ -1926,11 +1921,6 @@ function showLoginModal() {
                             <i class="fas fa-sign-in-alt"></i> Sign In
                         </button>
                     </form>
-                    <div class="login-footer">
-                        <p style="color: #64748b; font-size: 12px; margin-top: 20px; text-align: center;">
-                            Default: founder@lazyhumanbegin.com / founder123
-                        </p>
-                    </div>
                 </div>
             </div>
         `;
