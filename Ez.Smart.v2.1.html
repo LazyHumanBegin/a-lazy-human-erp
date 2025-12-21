@@ -221,9 +221,54 @@
             </div>
             
             <!-- Debug Button (temporary) -->
-            <button onclick="showSyncDebug()" style="margin-top: 10px; padding: 8px 12px; font-size: 11px; background: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                <i class="fas fa-bug"></i> Debug Sync
+            <button id="debugSyncBtn" style="margin-top: 10px; padding: 10px 15px; font-size: 12px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                🔧 DEBUG SYNC
             </button>
+            <script>
+            document.getElementById('debugSyncBtn').addEventListener('click', async function() {
+                try {
+                    // Get local users
+                    const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                    const localList = localUsers.map(u => u.email + ' (' + u.role + ')').join('\\n') || 'None';
+                    
+                    let cloudList = 'Checking...';
+                    
+                    // Try to get cloud users
+                    if (window.SupabaseConfig && window.SupabaseConfig.getClient) {
+                        const { data, error } = await window.SupabaseConfig.getClient()
+                            .from('tenant_data')
+                            .select('*')
+                            .eq('tenant_id', 'global')
+                            .eq('data_key', 'ezcubic_users');
+                        
+                        if (error) {
+                            cloudList = 'Error: ' + error.message;
+                        } else if (data && data.length > 0) {
+                            const cloudUsers = data[0].data?.value || [];
+                            cloudList = cloudUsers.map(u => u.email + ' (' + u.role + ')').join('\\n') || 'None';
+                        } else {
+                            cloudList = 'Empty (no users in cloud)';
+                        }
+                    } else {
+                        cloudList = 'Supabase not ready';
+                    }
+                    
+                    alert('📱 LOCAL:\\n' + localList + '\\n\\n☁️ CLOUD:\\n' + cloudList);
+                    
+                    // Offer to force sync
+                    if (confirm('Upload local users to cloud?')) {
+                        if (window.CloudSync && window.CloudSync.uploadGlobalData) {
+                            await window.CloudSync.uploadGlobalData();
+                            alert('✅ Uploaded! Check other device.');
+                        } else {
+                            alert('❌ CloudSync not available');
+                        }
+                    }
+                } catch (err) {
+                    alert('Error: ' + err.message);
+                }
+            });
+            </script>
         </div>
         
         <!-- Main Content Area -->
