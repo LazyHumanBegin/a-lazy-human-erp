@@ -492,17 +492,37 @@ window.debugUserSync = async function() {
         
         if (error) {
             console.error('❌ Cloud query error:', error);
+            return { local: localUsers, cloud: null, error: error.message };
         } else if (data && data.length > 0) {
             const cloudUsers = data[0].data?.value || [];
             console.log('☁️ CLOUD users:', cloudUsers.map(u => ({ id: u.id, email: u.email, role: u.role })));
+            return { local: localUsers, cloud: cloudUsers };
         } else {
             console.log('☁️ CLOUD: No users found in cloud');
+            return { local: localUsers, cloud: [] };
         }
     } catch (err) {
         console.error('❌ Debug error:', err);
+        return { local: localUsers, cloud: null, error: err.message };
     }
+};
+
+// DEBUG: Show sync status in a popup (for mobile)
+window.showSyncDebug = async function() {
+    const result = await window.debugUserSync();
     
-    console.log('=== END DEBUG ===');
+    const localList = result.local.map(u => `• ${u.email} (${u.role})`).join('\n') || 'None';
+    const cloudList = result.cloud ? result.cloud.map(u => `• ${u.email} (${u.role})`).join('\n') || 'None' : 'Error: ' + result.error;
+    
+    const message = `📱 LOCAL USERS:\n${localList}\n\n☁️ CLOUD USERS:\n${cloudList}`;
+    
+    alert(message);
+    
+    // Also offer to force sync
+    if (confirm('Force upload local users to cloud?')) {
+        await window.forceSyncUsers();
+        alert('✅ Users uploaded to cloud! Now check other device.');
+    }
 };
 
 console.log('🐱 Supabase module loaded');
