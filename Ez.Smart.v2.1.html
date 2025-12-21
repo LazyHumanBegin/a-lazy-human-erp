@@ -221,7 +221,7 @@
             </div>
             
             <!-- Debug Button (temporary) -->
-            <button id="debugSyncBtn" style="margin-top: 10px; padding: 10px 15px; font-size: 12px; background: #dc2626; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
+            <button id="debugSyncBtn" style="margin-top: 10px; padding: 10px 15px; font-size: 12px; background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">
                 🔧 DEBUG SYNC
             </button>
             <script>
@@ -295,6 +295,77 @@
                     alert('Error: ' + err.message);
                 }
             });
+            
+            // Top bar debug sync button (accessible before login)
+            document.getElementById('debugSyncBtnTop')?.addEventListener('click', async function() {
+                try {
+                    const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+                    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+                    
+                    let client = null;
+                    if (window.supabase && window.supabase.createClient) {
+                        client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                    }
+                    
+                    if (!client) {
+                        alert('❌ Supabase not available. Refresh page and try again.');
+                        return;
+                    }
+                    
+                    // Fetch cloud users
+                    const { data, error } = await client.from('tenant_data')
+                        .select('data')
+                        .eq('tenant_id', 'global')
+                        .eq('data_key', 'ezcubic_users')
+                        .single();
+                    
+                    if (error && error.code !== 'PGRST116') {
+                        alert('❌ Cloud error: ' + error.message);
+                        return;
+                    }
+                    
+                    const cloudUsers = data?.data?.value || [];
+                    const localList = localUsers.map(u => u.email + ' (' + u.role + ')').join('\\n') || 'None';
+                    const cloudList = cloudUsers.map(u => u.email + ' (' + u.role + ')').join('\\n') || 'None';
+                    
+                    const action = confirm(
+                        '📱 LOCAL USERS:\\n' + localList + '\\n\\n' +
+                        '☁️ CLOUD USERS:\\n' + cloudList + '\\n\\n' +
+                        'Click OK to DOWNLOAD cloud users to local.\\n' +
+                        'Click CANCEL to UPLOAD local users to cloud.'
+                    );
+                    
+                    if (action) {
+                        // Merge cloud into local
+                        const merged = [...localUsers];
+                        cloudUsers.forEach(cu => {
+                            if (!merged.find(lu => lu.id === cu.id || lu.email === cu.email)) {
+                                merged.push(cu);
+                            }
+                        });
+                        localStorage.setItem('ezcubic_users', JSON.stringify(merged));
+                        alert('✅ Downloaded! ' + merged.length + ' users now in local storage.\\nRefresh page to see changes.');
+                    } else {
+                        // Upload local to cloud
+                        const { error: uploadError } = await client.from('tenant_data')
+                            .upsert({
+                                tenant_id: 'global',
+                                data_key: 'ezcubic_users',
+                                data: { key: 'ezcubic_users', value: localUsers, synced_at: new Date().toISOString() },
+                                updated_at: new Date().toISOString()
+                            }, { onConflict: 'tenant_id,data_key' });
+                        
+                        if (uploadError) {
+                            alert('❌ Upload error: ' + uploadError.message);
+                        } else {
+                            alert('✅ Uploaded ' + localUsers.length + ' users to cloud!');
+                        }
+                    }
+                } catch (err) {
+                    alert('Error: ' + err.message);
+                }
+            });
             </script>
         </div>
         
@@ -311,6 +382,9 @@
                     </button>
                     <button class="btn-outline" onclick="showFreeRegistrationModal()">
                         <i class="fas fa-user-plus"></i> Sign Up Free
+                    </button>
+                    <button id="debugSyncBtnTop" style="padding: 8px 12px; font-size: 11px; background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; margin-left: 10px;" title="Debug: Sync users from cloud">
+                        🔧 SYNC
                     </button>
                 </div>
                 <div id="userMenuContainer" style="display: none;">

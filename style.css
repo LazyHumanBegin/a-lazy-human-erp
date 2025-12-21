@@ -11558,9 +11558,11 @@ td.negative {
     background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
     z-index: 100000;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 .login-page-overlay.hidden {
@@ -11573,6 +11575,8 @@ td.negative {
     align-items: center;
     width: 100%;
     max-width: 450px;
+    margin: auto;
+    padding: 20px 0;
 }
 
 .login-page-brand {
@@ -11812,26 +11816,75 @@ td.negative {
 
 body.logged-out {
     padding: 0;
-    overflow: hidden;
+    overflow: auto;
 }
 
 /* Mobile Responsive for Login Page */
 @media (max-width: 480px) {
+    .login-page-overlay {
+        padding: 10px;
+        align-items: flex-start;
+    }
+    
+    .login-page-container {
+        padding: 10px 0 30px;
+    }
+    
     .login-page-card {
-        padding: 30px 24px;
+        padding: 24px 20px;
+    }
+    
+    .login-page-card h2 {
+        font-size: 20px;
+    }
+    
+    .login-page-card .subtitle {
+        font-size: 13px;
+        margin-bottom: 20px;
+    }
+    
+    .login-page-card .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .login-page-card .input-wrapper input {
+        padding: 10px 12px 10px 38px;
+    }
+    
+    .login-page-card .login-btn,
+    .login-page-card .register-btn {
+        padding: 12px;
+        font-size: 14px;
+    }
+    
+    .login-page-card .divider {
+        margin: 16px 0;
+    }
+    
+    .login-page-brand {
+        margin-bottom: 20px;
     }
     
     .login-page-brand h1 {
-        font-size: 26px;
+        font-size: 24px;
     }
     
     .login-page-brand .brand-logo {
-        width: 60px;
-        height: 60px;
+        width: 50px;
+        height: 50px;
+        margin-bottom: 12px;
     }
     
     .login-page-brand .brand-logo i {
-        font-size: 30px;
+        font-size: 26px;
+    }
+    
+    .login-page-brand .tagline {
+        font-size: 12px;
+    }
+    
+    .login-page-footer {
+        margin-top: 20px;
     }
 }
 

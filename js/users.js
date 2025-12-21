@@ -418,23 +418,50 @@ function saveUsers() {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
     
     // CLOUD SYNC: Automatically sync users to cloud after any change
-    if (window.CloudSync && typeof window.CloudSync.syncUsersNow === 'function') {
-        // Use setTimeout to avoid blocking the UI
-        setTimeout(() => {
-            window.CloudSync.syncUsersNow().then(() => {
-                console.log('👥 Users synced to cloud');
-            }).catch(err => {
-                console.warn('⚠️ Users cloud sync failed:', err);
-            });
-        }, 100);
-    }
+    setTimeout(async () => {
+        try {
+            // Try CloudSync first
+            if (window.CloudSync && typeof window.CloudSync.syncUsersNow === 'function') {
+                await window.CloudSync.syncUsersNow();
+                console.log('👥 Users synced to cloud via CloudSync');
+                return;
+            }
+            
+            // Fallback: Direct Supabase upload
+            const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+            
+            if (window.supabase && window.supabase.createClient) {
+                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                const usersData = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                
+                const { error } = await client
+                    .from('tenant_data')
+                    .upsert({
+                        tenant_id: 'global',
+                        data_key: 'ezcubic_users',
+                        data: { key: 'ezcubic_users', value: usersData, synced_at: new Date().toISOString() },
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'tenant_id,data_key' });
+                
+                if (error) {
+                    console.warn('⚠️ Direct sync failed:', error.message);
+                } else {
+                    console.log('👥 Users synced to cloud (direct)');
+                }
+            }
+        } catch (err) {
+            console.warn('⚠️ Users cloud sync failed:', err);
+        }
+    }, 200);
 }
 
 // Load users from cloud on startup (for multi-device support)
 async function loadUsersFromCloud() {
+    // Try CloudSync first
     if (window.CloudSync && typeof window.CloudSync.downloadGlobalData === 'function') {
         try {
-            console.log('☁️ Checking cloud for user updates...');
+            console.log('☁️ Checking cloud for user updates via CloudSync...');
             await window.CloudSync.downloadGlobalData();
             
             // Reload users array from localStorage after cloud sync
@@ -443,9 +470,64 @@ async function loadUsersFromCloud() {
                 users = JSON.parse(stored);
                 console.log('👥 Users loaded from cloud:', users.length);
             }
+            return;
         } catch (err) {
-            console.warn('⚠️ Could not load users from cloud:', err);
+            console.warn('⚠️ CloudSync failed, trying direct...', err);
         }
+    }
+    
+    // Fallback: Direct Supabase download
+    try {
+        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+        
+        if (window.supabase && window.supabase.createClient) {
+            console.log('☁️ Downloading users from cloud (direct)...');
+            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            const { data, error } = await client
+                .from('tenant_data')
+                .select('*')
+                .eq('tenant_id', 'global')
+                .eq('data_key', 'ezcubic_users');
+            
+            if (error) {
+                console.warn('⚠️ Direct download error:', error.message);
+                return;
+            }
+            
+            if (data && data.length > 0) {
+                const cloudUsers = data[0].data?.value || [];
+                
+                // Merge cloud users with local
+                const localUsers = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+                const userMap = new Map();
+                
+                // Add local users first
+                localUsers.forEach(u => userMap.set(u.id, u));
+                
+                // Merge cloud users (add missing, update if cloud is newer)
+                for (const cloudUser of cloudUsers) {
+                    const localUser = userMap.get(cloudUser.id);
+                    if (!localUser) {
+                        userMap.set(cloudUser.id, cloudUser);
+                        console.log('👤 Added from cloud:', cloudUser.email);
+                    } else {
+                        const localTime = new Date(localUser.updatedAt || localUser.createdAt || 0);
+                        const cloudTime = new Date(cloudUser.updatedAt || cloudUser.createdAt || 0);
+                        if (cloudTime > localTime) {
+                            userMap.set(cloudUser.id, cloudUser);
+                        }
+                    }
+                }
+                
+                users = Array.from(userMap.values());
+                localStorage.setItem(USERS_KEY, JSON.stringify(users));
+                console.log('👥 Users merged from cloud:', users.length);
+            }
+        }
+    } catch (err) {
+        console.warn('⚠️ Could not load users from cloud:', err);
     }
 }
 
@@ -1612,6 +1694,14 @@ function showLoginPage() {
                                 <i class="fas fa-user-plus"></i>
                                 Create Free Account
                             </button>
+                            
+                            <!-- Debug Sync Button - Inside Login Form -->
+                            <div style="margin-top: 20px; padding-top: 15px; border-top: 1px dashed #e2e8f0; text-align: center;">
+                                <button type="button" onclick="debugSyncFromLoginPage()" style="padding: 12px 24px; background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 2px 8px rgba(100, 116, 139, 0.3);">
+                                    🔧 DEBUG SYNC (Cloud ↔ Local)
+                                </button>
+                                <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">Sync users between devices</p>
+                            </div>
                         </div>
                         
                         <!-- REGISTER FORM -->
@@ -4470,6 +4560,79 @@ window.showForgotPasswordView = showForgotPasswordView;
 window.handleRegisterPage = handleRegisterPage;
 window.verifyForgotEmail = verifyForgotEmail;
 window.executePagePasswordReset = executePagePasswordReset;
+
+// Debug Sync from Login Page
+async function debugSyncFromLoginPage() {
+    try {
+        const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+        
+        let client = null;
+        if (window.supabase && window.supabase.createClient) {
+            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
+        
+        if (!client) {
+            alert('❌ Supabase not available. Refresh page and try again.');
+            return;
+        }
+        
+        // Fetch cloud users
+        const { data, error } = await client.from('tenant_data')
+            .select('data')
+            .eq('tenant_id', 'global')
+            .eq('data_key', 'ezcubic_users')
+            .single();
+        
+        if (error && error.code !== 'PGRST116') {
+            alert('❌ Cloud error: ' + error.message);
+            return;
+        }
+        
+        const cloudUsers = data?.data?.value || [];
+        const localList = localUsers.map(u => u.email + ' (' + u.role + ')').join('\n') || 'None';
+        const cloudList = cloudUsers.map(u => u.email + ' (' + u.role + ')').join('\n') || 'None';
+        
+        const action = confirm(
+            '📱 LOCAL USERS:\n' + localList + '\n\n' +
+            '☁️ CLOUD USERS:\n' + cloudList + '\n\n' +
+            'Click OK to DOWNLOAD cloud users to local.\n' +
+            'Click CANCEL to UPLOAD local users to cloud.'
+        );
+        
+        if (action) {
+            // Merge cloud into local
+            const merged = [...localUsers];
+            cloudUsers.forEach(cu => {
+                if (!merged.find(lu => lu.id === cu.id || lu.email === cu.email)) {
+                    merged.push(cu);
+                }
+            });
+            localStorage.setItem('ezcubic_users', JSON.stringify(merged));
+            alert('✅ Downloaded! ' + merged.length + ' users now in local storage.\nRefresh page to see changes.');
+            location.reload();
+        } else {
+            // Upload local to cloud
+            const { error: uploadError } = await client.from('tenant_data')
+                .upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_users',
+                    data: { key: 'ezcubic_users', value: localUsers, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+            
+            if (uploadError) {
+                alert('❌ Upload error: ' + uploadError.message);
+            } else {
+                alert('✅ Uploaded ' + localUsers.length + ' users to cloud!');
+            }
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+window.debugSyncFromLoginPage = debugSyncFromLoginPage;
 
 // Initialize on load
 if (document.readyState === 'loading') {
