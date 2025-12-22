@@ -68,6 +68,8 @@ function showSection(sectionId) {
         if (typeof renderStockMovements === 'function') renderStockMovements();
     } else if (sectionId === 'orders') {
         if (typeof initializeOrders === 'function') initializeOrders();
+    } else if (sectionId === 'invoices') {
+        if (typeof initializeInvoices === 'function') initializeInvoices();
     }
     // Phase 4: Purchasing sections
     else if (sectionId === 'purchase-orders') {
@@ -123,9 +125,17 @@ function showSection(sectionId) {
     else if (sectionId === 'aging-reports') {
         if (typeof renderAgingReportsContent === 'function') renderAgingReportsContent();
     }
+    // Settings section - load company logo preview and document numbering
+    else if (sectionId === 'settings') {
+        if (typeof loadCompanyLogo === 'function') loadCompanyLogo();
+        if (typeof loadDocumentNumberingSettings === 'function') loadDocumentNumberingSettings();
+    }
     
-    // Scroll to top of page when changing sections
-    window.scrollTo({ top: 0, behavior: 'instant' });
+    // Scroll main content to top (not sidebar)
+    const mainContent = document.querySelector('.main-content');
+    if (mainContent) {
+        mainContent.scrollTo({ top: 0, behavior: 'instant' });
+    }
     
     // Close mobile menu if on mobile (only if it's open)
     if (window.innerWidth <= 768) {
@@ -278,6 +288,29 @@ function saveSettings() {
     businessData.settings.financialYearStart = document.getElementById('financialYearStart').value;
     businessData.settings.defaultTaxRate = parseFloat(document.getElementById('defaultTaxRate').value);
     
+    // Company contact details for quotations/invoices
+    const addressEl = document.getElementById('businessAddress');
+    const phoneEl = document.getElementById('businessPhone');
+    const emailEl = document.getElementById('businessEmail');
+    const websiteEl = document.getElementById('businessWebsite');
+    const bankEl = document.getElementById('businessBankAccount');
+    
+    if (addressEl) businessData.settings.businessAddress = addressEl.value;
+    if (phoneEl) businessData.settings.businessPhone = phoneEl.value;
+    if (emailEl) businessData.settings.businessEmail = emailEl.value;
+    if (websiteEl) businessData.settings.businessWebsite = websiteEl.value;
+    if (bankEl) businessData.settings.businessBankAccount = bankEl.value;
+    
+    // Also save to localStorage for quick access
+    localStorage.setItem('ezcubic_business_address', addressEl?.value || '');
+    localStorage.setItem('ezcubic_business_phone', phoneEl?.value || '');
+    localStorage.setItem('ezcubic_business_email', emailEl?.value || '');
+    localStorage.setItem('ezcubic_business_website', websiteEl?.value || '');
+    localStorage.setItem('ezcubic_business_bank', bankEl?.value || '');
+    
+    // Document Numbering Settings
+    saveDocumentNumberingSettings();
+    
     document.getElementById('corporateTaxRate').value = businessData.settings.defaultTaxRate;
     
     if (saveData()) {
@@ -286,6 +319,223 @@ function saveSettings() {
         showNotification('Settings saved successfully!', 'success');
     }
 }
+
+// Save Document Numbering Settings
+function saveDocumentNumberingSettings() {
+    const separator = document.getElementById('docNumSeparator')?.value || '-';
+    const yearFormat = document.getElementById('docNumYearFormat')?.value || 'YYMM';
+    const padding = parseInt(document.getElementById('docNumPadding')?.value) || 4;
+    const reset = document.getElementById('docNumReset')?.value || 'never';
+    
+    const docTypes = ['Quotation', 'Invoice', 'Receipt', 'PurchaseOrder', 'DeliveryOrder', 'SalesOrder'];
+    const documents = {};
+    
+    docTypes.forEach(type => {
+        const prefixEl = document.getElementById(`docPrefix${type}`);
+        const nextEl = document.getElementById(`docNext${type}`);
+        documents[type.toLowerCase()] = {
+            prefix: (prefixEl?.value || type.substring(0, 3)).toUpperCase(),
+            next: parseInt(nextEl?.value) || 1
+        };
+    });
+    
+    businessData.settings.documentNumbering = {
+        separator,
+        yearFormat,
+        padding,
+        reset,
+        documents,
+        lastReset: businessData.settings.documentNumbering?.lastReset || new Date().toISOString().slice(0, 7)
+    };
+}
+
+// Load Document Numbering Settings into UI
+function loadDocumentNumberingSettings() {
+    const settings = businessData.settings?.documentNumbering || getDefaultDocumentNumbering();
+    
+    // Global settings
+    const separatorEl = document.getElementById('docNumSeparator');
+    const yearFormatEl = document.getElementById('docNumYearFormat');
+    const paddingEl = document.getElementById('docNumPadding');
+    const resetEl = document.getElementById('docNumReset');
+    
+    if (separatorEl) separatorEl.value = settings.separator || '-';
+    if (yearFormatEl) yearFormatEl.value = settings.yearFormat || 'YYMM';
+    if (paddingEl) paddingEl.value = settings.padding || 4;
+    if (resetEl) resetEl.value = settings.reset || 'never';
+    
+    // Per-document settings
+    const docTypes = ['Quotation', 'Invoice', 'Receipt', 'PurchaseOrder', 'DeliveryOrder', 'SalesOrder'];
+    const defaultPrefixes = { quotation: 'QUO', invoice: 'INV', receipt: 'RCP', purchaseorder: 'PO', deliveryorder: 'DO', salesorder: 'SO' };
+    
+    docTypes.forEach(type => {
+        const key = type.toLowerCase();
+        const doc = settings.documents?.[key] || { prefix: defaultPrefixes[key], next: 1 };
+        
+        const prefixEl = document.getElementById(`docPrefix${type}`);
+        const nextEl = document.getElementById(`docNext${type}`);
+        
+        if (prefixEl) prefixEl.value = doc.prefix || defaultPrefixes[key];
+        if (nextEl) nextEl.value = doc.next || 1;
+    });
+    
+    updateDocNumberPreview();
+}
+
+// Get default document numbering settings
+function getDefaultDocumentNumbering() {
+    return {
+        separator: '-',
+        yearFormat: 'YYMM',
+        padding: 4,
+        reset: 'never',
+        documents: {
+            quotation: { prefix: 'QUO', next: 1 },
+            invoice: { prefix: 'INV', next: 1 },
+            receipt: { prefix: 'RCP', next: 1 },
+            purchaseorder: { prefix: 'PO', next: 1 },
+            deliveryorder: { prefix: 'DO', next: 1 },
+            salesorder: { prefix: 'SO', next: 1 }
+        },
+        lastReset: new Date().toISOString().slice(0, 7)
+    };
+}
+
+// Update preview for all document types
+function updateDocNumberPreview() {
+    const docTypes = ['Quotation', 'Invoice', 'Receipt', 'PurchaseOrder', 'DeliveryOrder', 'SalesOrder'];
+    
+    docTypes.forEach(type => {
+        const prefixEl = document.getElementById(`docPrefix${type}`);
+        const nextEl = document.getElementById(`docNext${type}`);
+        const previewEl = document.getElementById(`preview${type}`);
+        
+        if (prefixEl && nextEl && previewEl) {
+            const prefix = prefixEl.value.toUpperCase() || type.substring(0, 3).toUpperCase();
+            const next = parseInt(nextEl.value) || 1;
+            previewEl.textContent = formatDocumentNumber(prefix, next);
+        }
+    });
+}
+
+// Format document number with current settings
+function formatDocumentNumber(prefix, number) {
+    const separator = document.getElementById('docNumSeparator')?.value || '-';
+    const yearFormat = document.getElementById('docNumYearFormat')?.value || 'YYMM';
+    const padding = parseInt(document.getElementById('docNumPadding')?.value) || 4;
+    
+    const now = new Date();
+    let yearPart = '';
+    
+    switch(yearFormat) {
+        case 'YYMM':
+            yearPart = now.getFullYear().toString().slice(-2) + String(now.getMonth() + 1).padStart(2, '0');
+            break;
+        case 'YY':
+            yearPart = now.getFullYear().toString().slice(-2);
+            break;
+        case 'YYYY':
+            yearPart = now.getFullYear().toString();
+            break;
+        default:
+            yearPart = '';
+    }
+    
+    const numPart = String(number).padStart(padding, '0');
+    
+    if (yearPart) {
+        return `${prefix}${separator}${yearPart}${separator}${numPart}`;
+    } else {
+        return `${prefix}${separator}${numPart}`;
+    }
+}
+
+// Generate next document number for a given type
+function generateDocumentNumber(type) {
+    // type: 'quotation', 'invoice', 'receipt', 'purchaseorder', 'deliveryorder', 'salesorder'
+    const settings = businessData.settings?.documentNumbering || getDefaultDocumentNumbering();
+    const doc = settings.documents?.[type] || { prefix: type.toUpperCase().substring(0, 3), next: 1 };
+    
+    // Check if we need to reset based on settings
+    checkAndResetSequence(settings);
+    
+    const separator = settings.separator || '-';
+    const yearFormat = settings.yearFormat || 'YYMM';
+    const padding = settings.padding || 4;
+    
+    const now = new Date();
+    let yearPart = '';
+    
+    switch(yearFormat) {
+        case 'YYMM':
+            yearPart = now.getFullYear().toString().slice(-2) + String(now.getMonth() + 1).padStart(2, '0');
+            break;
+        case 'YY':
+            yearPart = now.getFullYear().toString().slice(-2);
+            break;
+        case 'YYYY':
+            yearPart = now.getFullYear().toString();
+            break;
+        default:
+            yearPart = '';
+    }
+    
+    const numPart = String(doc.next).padStart(padding, '0');
+    
+    let docNumber;
+    if (yearPart) {
+        docNumber = `${doc.prefix}${separator}${yearPart}${separator}${numPart}`;
+    } else {
+        docNumber = `${doc.prefix}${separator}${numPart}`;
+    }
+    
+    // Increment the next number
+    if (!businessData.settings.documentNumbering) {
+        businessData.settings.documentNumbering = getDefaultDocumentNumbering();
+    }
+    if (!businessData.settings.documentNumbering.documents) {
+        businessData.settings.documentNumbering.documents = getDefaultDocumentNumbering().documents;
+    }
+    if (!businessData.settings.documentNumbering.documents[type]) {
+        businessData.settings.documentNumbering.documents[type] = { prefix: doc.prefix, next: 1 };
+    }
+    businessData.settings.documentNumbering.documents[type].next = doc.next + 1;
+    
+    // Save to tenant storage
+    saveData();
+    
+    return docNumber;
+}
+
+// Check and reset sequence if needed (based on yearly/monthly settings)
+function checkAndResetSequence(settings) {
+    if (settings.reset === 'never') return;
+    
+    const now = new Date();
+    const currentPeriod = settings.reset === 'yearly' 
+        ? now.getFullYear().toString()
+        : now.toISOString().slice(0, 7); // YYYY-MM
+    
+    const lastReset = settings.lastReset || currentPeriod;
+    
+    if (lastReset !== currentPeriod) {
+        // Reset all sequences
+        Object.keys(settings.documents).forEach(type => {
+            settings.documents[type].next = 1;
+        });
+        settings.lastReset = currentPeriod;
+        
+        console.log(`[Doc Numbering] Sequences reset for new ${settings.reset === 'yearly' ? 'year' : 'month'}`);
+    }
+}
+
+// Export functions to window
+window.saveDocumentNumberingSettings = saveDocumentNumberingSettings;
+window.loadDocumentNumberingSettings = loadDocumentNumberingSettings;
+window.getDefaultDocumentNumbering = getDefaultDocumentNumbering;
+window.updateDocNumberPreview = updateDocNumberPreview;
+window.formatDocumentNumber = formatDocumentNumber;
+window.generateDocumentNumber = generateDocumentNumber;
 
 // Show/Hide Backup Help Tooltip
 function showBackupHelpTooltip() {

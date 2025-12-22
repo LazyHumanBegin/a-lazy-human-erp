@@ -14,22 +14,38 @@ function initializeQuotations() {
 }
 
 function loadQuotations() {
-    const stored = localStorage.getItem(QUOTATIONS_KEY);
-    if (stored) {
-        try {
-            const parsed = JSON.parse(stored);
-            quotations = Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-            console.error('Error parsing quotations:', e);
-            quotations = [];
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.quotations) && tenantData.quotations.length > 0) {
+            quotations = tenantData.quotations;
+            window.quotations = quotations;
+            console.log('✅ Quotations loaded from tenant:', quotations.length);
+            return;
         }
-    } else {
-        quotations = [];
     }
     
-    // Also check window.quotations as fallback
-    if (quotations.length === 0 && Array.isArray(window.quotations) && window.quotations.length > 0) {
+    // PRIORITY 2: Check window.quotations
+    if (Array.isArray(window.quotations) && window.quotations.length > 0) {
         quotations = window.quotations;
+        console.log('✅ Quotations loaded from window:', quotations.length);
+    } else {
+        // PRIORITY 3: Load from localStorage
+        const stored = localStorage.getItem(QUOTATIONS_KEY);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                quotations = Array.isArray(parsed) ? parsed : [];
+                console.log('✅ Quotations loaded from localStorage key:', quotations.length);
+            } catch (e) {
+                console.error('Error parsing quotations:', e);
+                quotations = [];
+            }
+        } else {
+            quotations = [];
+        }
     }
     
     // Update window reference
@@ -38,16 +54,30 @@ function loadQuotations() {
 
 function saveQuotations() {
     localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotations));
+    window.quotations = quotations;
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        window.quotations = quotations;
-        saveToUserTenant();
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.quotations = quotations;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Quotations saved directly to tenant:', quotations.length);
     }
+    
+    // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
 // ==================== GENERATE QUOTATION NUMBER ====================
 function generateQuotationNo() {
+    // Use customizable document numbering if available
+    if (typeof generateDocumentNumber === 'function') {
+        return generateDocumentNumber('quotation');
+    }
+    
+    // Fallback to original logic
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -210,10 +240,10 @@ function loadQuotationSalespersons() {
         });
     }
     
-    // 3. Add employees from payroll (tenant-filtered)
-    if (typeof getEmployees === 'function') {
-        const employeeList = getEmployees().filter(e => e.status === 'active');
-        employeeList.forEach(e => {
+    // 3. Add employees from payroll - check multiple sources
+    const employeesList = window.employees || JSON.parse(localStorage.getItem('ezcubic_employees') || '[]');
+    if (Array.isArray(employeesList) && employeesList.length > 0) {
+        employeesList.filter(e => e.status === 'active').forEach(e => {
             if (!salespersons.some(s => s.name.toLowerCase() === e.name.toLowerCase())) {
                 salespersons.push({ name: e.name, role: e.position || 'Employee' });
             }
@@ -293,12 +323,22 @@ function renderQuotationItemInputs(items = []) {
     const container = document.getElementById('quotationItemsContainer');
     if (!container) return;
     
+    // Get products from inventory
+    const products = window.products || JSON.parse(localStorage.getItem('ezcubic_products') || '[]');
+    const productOptions = products.map(p => 
+        `<option value="${p.id}" data-price="${p.sellingPrice || p.price || 0}">${escapeHtml(p.name)} - RM ${parseFloat(p.sellingPrice || p.price || 0).toFixed(2)}</option>`
+    ).join('');
+    
     container.innerHTML = items.map((item, index) => `
         <div class="quotation-item-row" data-index="${index}">
-            <div class="item-main">
+            <div class="item-main" style="display: flex; flex-direction: column; gap: 5px;">
+                <select class="form-control item-product-select" onchange="selectQuotationProduct(this, ${index})" style="padding: 8px;">
+                    <option value="">-- Select Product (optional) --</option>
+                    ${productOptions}
+                </select>
                 <input type="text" class="form-control item-description" 
                        value="${escapeHtml(item.description || '')}" 
-                       placeholder="Item description" 
+                       placeholder="Item description (or type custom)" 
                        oninput="calculateQuotationTotals()">
             </div>
             <div class="item-qty">
@@ -332,13 +372,23 @@ function addQuotationItem() {
     const rows = container.querySelectorAll('.quotation-item-row');
     const index = rows.length;
     
+    // Get products from inventory
+    const products = window.products || JSON.parse(localStorage.getItem('ezcubic_products') || '[]');
+    const productOptions = products.map(p => 
+        `<option value="${p.id}" data-price="${p.sellingPrice || p.price || 0}">${escapeHtml(p.name)} - RM ${parseFloat(p.sellingPrice || p.price || 0).toFixed(2)}</option>`
+    ).join('');
+    
     const newRow = document.createElement('div');
     newRow.className = 'quotation-item-row';
     newRow.dataset.index = index;
     newRow.innerHTML = `
-        <div class="item-main">
+        <div class="item-main" style="display: flex; flex-direction: column; gap: 5px;">
+            <select class="form-control item-product-select" onchange="selectQuotationProduct(this, ${index})" style="padding: 8px;">
+                <option value="">-- Select Product (optional) --</option>
+                ${productOptions}
+            </select>
             <input type="text" class="form-control item-description" 
-                   value="" placeholder="Item description" 
+                   value="" placeholder="Item description (or type custom)" 
                    oninput="calculateQuotationTotals()">
         </div>
         <div class="item-qty">
@@ -352,7 +402,7 @@ function addQuotationItem() {
                    oninput="calculateQuotationTotals()">
         </div>
         <div class="item-total">
-            <span class="item-line-total">RM 0.00</span> // This is a static zero, can remain as is
+            <span class="item-line-total">RM 0.00</span>
         </div>
         <div class="item-actions">
             <button type="button" class="btn-icon danger" onclick="removeQuotationItem(${index})" title="Remove item">
@@ -361,6 +411,23 @@ function addQuotationItem() {
         </div>
     `;
     container.appendChild(newRow);
+}
+
+// Select product from dropdown and auto-fill details
+function selectQuotationProduct(selectEl, index) {
+    const row = selectEl.closest('.quotation-item-row');
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    
+    if (selectEl.value) {
+        const products = window.products || JSON.parse(localStorage.getItem('ezcubic_products') || '[]');
+        const product = products.find(p => p.id == selectEl.value);
+        
+        if (product) {
+            row.querySelector('.item-description').value = product.name;
+            row.querySelector('.item-unit-price').value = product.sellingPrice || product.price || 0;
+            calculateQuotationTotals();
+        }
+    }
 }
 
 function removeQuotationItem(index) {
@@ -690,11 +757,17 @@ function viewQuotationDetail(quotationId) {
                         <i class="fas fa-copy"></i> Duplicate & Update
                     </button>
                 ` : ''}
+                <button class="btn-outline" onclick="shareQuotationWhatsApp('${quotation.id}')" style="background: #25d366; color: white; border: none;">
+                    <i class="fab fa-whatsapp"></i> WhatsApp
+                </button>
                 <button class="btn-outline" onclick="emailQuotation('${quotation.id}')" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none;">
                     <i class="fas fa-envelope"></i> Email
                 </button>
-                <button class="btn-outline" onclick="printQuotation('${quotation.id}')">
-                    <i class="fas fa-print"></i> Print
+                <button class="btn-primary" onclick="generateQuotationPDF('${quotation.id}')" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </button>
+                <button class="btn-outline" onclick="showTemplateSelector()" title="Change Template">
+                    <i class="fas fa-palette"></i>
                 </button>
                 <button class="btn-outline danger" onclick="deleteQuotation('${quotation.id}')">
                     <i class="fas fa-trash"></i>
@@ -1188,6 +1261,55 @@ function formatDate(dateStr) {
     if (!dateStr) return 'N/A';
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+// ==================== WHATSAPP QUOTATION ====================
+function shareQuotationWhatsApp(quotationId) {
+    const quotation = quotations.find(q => q.id === quotationId);
+    if (!quotation) {
+        showNotification('Quotation not found', 'error');
+        return;
+    }
+    
+    const settings = JSON.parse(localStorage.getItem('companySettings') || '{}');
+    const businessName = settings.businessName || window.businessData?.settings?.businessName || 'A Lazy Human';
+    
+    let message = `*${businessName}*\n`;
+    message += `━━━━━━━━━━━━━━━━\n`;
+    message += `📋 *Quotation: ${quotation.quotationNo}*\n`;
+    message += `📅 Date: ${quotation.date}\n`;
+    message += `⏰ Valid Until: ${quotation.validUntil || 'N/A'}\n`;
+    message += `👤 Customer: ${quotation.customerName}\n\n`;
+    
+    message += `*Items:*\n`;
+    if (quotation.items && quotation.items.length > 0) {
+        quotation.items.forEach(item => {
+            message += `• ${item.description}\n`;
+            message += `   Qty: ${item.quantity} × RM ${parseFloat(item.unitPrice).toFixed(2)} = RM ${parseFloat(item.total).toFixed(2)}\n`;
+        });
+    }
+    
+    message += `\n━━━━━━━━━━━━━━━━\n`;
+    message += `Subtotal: RM ${parseFloat(quotation.subtotal || 0).toFixed(2)}\n`;
+    if (quotation.discount > 0) {
+        message += `Discount: -RM ${parseFloat(quotation.discount).toFixed(2)}\n`;
+    }
+    if (quotation.tax > 0) {
+        message += `Tax: RM ${parseFloat(quotation.tax).toFixed(2)}\n`;
+    }
+    message += `*TOTAL: RM ${parseFloat(quotation.total).toFixed(2)}*\n`;
+    message += `━━━━━━━━━━━━━━━━\n\n`;
+    
+    if (quotation.notes) {
+        message += `📝 Notes: ${quotation.notes}\n\n`;
+    }
+    
+    message += `Please reply to confirm or if you have any questions. Thank you! 🙏`;
+    
+    const encoded = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    
+    showNotification('Opening WhatsApp...', 'success');
 }
 
 // ==================== EMAIL QUOTATION ====================

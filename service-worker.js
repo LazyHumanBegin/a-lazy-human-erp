@@ -4,7 +4,7 @@
  * Auto-syncs updates without manual version changes
  */
 
-const CACHE_NAME = 'ezcubic-erp-v2.1';
+const CACHE_NAME = 'ezcubic-erp-v2.1.3';
 
 // Files to cache for offline fallback
 const ASSETS_TO_CACHE = [
@@ -24,6 +24,7 @@ const ASSETS_TO_CACHE = [
   './js/crm.js',
   './js/bills.js',
   './js/quotations.js',
+  './js/invoices.js',
   './js/orders.js',
   './js/reports.js',
   './js/taxes.js',

@@ -38,18 +38,32 @@ function initializeSuppliers() {
 }
 
 function loadSuppliers() {
-    // First sync from window in case tenant data was loaded (even if empty array)
-    // This is critical for multi-tenant isolation - don't fall back to localStorage if tenant has no data
-    if (Array.isArray(window.suppliers)) {
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.suppliers) && tenantData.suppliers.length > 0) {
+            suppliers = tenantData.suppliers;
+            window.suppliers = suppliers;
+            console.log('✅ Suppliers loaded from tenant:', suppliers.length);
+            return;
+        }
+    }
+    
+    // PRIORITY 2: Sync from window in case tenant data was loaded
+    if (Array.isArray(window.suppliers) && window.suppliers.length > 0) {
         suppliers = window.suppliers;
+        console.log('✅ Suppliers loaded from window:', suppliers.length);
         return;
     }
-    // Otherwise load from localStorage
+    
+    // PRIORITY 3: Load from localStorage
     const stored = localStorage.getItem(SUPPLIERS_KEY);
     const data = stored ? JSON.parse(stored) : [];
-    // Ensure it's always an array
     suppliers = Array.isArray(data) ? data : [];
     window.suppliers = suppliers;
+    console.log('✅ Suppliers loaded from localStorage key:', suppliers.length);
 }
 
 function saveSuppliers() {
@@ -57,10 +71,18 @@ function saveSuppliers() {
     window.suppliers = suppliers; // Keep window in sync
     updateSupplierStats();
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.suppliers = suppliers;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Suppliers saved directly to tenant:', suppliers.length);
     }
+    
+    // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
 // ==================== SYNC SUPPLIER OUTSTANDING FROM BILLS/POs ====================

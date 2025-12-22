@@ -46,6 +46,22 @@ function initializeApp() {
         const corporateTaxRateInput = document.getElementById('corporateTaxRate');
         if (corporateTaxRateInput) corporateTaxRateInput.value = businessData.settings.defaultTaxRate || 17;
         
+        // Company contact details for quotations/invoices
+        const businessAddressInput = document.getElementById('businessAddress');
+        if (businessAddressInput) businessAddressInput.value = businessData.settings.businessAddress || localStorage.getItem('ezcubic_business_address') || '';
+        
+        const businessPhoneInput = document.getElementById('businessPhone');
+        if (businessPhoneInput) businessPhoneInput.value = businessData.settings.businessPhone || localStorage.getItem('ezcubic_business_phone') || '';
+        
+        const businessEmailInput = document.getElementById('businessEmail');
+        if (businessEmailInput) businessEmailInput.value = businessData.settings.businessEmail || localStorage.getItem('ezcubic_business_email') || '';
+        
+        const businessWebsiteInput = document.getElementById('businessWebsite');
+        if (businessWebsiteInput) businessWebsiteInput.value = businessData.settings.businessWebsite || localStorage.getItem('ezcubic_business_website') || '';
+        
+        const businessBankInput = document.getElementById('businessBankAccount');
+        if (businessBankInput) businessBankInput.value = businessData.settings.businessBankAccount || localStorage.getItem('ezcubic_business_bank') || '';
+        
         // Set default dates
         const today = new Date().toISOString().split('T')[0];
         const incomeDateInput = document.getElementById('incomeDate');
@@ -173,23 +189,50 @@ function initializePhase2Modules() {
 
 // ==================== OUTLET MANAGEMENT ====================
 function loadOutlets() {
+    // PRIORITY 1: Load from tenant storage directly
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.outlets) && tenantData.outlets.length > 0) {
+            outlets = tenantData.outlets;
+            window.outlets = outlets;
+            console.log('✅ Outlets loaded from tenant:', outlets.length);
+            renderOutletDropdowns();
+            return;
+        }
+    }
+    
+    // PRIORITY 2: Load from localStorage
     const stored = localStorage.getItem(OUTLETS_KEY);
     if (stored) {
         outlets = JSON.parse(stored);
+        console.log('✅ Outlets loaded from localStorage:', outlets.length);
     } else {
-        // Default outlets
+        // Default outlets - only create if nothing exists
         outlets = [
-            { id: 'outlet1', name: 'Main Branch' },
-            { id: 'outlet2', name: 'Outlet 2' },
-            { id: 'outlet3', name: 'Outlet 3' }
+            { id: 'outlet1', name: 'Main Branch', status: 'active' }
         ];
         saveOutlets();
     }
+    window.outlets = outlets;
     renderOutletDropdowns();
 }
 
 function saveOutlets() {
     localStorage.setItem(OUTLETS_KEY, JSON.stringify(outlets));
+    window.outlets = outlets;
+    
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.outlets = outlets;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Outlets saved directly to tenant:', outlets.length);
+    }
 }
 
 function renderOutletDropdowns() {

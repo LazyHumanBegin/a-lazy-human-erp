@@ -296,6 +296,9 @@ function viewOrderDetails(orderId) {
                 <div id="orderDetailsContent"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('orderDetailsModal')">Close</button>
+                    <button type="button" class="btn-outline" onclick="shareCurrentOrderWhatsApp()" style="background: #25d366; color: white; border: none;">
+                        <i class="fab fa-whatsapp"></i> WhatsApp
+                    </button>
                     <button type="button" class="btn-outline" onclick="emailCurrentOrder()" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none;">
                         <i class="fas fa-envelope"></i> Email
                     </button>
@@ -312,6 +315,42 @@ function viewOrderDetails(orderId) {
     modal.dataset.orderId = orderId;
     modal.style.display = '';
     modal.classList.add('show');
+}
+
+function shareCurrentOrderWhatsApp() {
+    const modal = document.getElementById('orderDetailsModal');
+    if (modal && modal.dataset.orderId) {
+        const orderId = modal.dataset.orderId;
+        const order = sales.find(s => s.id == orderId);
+        if (!order) return;
+        
+        const businessName = window.businessData?.settings?.businessName || 'A Lazy Human';
+        
+        let message = `*${businessName}*\n`;
+        message += `━━━━━━━━━━━━━━━━\n`;
+        message += `📄 *Receipt: ${order.receiptNo}*\n`;
+        message += `📅 Date: ${order.date}\n`;
+        message += `👤 Customer: ${order.customerName}\n\n`;
+        
+        message += `*Items:*\n`;
+        order.items.forEach(item => {
+            message += `• ${item.name} × ${item.quantity} = RM ${(item.price * item.quantity).toFixed(2)}\n`;
+        });
+        
+        message += `\n━━━━━━━━━━━━━━━━\n`;
+        if (order.discount > 0) {
+            message += `Discount: -RM ${parseFloat(order.discount).toFixed(2)}\n`;
+        }
+        message += `Tax: RM ${parseFloat(order.tax || 0).toFixed(2)}\n`;
+        message += `*TOTAL: RM ${parseFloat(order.total).toFixed(2)}*\n`;
+        message += `━━━━━━━━━━━━━━━━\n\n`;
+        message += `Thank you for your business! 🙏`;
+        
+        const encoded = encodeURIComponent(message);
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+        
+        showNotification('Opening WhatsApp...', 'success');
+    }
 }
 
 function printCurrentOrderReceipt() {
@@ -568,5 +607,6 @@ window.updateOrderStatus = updateOrderStatus;
 window.saveOrderStatus = saveOrderStatus;
 window.exportOrders = exportOrders;
 window.emailCurrentOrder = emailCurrentOrder;
+window.shareCurrentOrderWhatsApp = shareCurrentOrderWhatsApp;
 
 // Note: Orders module is initialized by app.js via initializePhase2Modules()

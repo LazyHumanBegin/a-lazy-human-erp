@@ -67,6 +67,11 @@ function showProductModal(productId = null) {
         return; // Limit reached, modal shown by canAdd()
     }
     
+    // Ensure HQ branch exists for stock allocation
+    if (typeof ensureDefaultHQExists === 'function') {
+        ensureDefaultHQExists();
+    }
+    
     const modal = document.getElementById('productModal');
     const title = document.getElementById('productModalTitle');
     const form = document.getElementById('productForm');

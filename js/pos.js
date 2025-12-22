@@ -1342,6 +1342,12 @@ function processPayment(event) {
 }
 
 function generateReceiptNumber() {
+    // Use customizable document numbering if available
+    if (typeof generateDocumentNumber === 'function') {
+        return generateDocumentNumber('receipt');
+    }
+    
+    // Fallback to original logic
     const date = new Date();
     const prefix = 'RCP';
     const dateStr = date.toISOString().split('T')[0].replace(/-/g, '');

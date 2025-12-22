@@ -188,6 +188,36 @@ function importFullBackup(file) {
     reader.readAsText(file);
 }
 
+// Fallback function to save data directly to localStorage when tenant not available
+function saveDirectToLocalStorage() {
+    try {
+        console.log('Saving directly to localStorage...');
+        
+        // Save all module data to their respective localStorage keys
+        safeLocalStorageSet('ezcubic_products', window.products || []);
+        safeLocalStorageSet('ezcubic_customers', window.customers || []);
+        safeLocalStorageSet('ezcubic_suppliers', window.suppliers || []);
+        safeLocalStorageSet('ezcubic_crm_customers', window.crmCustomers || []);
+        safeLocalStorageSet('ezcubic_quotations', window.quotations || []);
+        safeLocalStorageSet('ezcubic_projects', window.projects || []);
+        safeLocalStorageSet('ezcubic_stock_movements', window.stockMovements || []);
+        safeLocalStorageSet('ezcubic_branches', window.branches || []);
+        safeLocalStorageSet('ezcubic_branch_transfers', window.branchTransfers || []);
+        safeLocalStorageSet('ezcubic_purchase_orders', window.purchaseOrders || []);
+        safeLocalStorageSet('ezcubic_goods_receipts', window.goodsReceipts || []);
+        safeLocalStorageSet('ezcubic_delivery_orders', window.deliveryOrders || []);
+        safeLocalStorageSet('ezcubic_orders', window.orders || []);
+        safeLocalStorageSet('ezcubic_invoices', window.invoices || []);
+        safeLocalStorageSet('ezcubic_employees', window.employees || []);
+        safeLocalStorageSet('ezcubic_payroll', window.payrollRecords || []);
+        safeLocalStorageSet('ezcubic_sales', window.sales || []);
+        
+        console.log('✅ Data saved directly to localStorage');
+    } catch (error) {
+        console.error('Error saving directly to localStorage:', error);
+    }
+}
+
 function loadData() {
     try {
         // Use safe localStorage getter
@@ -270,6 +300,7 @@ function saveData() {
 }
 
 // Save data to current user's tenant storage
+// CRITICAL: This function now PRESERVES existing tenant data when new data is empty
 function saveToUserTenant() {
     // PROTECTION: Don't save if we're in the middle of switching users
     if (window._isLoadingUserData) {
@@ -279,90 +310,195 @@ function saveToUserTenant() {
     
     const user = window.currentUser;
     if (!user || !user.tenantId) {
-        console.log('saveToUserTenant: No user or tenantId', user?.email, user?.tenantId);
+        console.log('saveToUserTenant: No user or tenantId - saving to localStorage directly');
+        // FALLBACK: Still save to localStorage when no tenant
+        saveDirectToLocalStorage();
         return;
     }
     
     const tenantKey = 'ezcubic_tenant_' + user.tenantId;
     let tenantData = safeLocalStorageGet(tenantKey, {});
     
+    // Helper: Only update if new data has items OR existing is empty
+    // This prevents overwriting good data with empty arrays
+    function smartMerge(existingData, newData, dataName) {
+        const existingLen = Array.isArray(existingData) ? existingData.length : 0;
+        const newLen = Array.isArray(newData) ? newData.length : 0;
+        
+        // If new data has items, use it
+        if (newLen > 0) {
+            return newData;
+        }
+        // If new data is empty but existing has data, KEEP existing
+        if (existingLen > 0) {
+            console.log(`Preserving existing ${dataName}: ${existingLen} items`);
+            return existingData;
+        }
+        // Both empty, return empty array
+        return [];
+    }
+    
     // DEBUG: Log what we're about to save
     console.log('saveToUserTenant DEBUG:', {
         tenantKey: tenantKey,
-        windowCustomers: window.customers?.length,
-        localStorageCustomers: JSON.parse(localStorage.getItem('ezcubic_customers') || '[]').length
+        existingCRMCustomers: tenantData.crmCustomers?.length || 0,
+        existingCustomers: tenantData.customers?.length || 0,
+        existingProducts: tenantData.products?.length || 0,
+        existingBranches: tenantData.branches?.length || 0
     });
     
-    // Update tenant data with ALL current data sources (using safe getters)
-    tenantData.transactions = businessData.transactions || window.transactions || [];
-    tenantData.bills = businessData.bills || [];
-    tenantData.products = window.products || safeLocalStorageGet('ezcubic_products', []);
-    // For customers, check localStorage FIRST since saveCustomers writes there directly
+    // Update tenant data with smart merge - preserves existing when new is empty
+    tenantData.transactions = smartMerge(tenantData.transactions, businessData.transactions || window.transactions, 'transactions');
+    tenantData.bills = smartMerge(tenantData.bills, businessData.bills, 'bills');
+    
+    // Products
+    const localProducts = safeLocalStorageGet('ezcubic_products', []);
+    const newProducts = localProducts.length > 0 ? localProducts : (window.products || []);
+    tenantData.products = smartMerge(tenantData.products, newProducts, 'products');
+    
+    // Customers (regular)
     const localCustomers = safeLocalStorageGet('ezcubic_customers', []);
-    tenantData.customers = (localCustomers.length > 0) ? localCustomers : (window.customers || []);
-    console.log('saveToUserTenant - saving customers:', tenantData.customers?.length);
-    tenantData.stockMovements = window.stockMovements || safeLocalStorageGet('ezcubic_stock_movements', []);
-    tenantData.sales = window.sales || safeLocalStorageGet('ezcubic_sales', []);
-    tenantData.suppliers = window.suppliers || safeLocalStorageGet('ezcubic_suppliers', []);
-    tenantData.branches = window.branches || safeLocalStorageGet('ezcubic_branches', []);
-    tenantData.branchTransfers = window.branchTransfers || safeLocalStorageGet('ezcubic_branch_transfers', []);
-    tenantData.quotations = window.quotations || safeLocalStorageGet('ezcubic_quotations', []);
-    tenantData.projects = window.projects || safeLocalStorageGet('ezcubic_projects', []);
-    tenantData.purchaseOrders = window.purchaseOrders || safeLocalStorageGet('ezcubic_purchase_orders', []);
-    tenantData.goodsReceipts = window.goodsReceipts || safeLocalStorageGet('ezcubic_goods_receipts', []);
+    const newCustomers = localCustomers.length > 0 ? localCustomers : (window.customers || []);
+    tenantData.customers = smartMerge(tenantData.customers, newCustomers, 'customers');
+    
+    // Stock movements
+    const newStockMovements = window.stockMovements || safeLocalStorageGet('ezcubic_stock_movements', []);
+    tenantData.stockMovements = smartMerge(tenantData.stockMovements, newStockMovements, 'stockMovements');
+    
+    // Sales
+    const newSales = window.sales || safeLocalStorageGet('ezcubic_sales', []);
+    tenantData.sales = smartMerge(tenantData.sales, newSales, 'sales');
+    
+    // Suppliers
+    const localSuppliers = safeLocalStorageGet('ezcubic_suppliers', []);
+    const newSuppliers = localSuppliers.length > 0 ? localSuppliers : (window.suppliers || []);
+    tenantData.suppliers = smartMerge(tenantData.suppliers, newSuppliers, 'suppliers');
+    
+    // Branches
+    const newBranches = window.branches || safeLocalStorageGet('ezcubic_branches', []);
+    tenantData.branches = smartMerge(tenantData.branches, newBranches, 'branches');
+    
+    // Branch transfers
+    const newBranchTransfers = window.branchTransfers || safeLocalStorageGet('ezcubic_branch_transfers', []);
+    tenantData.branchTransfers = smartMerge(tenantData.branchTransfers, newBranchTransfers, 'branchTransfers');
+    
+    // Quotations
+    const newQuotations = window.quotations || safeLocalStorageGet('ezcubic_quotations', []);
+    tenantData.quotations = smartMerge(tenantData.quotations, newQuotations, 'quotations');
+    
+    // Projects
+    const newProjects = window.projects || safeLocalStorageGet('ezcubic_projects', []);
+    tenantData.projects = smartMerge(tenantData.projects, newProjects, 'projects');
+    
+    // Purchase orders
+    const newPurchaseOrders = window.purchaseOrders || safeLocalStorageGet('ezcubic_purchase_orders', []);
+    tenantData.purchaseOrders = smartMerge(tenantData.purchaseOrders, newPurchaseOrders, 'purchaseOrders');
+    
+    // Goods receipts
+    const newGoodsReceipts = window.goodsReceipts || safeLocalStorageGet('ezcubic_goods_receipts', []);
+    tenantData.goodsReceipts = smartMerge(tenantData.goodsReceipts, newGoodsReceipts, 'goodsReceipts');
     
     // HR & Payroll data
-    tenantData.employees = window.employees || safeLocalStorageGet('ezcubic_employees', []);
-    tenantData.payrollRecords = window.payrollRecords || safeLocalStorageGet('ezcubic_payroll', []);
-    tenantData.kpiTemplates = window.kpiTemplates || safeLocalStorageGet('ezcubic_kpi_templates', []);
-    tenantData.kpiAssignments = window.kpiAssignments || safeLocalStorageGet('ezcubic_kpi_assignments', []);
-    tenantData.kpiScores = window.kpiScores || safeLocalStorageGet('ezcubic_kpi_scores', []);
-    tenantData.leaveRequests = window.leaveRequests || safeLocalStorageGet('ezcubic_leave_requests', []);
-    tenantData.leaveBalances = window.leaveBalances || safeLocalStorageGet('ezcubic_leave_balances', []);
-    tenantData.attendanceRecords = window.attendanceRecords || safeLocalStorageGet('ezcubic_attendance', []);
+    const newEmployees = window.employees || safeLocalStorageGet('ezcubic_employees', []);
+    tenantData.employees = smartMerge(tenantData.employees, newEmployees, 'employees');
+    
+    const newPayrollRecords = window.payrollRecords || safeLocalStorageGet('ezcubic_payroll', []);
+    tenantData.payrollRecords = smartMerge(tenantData.payrollRecords, newPayrollRecords, 'payrollRecords');
+    
+    const newKpiTemplates = window.kpiTemplates || safeLocalStorageGet('ezcubic_kpi_templates', []);
+    tenantData.kpiTemplates = smartMerge(tenantData.kpiTemplates, newKpiTemplates, 'kpiTemplates');
+    
+    const newKpiAssignments = window.kpiAssignments || safeLocalStorageGet('ezcubic_kpi_assignments', []);
+    tenantData.kpiAssignments = smartMerge(tenantData.kpiAssignments, newKpiAssignments, 'kpiAssignments');
+    
+    const newKpiScores = window.kpiScores || safeLocalStorageGet('ezcubic_kpi_scores', []);
+    tenantData.kpiScores = smartMerge(tenantData.kpiScores, newKpiScores, 'kpiScores');
+    
+    const newLeaveRequests = window.leaveRequests || safeLocalStorageGet('ezcubic_leave_requests', []);
+    tenantData.leaveRequests = smartMerge(tenantData.leaveRequests, newLeaveRequests, 'leaveRequests');
+    
+    const newLeaveBalances = window.leaveBalances || safeLocalStorageGet('ezcubic_leave_balances', []);
+    tenantData.leaveBalances = smartMerge(tenantData.leaveBalances, newLeaveBalances, 'leaveBalances');
+    
+    const newAttendance = window.attendanceRecords || safeLocalStorageGet('ezcubic_attendance', []);
+    tenantData.attendanceRecords = smartMerge(tenantData.attendanceRecords, newAttendance, 'attendanceRecords');
     
     // Accounting & Finance data
-    tenantData.orders = window.orders || safeLocalStorageGet('ezcubic_orders', []);
-    tenantData.invoices = window.invoices || safeLocalStorageGet('ezcubic_invoices', []);
-    tenantData.bankAccounts = window.bankAccounts || safeLocalStorageGet('ezcubic_bank_accounts', []);
-    tenantData.creditCards = window.creditCards || safeLocalStorageGet('ezcubic_credit_cards', []);
-    tenantData.manualBalances = window.manualBalances || safeLocalStorageGet('ezcubic_manual_balances', {});
+    const newOrders = window.orders || safeLocalStorageGet('ezcubic_orders', []);
+    tenantData.orders = smartMerge(tenantData.orders, newOrders, 'orders');
+    
+    const newInvoices = window.invoices || safeLocalStorageGet('ezcubic_invoices', []);
+    tenantData.invoices = smartMerge(tenantData.invoices, newInvoices, 'invoices');
+    
+    const newBankAccounts = window.bankAccounts || safeLocalStorageGet('ezcubic_bank_accounts', []);
+    tenantData.bankAccounts = smartMerge(tenantData.bankAccounts, newBankAccounts, 'bankAccounts');
+    
+    const newCreditCards = window.creditCards || safeLocalStorageGet('ezcubic_credit_cards', []);
+    tenantData.creditCards = smartMerge(tenantData.creditCards, newCreditCards, 'creditCards');
+    
+    // Manual balances (object, not array)
+    const newManualBalances = window.manualBalances || safeLocalStorageGet('ezcubic_manual_balances', {});
+    if (Object.keys(newManualBalances).length > 0 || !tenantData.manualBalances) {
+        tenantData.manualBalances = newManualBalances;
+    }
     
     // POS data
-    tenantData.heldSales = safeLocalStorageGet('ezcubic_held_sales', []);
-    tenantData.posReceipts = safeLocalStorageGet('ezcubic_pos_receipts', []);
+    const newHeldSales = safeLocalStorageGet('ezcubic_held_sales', []);
+    tenantData.heldSales = smartMerge(tenantData.heldSales, newHeldSales, 'heldSales');
     
-    // Inventory (alias for products in some modules)
-    tenantData.inventory = window.products || safeLocalStorageGet('ezcubic_inventory', []);
+    const newPosReceipts = safeLocalStorageGet('ezcubic_pos_receipts', []);
+    tenantData.posReceipts = smartMerge(tenantData.posReceipts, newPosReceipts, 'posReceipts');
+    
+    // Inventory (alias for products)
+    tenantData.inventory = tenantData.products;
     
     // CRM customers (separate from regular customers module)
-    tenantData.crmCustomers = window.crmCustomers || safeLocalStorageGet('ezcubic_crm_customers', []);
+    const localCRMCustomers = safeLocalStorageGet('ezcubic_crm_customers', []);
+    const newCRMCustomers = localCRMCustomers.length > 0 ? localCRMCustomers : (window.crmCustomers || []);
+    tenantData.crmCustomers = smartMerge(tenantData.crmCustomers, newCRMCustomers, 'crmCustomers');
     
-    // Regular customers module
-    tenantData.customers = window.customers || safeLocalStorageGet('ezcubic_customers', []);
-    
-    // E-Invoice settings
-    tenantData.einvoiceSettings = safeLocalStorageGet('ezcubic_einvoice_settings', {});
+    // E-Invoice settings (object)
+    const newEinvoiceSettings = safeLocalStorageGet('ezcubic_einvoice_settings', {});
+    if (Object.keys(newEinvoiceSettings).length > 0 || !tenantData.einvoiceSettings) {
+        tenantData.einvoiceSettings = newEinvoiceSettings;
+    }
     
     // Outlets
-    tenantData.outlets = window.outlets || safeLocalStorageGet('ezcubic_outlets', []);
+    const newOutlets = window.outlets || safeLocalStorageGet('ezcubic_outlets', []);
+    tenantData.outlets = smartMerge(tenantData.outlets, newOutlets, 'outlets');
     
     // Delivery orders
-    tenantData.deliveryOrders = window.deliveryOrders || safeLocalStorageGet('ezcubic_delivery_orders', []);
+    const newDeliveryOrders = window.deliveryOrders || safeLocalStorageGet('ezcubic_delivery_orders', []);
+    tenantData.deliveryOrders = smartMerge(tenantData.deliveryOrders, newDeliveryOrders, 'deliveryOrders');
     
     // Chart of Accounts & Journal Entries
-    tenantData.chartOfAccounts = window.chartOfAccounts || safeLocalStorageGet('ezcubic_chart_of_accounts', []);
-    tenantData.journalEntries = window.journalEntries || safeLocalStorageGet('ezcubic_journal_entries', []);
-    tenantData.journalSequence = safeLocalStorageGet('ezcubic_journal_sequence', { year: new Date().getFullYear(), sequence: 0 });
+    const newChartOfAccounts = window.chartOfAccounts || safeLocalStorageGet('ezcubic_chart_of_accounts', []);
+    tenantData.chartOfAccounts = smartMerge(tenantData.chartOfAccounts, newChartOfAccounts, 'chartOfAccounts');
     
-    // AI state (optional per-tenant)
-    tenantData.aiState = safeLocalStorageGet('ezcubic_ai_state', {});
+    const newJournalEntries = window.journalEntries || safeLocalStorageGet('ezcubic_journal_entries', []);
+    tenantData.journalEntries = smartMerge(tenantData.journalEntries, newJournalEntries, 'journalEntries');
     
-    tenantData.settings = businessData.settings || {};
+    // Journal sequence (object)
+    const newJournalSeq = safeLocalStorageGet('ezcubic_journal_sequence', null);
+    if (newJournalSeq) {
+        tenantData.journalSequence = newJournalSeq;
+    }
+    
+    // AI state (object)
+    const newAiState = safeLocalStorageGet('ezcubic_ai_state', {});
+    if (Object.keys(newAiState).length > 0 || !tenantData.aiState) {
+        tenantData.aiState = newAiState;
+    }
+    
+    // Settings - always update if provided
+    if (businessData.settings && Object.keys(businessData.settings).length > 0) {
+        tenantData.settings = businessData.settings;
+    }
+    
     tenantData.updatedAt = new Date().toISOString();
     
     safeLocalStorageSet(tenantKey, tenantData);
-    console.log('Saved to tenant:', user.tenantId);
+    console.log('Saved to tenant:', user.tenantId, '- CRM:', tenantData.crmCustomers?.length, 'Customers:', tenantData.customers?.length, 'Products:', tenantData.products?.length);
 }
 
 function exportData() {

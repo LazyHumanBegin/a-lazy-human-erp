@@ -16,17 +16,32 @@ function initializeCRM() {
 
 // ==================== CRM DATA MANAGEMENT ====================
 function loadCRMCustomers() {
-    // First check window.crmCustomers (set by tenant data loading)
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.crmCustomers) && tenantData.crmCustomers.length > 0) {
+            crmCustomers = tenantData.crmCustomers;
+            window.crmCustomers = crmCustomers;
+            console.log('✅ CRM loaded from tenant:', crmCustomers.length, 'customers');
+            return;
+        }
+    }
+    
+    // PRIORITY 2: Check window.crmCustomers (set by tenant data loading)
     if (Array.isArray(window.crmCustomers) && window.crmCustomers.length > 0) {
         crmCustomers = window.crmCustomers;
+        console.log('✅ CRM loaded from window:', crmCustomers.length, 'customers');
     } else {
-        // Fall back to localStorage
+        // PRIORITY 3: Fall back to localStorage key
         const stored = localStorage.getItem(CRM_CUSTOMERS_KEY);
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
                 if (Array.isArray(parsed)) {
                     crmCustomers = parsed;
+                    console.log('✅ CRM loaded from localStorage key:', crmCustomers.length, 'customers');
                 }
             } catch (e) {
                 console.error('Error parsing CRM customers from localStorage:', e);
@@ -48,10 +63,18 @@ function saveCRMCustomers() {
     // Update UI stats
     updateCRMStats();
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.crmCustomers = crmCustomers;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ CRM Customers saved directly to tenant:', crmCustomers.length);
     }
+    
+    // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
 // ==================== CRM STATS ====================

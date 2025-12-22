@@ -32,6 +32,9 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    
     <!-- Supabase Cloud Database SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
@@ -200,6 +203,9 @@
                 <button class="nav-btn" onclick="showSection('quotations')">
                     <i class="fas fa-file-invoice"></i> Quotations
                 </button>
+                <button class="nav-btn" onclick="showSection('invoices')">
+                    <i class="fas fa-file-invoice-dollar"></i> Invoices
+                </button>
                 <button class="nav-btn" onclick="showSection('projects')">
                     <i class="fas fa-project-diagram"></i> Projects
                 </button>
@@ -358,6 +364,19 @@
                 <select id="tenantSelector" class="form-control" style="display: none;" onchange="switchTenant(this.value)">
                     <!-- Populated dynamically -->
                 </select>
+                
+                <!-- Quick Actions -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <!-- Global Search -->
+                    <button onclick="openGlobalSearch()" class="btn-icon" title="Search (Ctrl+/)" style="background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; cursor: pointer;">
+                        <i class="fas fa-search" style="color: #64748b;"></i>
+                    </button>
+                    <!-- Dark Mode Toggle -->
+                    <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode" style="background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; cursor: pointer;">
+                        <i class="fas fa-moon" style="color: #64748b;"></i>
+                    </button>
+                </div>
+                
                 <div id="authContainer">
                     <button class="btn-primary" onclick="showLoginPage()">
                         <i class="fas fa-sign-in-alt"></i> Login
@@ -493,9 +512,14 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-boxes"></i> Inventory Management</h2>
-                        <button class="btn-primary" onclick="showProductModal()">
-                            <i class="fas fa-plus"></i> Add Product
-                        </button>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-outline" onclick="exportInventoryToExcel()" title="Export to Excel">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button class="btn-primary" onclick="showProductModal()">
+                                <i class="fas fa-plus"></i> Add Product
+                            </button>
+                        </div>
                     </div>
                     
                     <!-- Inventory Stats -->
@@ -597,9 +621,12 @@
                             </button>
                         </div>
                         
-                        <div class="pos-search">
+                        <div class="pos-search" style="display: flex; gap: 8px;">
                             <input type="text" id="posSearch" placeholder="Search products or scan barcode..." 
-                                   class="form-control" oninput="searchPOSProducts(this.value)">
+                                   class="form-control" oninput="searchPOSProducts(this.value)" style="flex: 1;">
+                            <button class="btn-outline" onclick="openBarcodeScanner(handlePOSBarcode)" title="Scan Barcode" style="padding: 10px 15px;">
+                                <i class="fas fa-barcode"></i>
+                            </button>
                         </div>
                         
                         <!-- Outlet Filter -->
@@ -805,8 +832,14 @@
                     <div class="card-header">
                         <h2><i class="fas fa-clipboard-list"></i> Order Management</h2>
                         <div style="display: flex; gap: 10px;">
-                            <button class="btn-outline" onclick="exportOrders()">
-                                <i class="fas fa-download"></i> Export
+                            <button class="btn-outline" onclick="printTable('ordersTable', 'Orders Report')" title="Print">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            <button class="btn-outline" onclick="exportOrdersToExcel()" title="Export to Excel">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button class="btn-outline" onclick="exportOrdersCSV()" title="Export to CSV">
+                                <i class="fas fa-file-csv"></i> CSV
                             </button>
                         </div>
                     </div>
@@ -849,7 +882,7 @@
                     
                     <!-- Orders Table -->
                     <div class="table-responsive">
-                        <table class="data-table">
+                        <table class="data-table" id="ordersTable">
                             <thead>
                                 <tr>
                                     <th>Receipt #</th>
@@ -1089,7 +1122,13 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-users"></i> HR & Payroll</h2>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                            <button class="btn-outline" onclick="exportEmployeesToExcel()" title="Export Employees">
+                                <i class="fas fa-file-excel"></i> Employees
+                            </button>
+                            <button class="btn-outline" onclick="exportPayrollToExcel()" title="Export Payroll">
+                                <i class="fas fa-file-excel"></i> Payroll
+                            </button>
                             <button class="btn-primary" onclick="showProcessPayrollModal()">
                                 <i class="fas fa-calculator"></i> Process Payroll
                             </button>
@@ -1642,8 +1681,8 @@
                     <div class="card-header">
                         <h2><i class="fas fa-users"></i> Customer Relationship Management</h2>
                         <div style="display: flex; gap: 10px;">
-                            <button class="btn-outline" onclick="exportCustomersCRM()">
-                                <i class="fas fa-download"></i> Export
+                            <button class="btn-outline" onclick="exportCustomersToExcel()" title="Export to Excel">
+                                <i class="fas fa-file-excel"></i> Excel
                             </button>
                             <button class="btn-primary" onclick="showCRMCustomerModal()">
                                 <i class="fas fa-plus"></i> Add Customer
@@ -1775,6 +1814,117 @@
                 </div>
             </div>
             
+            <!-- ==================== INVOICES SECTION ==================== -->
+            <div id="invoices" class="content-section">
+                <div class="content-card full-width">
+                    <div class="card-header">
+                        <h2><i class="fas fa-file-invoice-dollar"></i> Invoices</h2>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-secondary" onclick="showInvoiceTemplateSelector()" title="Choose PDF Template">
+                                <i class="fas fa-palette"></i> Template
+                            </button>
+                            <button class="btn-primary" onclick="showNewInvoiceModal()">
+                                <i class="fas fa-plus"></i> New Invoice
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Invoice Stats -->
+                    <div class="stats-grid" style="margin-bottom: 20px;">
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                                <i class="fas fa-file-invoice"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="invoicesTotalCount">0</div>
+                                <div class="stat-label">Total Invoices</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="invoicesUnpaid">0</div>
+                                <div class="stat-label">Unpaid</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+                                <i class="fas fa-exclamation-triangle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="invoicesOverdue">0</div>
+                                <div class="stat-label">Overdue</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                <i class="fas fa-check-circle"></i>
+                            </div>
+                            <div class="stat-info">
+                                <div class="stat-value" id="invoicesPaid">0</div>
+                                <div class="stat-label">Paid</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Outstanding Summary -->
+                    <div style="display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;">
+                        <div style="background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%); padding: 15px 25px; border-radius: 10px; flex: 1; min-width: 200px;">
+                            <div style="color: #94a3b8; font-size: 12px; margin-bottom: 5px;">Total Invoiced</div>
+                            <div style="color: #f8fafc; font-size: 24px; font-weight: 700;" id="invoicesTotalValue">RM 0.00</div>
+                        </div>
+                        <div style="background: linear-gradient(135deg, #7c2d12 0%, #450a0a 100%); padding: 15px 25px; border-radius: 10px; flex: 1; min-width: 200px;">
+                            <div style="color: #fca5a5; font-size: 12px; margin-bottom: 5px;">Outstanding Amount</div>
+                            <div style="color: #fef2f2; font-size: 24px; font-weight: 700;" id="invoicesOutstanding">RM 0.00</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Invoices Filters -->
+                    <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                        <input type="text" id="invoiceSearch" class="form-control" placeholder="Search invoices..." 
+                               oninput="renderInvoices()" style="flex: 1; min-width: 200px;">
+                        <select id="invoiceStatusFilter" class="form-control" onchange="renderInvoices()" style="width: 130px;">
+                            <option value="">All Status</option>
+                            <option value="unpaid">Unpaid</option>
+                            <option value="partial">Partial</option>
+                            <option value="paid">Paid</option>
+                            <option value="cancelled">Cancelled</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                        <input type="date" id="invoiceDateFrom" class="form-control" onchange="renderInvoices()" style="width: 140px;" title="From Date">
+                        <input type="date" id="invoiceDateTo" class="form-control" onchange="renderInvoices()" style="width: 140px;" title="To Date">
+                    </div>
+                    
+                    <!-- Invoices Table -->
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Invoice #</th>
+                                    <th>Customer</th>
+                                    <th>Date</th>
+                                    <th>Due Date</th>
+                                    <th style="text-align: right;">Total</th>
+                                    <th style="text-align: right;">Outstanding</th>
+                                    <th>Status</th>
+                                    <th style="width: 180px;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="invoicesTableBody">
+                                <tr>
+                                    <td colspan="8" style="text-align: center; padding: 40px; color: #94a3b8;">
+                                        <i class="fas fa-file-invoice" style="font-size: 48px; margin-bottom: 15px; opacity: 0.5;"></i>
+                                        <p>No invoices yet. Click "New Invoice" to create one.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
             <!-- ==================== PROJECTS SECTION ==================== -->
             <div id="projects" class="content-section">
                 <div class="content-card full-width">
@@ -1893,7 +2043,7 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-exchange-alt"></i> All Transactions</h2>
-                        <div style="display: flex; gap: 10px;">
+                        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                             <select id="filterCategory" onchange="filterTransactions()" style="width: 150px;">
                                 <option value="">All Categories</option>
                                 <option value="income">Income</option>
@@ -1901,6 +2051,12 @@
                             </select>
                             <input type="month" id="filterMonth" onchange="filterTransactions()" style="width: 150px;">
                             <button class="btn-secondary" onclick="clearFilters()">Clear Filters</button>
+                            <button class="btn-outline" onclick="exportTransactionsToExcel()" title="Export to Excel">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button class="btn-outline" onclick="exportTransactionsCSV()" title="Export to CSV">
+                                <i class="fas fa-file-csv"></i> CSV
+                            </button>
                         </div>
                     </div>
                     
@@ -2055,9 +2211,14 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-file-invoice-dollar"></i> Bills to Pay (RM)</h2>
-                        <button class="btn-primary" onclick="showAddBillModal()">
-                            <i class="fas fa-plus"></i> Add Bill
-                        </button>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-outline" onclick="exportBillsToExcel()" title="Export to Excel">
+                                <i class="fas fa-file-excel"></i> Excel
+                            </button>
+                            <button class="btn-primary" onclick="showAddBillModal()">
+                                <i class="fas fa-plus"></i> Add Bill
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="tabs">
@@ -2112,9 +2273,17 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-chart-pie"></i> Financial Reports</h2>
-                        <button class="btn-primary" onclick="exportToPDF()">
-                            <i class="fas fa-file-pdf"></i> Export PDF
-                        </button>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn-outline" onclick="showEmailReportModal()" title="Email Daily Report">
+                                <i class="fas fa-envelope"></i> Email Report
+                            </button>
+                            <button class="btn-outline" onclick="exportFullFinancialReport()" title="Export Full Report to Excel">
+                                <i class="fas fa-file-excel"></i> Excel Report
+                            </button>
+                            <button class="btn-primary" onclick="exportToPDF()">
+                                <i class="fas fa-file-pdf"></i> Export PDF
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="reports-container">
@@ -3722,6 +3891,36 @@
                     </div>
                     
                     <div class="transaction-form">
+                        <!-- Company Logo Upload -->
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-image"></i> Company Logo
+                                <span style="font-size: 11px; color: #64748b; margin-left: 5px;">(For quotations, invoices & reports)</span>
+                            </label>
+                            <div style="display: flex; gap: 15px; align-items: center; margin-top: 10px;">
+                                <div id="logoPreviewContainer" style="width: 120px; height: 120px; border: 2px dashed #cbd5e1; border-radius: 12px; 
+                                            display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f8fafc;">
+                                    <img id="logoPreview" src="" alt="Logo" style="max-width: 100%; max-height: 100%; display: none;">
+                                    <span id="logoPlaceholder" style="color: #94a3b8; font-size: 12px; text-align: center;">
+                                        <i class="fas fa-building" style="font-size: 32px; display: block; margin-bottom: 5px;"></i>
+                                        No logo
+                                    </span>
+                                </div>
+                                <div>
+                                    <input type="file" id="companyLogoInput" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+                                    <button type="button" class="btn-secondary" onclick="document.getElementById('companyLogoInput').click()">
+                                        <i class="fas fa-upload"></i> Upload Logo
+                                    </button>
+                                    <button type="button" class="btn-outline" onclick="removeCompanyLogo()" style="margin-left: 5px;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                    <p style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                                        Recommended: 200x200px, PNG or JPG
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="form-group">
                             <label>
                                 Business Name
@@ -3819,6 +4018,40 @@
                                     </ul>
                                 </div>
                                 <input type="date" id="financialYearStart">
+                            </div>
+                        </div>
+                        
+                        <!-- Company Contact Information for Quotations/Invoices -->
+                        <div style="margin: 20px 0; padding: 15px; background: #f8fafc; border-radius: 10px; border: 1px solid #e2e8f0;">
+                            <h4 style="margin: 0 0 15px; color: #334155; font-size: 14px;">
+                                <i class="fas fa-address-card" style="color: #2563eb;"></i> Company Contact Details
+                                <span style="font-size: 11px; color: #64748b; font-weight: normal;">(Shown on quotations & invoices)</span>
+                            </h4>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Business Address</label>
+                                    <textarea id="businessAddress" rows="2" placeholder="123 Jalan ABC, 50000 Kuala Lumpur" style="resize: vertical;"></textarea>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="text" id="businessPhone" placeholder="03-1234 5678">
+                                </div>
+                                <div class="form-group">
+                                    <label>Email Address</label>
+                                    <input type="email" id="businessEmail" placeholder="info@company.com">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Website (Optional)</label>
+                                    <input type="text" id="businessWebsite" placeholder="www.company.com">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bank Account (for payment)</label>
+                                    <input type="text" id="businessBankAccount" placeholder="Maybank 1234-5678-9012">
+                                </div>
                             </div>
                         </div>
                         
@@ -3967,6 +4200,127 @@
                                 <button class="btn-secondary" onclick="showBulkEntryModal()">
                                     <i class="fas fa-edit"></i> Bulk Entry
                                 </button>
+                            </div>
+                        </div>
+
+                        <!-- Document Numbering Section -->
+                        <div style="margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #1a1f35 0%, #0f172a 100%); border-radius: 10px; border: 1px solid #334155;">
+                            <h4 style="margin: 0 0 15px; color: #f8fafc; font-size: 14px; display: flex; align-items: center; justify-content: space-between;">
+                                <span>
+                                    <i class="fas fa-hashtag" style="color: #3b82f6;"></i> Document Numbering
+                                    <span style="font-size: 11px; color: #64748b; font-weight: normal; margin-left: 8px;">(Customize invoice/quotation numbers)</span>
+                                </span>
+                                <i class="fas fa-question-circle" style="color: #60a5fa; cursor: pointer;" 
+                                   onclick="toggleHelpTooltip('docNumberingHelp')" 
+                                   title="Click for more info"></i>
+                            </h4>
+                            <div id="docNumberingHelp" class="help-tooltip-box" style="display: none;">
+                                <div style="color: #60a5fa; font-weight: 600; margin-bottom: 8px;">
+                                    <i class="fas fa-info-circle"></i> Document Numbering
+                                </div>
+                                <p style="color: #e2e8f0; margin: 0 0 8px 0;">Customize how your document numbers are generated:</p>
+                                <ul style="color: #cbd5e1; padding-left: 20px; margin: 0; font-size: 12px;">
+                                    <li><strong>Prefix</strong> - Code at the start (e.g., INV, QUO, RCP)</li>
+                                    <li><strong>Year</strong> - Optionally include year in number</li>
+                                    <li><strong>Sequence</strong> - Auto-incrementing number</li>
+                                </ul>
+                                <div style="color: #10b981; font-size: 11px; margin-top: 8px;">
+                                    Example: INV-2512-0001
+                                </div>
+                            </div>
+
+                            <!-- Global Settings -->
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 15px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 11px; color: #94a3b8;">Separator</label>
+                                    <select id="docNumSeparator" onchange="updateDocNumberPreview()" style="font-size: 13px;">
+                                        <option value="-">Dash (-)</option>
+                                        <option value="/">Slash (/)</option>
+                                        <option value="_">Underscore (_)</option>
+                                        <option value="">None</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 11px; color: #94a3b8;">Year Format</label>
+                                    <select id="docNumYearFormat" onchange="updateDocNumberPreview()" style="font-size: 13px;">
+                                        <option value="YYMM">YYMM (2512)</option>
+                                        <option value="YY">YY (25)</option>
+                                        <option value="YYYY">YYYY (2025)</option>
+                                        <option value="">None</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 11px; color: #94a3b8;">Number Padding</label>
+                                    <select id="docNumPadding" onchange="updateDocNumberPreview()" style="font-size: 13px;">
+                                        <option value="4">4 digits (0001)</option>
+                                        <option value="5">5 digits (00001)</option>
+                                        <option value="6">6 digits (000001)</option>
+                                        <option value="7">7 digits (0000001)</option>
+                                        <option value="8">8 digits (00000001)</option>
+                                        <option value="3">3 digits (001)</option>
+                                        <option value="2">2 digits (01)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label style="font-size: 11px; color: #94a3b8;">Reset Sequence</label>
+                                    <select id="docNumReset" style="font-size: 13px;">
+                                        <option value="never">Never</option>
+                                        <option value="yearly">Yearly</option>
+                                        <option value="monthly">Monthly</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Per-Document Type Settings -->
+                            <div style="background: #0f172a; border-radius: 8px; overflow: hidden;">
+                                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                    <thead>
+                                        <tr style="background: #1e293b;">
+                                            <th style="padding: 10px; text-align: left; color: #94a3b8; font-weight: 500;">Document Type</th>
+                                            <th style="padding: 10px; text-align: center; color: #94a3b8; font-weight: 500; width: 100px;">Prefix</th>
+                                            <th style="padding: 10px; text-align: center; color: #94a3b8; font-weight: 500; width: 100px;">Next #</th>
+                                            <th style="padding: 10px; text-align: left; color: #94a3b8; font-weight: 500;">Preview</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid #1e293b;">
+                                            <td style="padding: 8px 10px; color: #e2e8f0;">📋 Quotation</td>
+                                            <td style="padding: 8px 10px;"><input type="text" id="docPrefixQuotation" value="QUO" onchange="updateDocNumberPreview()" style="width: 70px; text-align: center; padding: 5px; font-size: 12px; text-transform: uppercase;"></td>
+                                            <td style="padding: 8px 10px;"><input type="number" id="docNextQuotation" value="1" min="1" style="width: 70px; text-align: center; padding: 5px; font-size: 12px;" onchange="updateDocNumberPreview()"></td>
+                                            <td style="padding: 8px 10px; color: #10b981; font-family: monospace;" id="previewQuotation">QUO-2512-0001</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #1e293b;">
+                                            <td style="padding: 8px 10px; color: #e2e8f0;">📄 Invoice</td>
+                                            <td style="padding: 8px 10px;"><input type="text" id="docPrefixInvoice" value="INV" onchange="updateDocNumberPreview()" style="width: 70px; text-align: center; padding: 5px; font-size: 12px; text-transform: uppercase;"></td>
+                                            <td style="padding: 8px 10px;"><input type="number" id="docNextInvoice" value="1" min="1" style="width: 70px; text-align: center; padding: 5px; font-size: 12px;" onchange="updateDocNumberPreview()"></td>
+                                            <td style="padding: 8px 10px; color: #10b981; font-family: monospace;" id="previewInvoice">INV-2512-0001</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #1e293b;">
+                                            <td style="padding: 8px 10px; color: #e2e8f0;">🧾 Receipt (POS)</td>
+                                            <td style="padding: 8px 10px;"><input type="text" id="docPrefixReceipt" value="RCP" onchange="updateDocNumberPreview()" style="width: 70px; text-align: center; padding: 5px; font-size: 12px; text-transform: uppercase;"></td>
+                                            <td style="padding: 8px 10px;"><input type="number" id="docNextReceipt" value="1" min="1" style="width: 70px; text-align: center; padding: 5px; font-size: 12px;" onchange="updateDocNumberPreview()"></td>
+                                            <td style="padding: 8px 10px; color: #10b981; font-family: monospace;" id="previewReceipt">RCP-2512-0001</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #1e293b;">
+                                            <td style="padding: 8px 10px; color: #e2e8f0;">📦 Purchase Order</td>
+                                            <td style="padding: 8px 10px;"><input type="text" id="docPrefixPurchaseOrder" value="PO" onchange="updateDocNumberPreview()" style="width: 70px; text-align: center; padding: 5px; font-size: 12px; text-transform: uppercase;"></td>
+                                            <td style="padding: 8px 10px;"><input type="number" id="docNextPurchaseOrder" value="1" min="1" style="width: 70px; text-align: center; padding: 5px; font-size: 12px;" onchange="updateDocNumberPreview()"></td>
+                                            <td style="padding: 8px 10px; color: #10b981; font-family: monospace;" id="previewPurchaseOrder">PO-2512-0001</td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #1e293b;">
+                                            <td style="padding: 8px 10px; color: #e2e8f0;">🚚 Delivery Order</td>
+                                            <td style="padding: 8px 10px;"><input type="text" id="docPrefixDeliveryOrder" value="DO" onchange="updateDocNumberPreview()" style="width: 70px; text-align: center; padding: 5px; font-size: 12px; text-transform: uppercase;"></td>
+                                            <td style="padding: 8px 10px;"><input type="number" id="docNextDeliveryOrder" value="1" min="1" style="width: 70px; text-align: center; padding: 5px; font-size: 12px;" onchange="updateDocNumberPreview()"></td>
+                                            <td style="padding: 8px 10px; color: #10b981; font-family: monospace;" id="previewDeliveryOrder">DO-2512-0001</td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 8px 10px; color: #e2e8f0;">📝 Sales Order</td>
+                                            <td style="padding: 8px 10px;"><input type="text" id="docPrefixSalesOrder" value="SO" onchange="updateDocNumberPreview()" style="width: 70px; text-align: center; padding: 5px; font-size: 12px; text-transform: uppercase;"></td>
+                                            <td style="padding: 8px 10px;"><input type="number" id="docNextSalesOrder" value="1" min="1" style="width: 70px; text-align: center; padding: 5px; font-size: 12px;" onchange="updateDocNumberPreview()"></td>
+                                            <td style="padding: 8px 10px; color: #10b981; font-family: monospace;" id="previewSalesOrder">SO-2512-0001</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
@@ -4881,6 +5235,228 @@
             <div id="quotationDetailContent" style="padding: 20px; max-height: 75vh; overflow-y: auto;">
                 <!-- Quotation details will be loaded here -->
             </div>
+        </div>
+    </div>
+    
+    <!-- ==================== INVOICE MODAL ==================== -->
+    <div class="modal" id="invoiceModal">
+        <div class="modal-content" style="max-width: 850px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="invoiceModalTitle">New Invoice</h3>
+                <button class="modal-close" onclick="closeInvoiceModal()">&times;</button>
+            </div>
+            <form id="invoiceForm" onsubmit="saveInvoice(event)">
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Invoice Number</label>
+                            <input type="text" id="invoiceNo" class="form-control" readonly style="background: #f1f5f9;">
+                        </div>
+                        <div class="form-group">
+                            <label>Invoice Date</label>
+                            <input type="date" id="invoiceDate" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Due Date</label>
+                            <input type="date" id="invoiceDueDate" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>Customer</label>
+                            <select id="invoiceCustomer" class="form-control">
+                                <option value="">-- Select Customer --</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select id="invoiceStatus" class="form-control">
+                                <option value="draft">Draft</option>
+                                <option value="unpaid" selected>Unpaid</option>
+                                <option value="paid">Paid</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Description / Reference</label>
+                        <input type="text" id="invoiceDescription" class="form-control" placeholder="e.g., Monthly Retainer - December 2025">
+                    </div>
+                    
+                    <!-- Invoice Items -->
+                    <div style="margin: 15px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <label style="font-weight: 600;"><i class="fas fa-list"></i> Invoice Items</label>
+                            <button type="button" class="btn-secondary btn-sm" onclick="addInvoiceItem()">
+                                <i class="fas fa-plus"></i> Add Item
+                            </button>
+                        </div>
+                        
+                        <div class="invoice-items-header" style="display: grid; grid-template-columns: 2fr 80px 120px 120px 40px; gap: 10px; padding: 8px 10px; background: #1e293b; color: white; border-radius: 6px 6px 0 0; font-size: 12px; font-weight: 600;">
+                            <div>Description</div>
+                            <div style="text-align: center;">Qty</div>
+                            <div style="text-align: right;">Unit Price</div>
+                            <div style="text-align: right;">Amount</div>
+                            <div></div>
+                        </div>
+                        <div id="invoiceItemsContainer" style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 6px 6px;">
+                            <!-- Items will be added here -->
+                        </div>
+                    </div>
+                    
+                    <!-- Totals -->
+                    <div style="display: flex; justify-content: flex-end; margin: 15px 0;">
+                        <div style="width: 280px; background: #f8fafc; padding: 15px; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px;">
+                                <span>Subtotal:</span>
+                                <span id="invoiceSubtotal">RM 0.00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; align-items: center;">
+                                <span>Tax: <input type="number" id="invoiceTaxRate" value="0" min="0" max="100" step="1" style="width: 50px; padding: 2px 5px; text-align: center;" onchange="updateInvoiceTotals()">%</span>
+                                <span id="invoiceTax">RM 0.00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding: 10px 0; font-size: 18px; font-weight: 700; border-top: 2px solid #cbd5e1; margin-top: 5px;">
+                                <span>Total:</span>
+                                <span id="invoiceTotal" style="color: #2563eb;">RM 0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Notes & Terms -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Notes (visible to customer)</label>
+                            <textarea id="invoiceNotes" class="form-control" rows="2" placeholder="Any additional notes..."></textarea>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Terms & Conditions</label>
+                        <textarea id="invoiceTerms" class="form-control" rows="2">Payment due within 30 days of invoice date.</textarea>
+                    </div>
+                    
+                    <!-- Recurring Options -->
+                    <div style="margin-top: 15px; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 8px; border: 1px solid #bae6fd;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-bottom: 10px;">
+                            <input type="checkbox" id="invoiceRecurring" onchange="toggleRecurringInvoiceOptions()" style="width: 18px; height: 18px; accent-color: #0369a1; flex-shrink: 0;">
+                            <span style="font-weight: 600; color: #0369a1;"><i class="fas fa-redo" style="margin-right: 6px;"></i>Make this a recurring invoice</span>
+                        </label>
+                        <div id="recurringInvoiceOptions" style="display: none; margin-top: 10px;">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Frequency</label>
+                                    <select id="invoiceRecurringFrequency" class="form-control">
+                                        <option value="weekly">Weekly</option>
+                                        <option value="monthly" selected>Monthly</option>
+                                        <option value="quarterly">Quarterly</option>
+                                        <option value="yearly">Yearly</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>End Date (optional)</label>
+                                    <input type="date" id="invoiceRecurringEnd" class="form-control">
+                                </div>
+                            </div>
+                            <p style="font-size: 12px; color: #64748b; margin: 5px 0 0;">
+                                <i class="fas fa-info-circle"></i> A new invoice will be auto-generated based on this template.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeInvoiceModal()">Cancel</button>
+                    <button type="submit" class="btn-primary"><i class="fas fa-save"></i> Save Invoice</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- ==================== VIEW INVOICE MODAL ==================== -->
+    <div class="modal" id="viewInvoiceModal">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Invoice Details</h3>
+                <button class="modal-close" onclick="closeViewInvoiceModal()">&times;</button>
+            </div>
+            <input type="hidden" id="viewInvoiceId">
+            <div id="viewInvoiceContent" style="padding: 20px; max-height: 70vh; overflow-y: auto;">
+                <!-- Invoice preview will be loaded here -->
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap;">
+                <button type="button" class="btn-secondary" onclick="showInvoiceTemplateSelector()" title="Choose Template">
+                    <i class="fas fa-palette"></i> Template
+                </button>
+                <button type="button" class="btn-secondary" onclick="editInvoice(document.getElementById('viewInvoiceId').value); closeViewInvoiceModal();">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button type="button" class="btn-secondary" onclick="recordPayment(document.getElementById('viewInvoiceId').value); closeViewInvoiceModal();">
+                    <i class="fas fa-money-bill-wave"></i> Record Payment
+                </button>
+                <button type="button" class="btn-primary" onclick="generateInvoicePDF(document.getElementById('viewInvoiceId').value)">
+                    <i class="fas fa-file-pdf"></i> Generate PDF
+                </button>
+                <button type="button" class="btn-secondary" style="color: #3b82f6;" onclick="sendInvoiceEmail(document.getElementById('viewInvoiceId').value)" title="Send via Email">
+                    <i class="fas fa-envelope"></i>
+                </button>
+                <button type="button" class="btn-secondary" style="color: #25d366;" onclick="sendInvoiceWhatsApp(document.getElementById('viewInvoiceId').value)" title="Send via WhatsApp">
+                    <i class="fab fa-whatsapp"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ==================== PAYMENT MODAL ==================== -->
+    <div class="modal" id="paymentModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fas fa-money-bill-wave"></i> Record Payment</h3>
+                <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <form onsubmit="savePayment(event)">
+                <input type="hidden" id="paymentInvoiceId">
+                <div class="modal-body">
+                    <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; margin-bottom: 20px; text-align: center;">
+                        <div style="color: #166534; font-size: 14px;">Invoice: <strong id="paymentInvoiceNo"></strong></div>
+                        <div style="color: #166534; font-size: 24px; font-weight: 700; margin-top: 5px;">Outstanding: <span id="paymentOutstanding"></span></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Payment Amount (RM)</label>
+                        <input type="number" id="paymentAmount" class="form-control" step="0.01" min="0.01" required style="font-size: 18px; font-weight: 600;">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Payment Date</label>
+                            <input type="date" id="paymentDate" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Payment Method</label>
+                            <select id="paymentMethod" class="form-control">
+                                <option value="bank">Bank Transfer</option>
+                                <option value="cash">Cash</option>
+                                <option value="card">Credit/Debit Card</option>
+                                <option value="ewallet">E-Wallet</option>
+                                <option value="cheque">Cheque</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Reference / Transaction ID</label>
+                        <input type="text" id="paymentReference" class="form-control" placeholder="e.g., TRX123456">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Notes</label>
+                        <textarea id="paymentNotes" class="form-control" rows="2" placeholder="Optional notes"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="background: #10b981;"><i class="fas fa-check"></i> Record Payment</button>
+                </div>
+            </form>
         </div>
     </div>
     
@@ -5892,7 +6468,7 @@
 
     <!-- Modular JavaScript Files - v2.1.5 -->
     <script src="js/core.js?v=1766071463"></script>
-    <script src="js/data.js?v=1766071463"></script>
+    <script src="js/data.js?v=1766400015"></script>
     <script src="js/ui.js?v=1766071463"></script>
     <script src="js/transactions.js?v=1766071463"></script>
     <script src="js/dashboard.js?v=1766071463"></script>
@@ -5911,14 +6487,15 @@
     <script src="js/aging-reports.js?v=1766071463"></script>
     
     <!-- Phase 2: Operational Core -->
-    <script src="js/inventory-new.js"></script>
-    <script src="js/stock.js?v=1766071463"></script>
+    <script src="js/inventory-new.js?v=1766400018"></script>
+    <script src="js/stock.js?v=1766400013"></script>
     <script src="js/pos.js?v=1766071463"></script>
     <script src="js/orders.js?v=1766071463"></script>
-    <script src="js/customers.js?v=1766071463"></script>
-    <script src="js/crm.js?v=1766071463"></script>
-    <script src="js/suppliers.js?v=1766071463"></script>
-    <script src="js/quotations.js?v=1766071463"></script>
+    <script src="js/customers.js?v=1766400013"></script>
+    <script src="js/crm.js?v=1766400013"></script>
+    <script src="js/suppliers.js?v=1766400013"></script>
+    <script src="js/quotations.js?v=1766400013"></script>
+    <script src="js/invoices.js?v=1766500000"></script>
     <script src="js/projects.js?v=1766071463"></script>
     <!-- Phase 3: HR & Payroll -->
     <script src="js/payroll.js?v=1766071463"></script>
@@ -5934,6 +6511,12 @@
     <!-- Backup & Restore -->
     <script src="js/backup.js?v=1766071463"></script>
     
+    <!-- Excel Export -->
+    <script src="js/excel-export.js?v=1766071463"></script>
+    
+    <!-- Add-ons (Safe Features) -->
+    <script src="js/addons.js?v=1766400003"></script>
+    
     <!-- Bank Reconciliation -->
     <script src="js/bank-reconciliation.js?v=1766071463"></script>
     
@@ -5941,11 +6524,11 @@
     <script src="js/lhdn-export.js?v=1766071463"></script>
     
     <!-- Phase 5: Multi-Branch -->
-    <script src="js/branches.js?v=1766071463"></script>
+    <script src="js/branches.js?v=1766400015"></script>
     
     <!-- Phase 6: Multi-Tenant & User Management -->
     <script src="js/multi-tenant.js?v=1766071463"></script>
-    <script src="js/users.js?v=1766071468"></script>
+    <script src="js/users.js?v=1766400013"></script>
     <script src="js/platform-control.js?v=1766071469"></script>
     
     <!-- Cloud Database (Supabase) -->
@@ -5955,7 +6538,7 @@
     <!-- Audit Log (System Tracking) -->
     <script src="js/audit-log.js?v=1766071463"></script>
     
-    <script src="js/app.js?v=1766071463"></script>
+    <script src="js/app.js?v=1766400017"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>
@@ -5992,14 +6575,20 @@
             e.preventDefault();
             deferredPrompt = e;
             
-            // Show install button after a delay (don't be too aggressive)
+            // Check if on mobile/tablet - show earlier
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const delay = isMobile ? 3000 : 30000; // 3 seconds on mobile, 30 on desktop
+            
             setTimeout(() => {
                 showPWAInstallPrompt();
-            }, 30000); // 30 seconds
+            }, delay);
         });
         
         function showPWAInstallPrompt() {
             if (!deferredPrompt) return;
+            
+            // Check if already dismissed permanently
+            if (localStorage.getItem('pwa_prompt_dismissed')) return;
             
             // Check if already shown this session
             if (sessionStorage.getItem('pwa_prompt_shown')) return;
@@ -6009,24 +6598,39 @@
             const banner = document.createElement('div');
             banner.id = 'pwaInstallBanner';
             banner.innerHTML = `
-                <div style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
-                            background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; 
-                            padding: 15px 25px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-                            display: flex; align-items: center; gap: 15px; z-index: 99999; max-width: 90%;">
-                    <i class="fas fa-download" style="font-size: 24px;"></i>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 600;">Install A Lazy Human App</div>
-                        <div style="font-size: 12px; opacity: 0.9;">Add to home screen for quick access</div>
+                <div style="position: fixed; bottom: 0; left: 0; right: 0; 
+                            background: linear-gradient(135deg, #1e40af, #1d4ed8); color: white; 
+                            padding: 16px 20px; box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+                            display: flex; align-items: center; gap: 15px; z-index: 99999;
+                            animation: slideUp 0.3s ease-out;">
+                    <div style="width: 48px; height: 48px; background: white; border-radius: 12px; 
+                                display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <img src="images/icon-192.png" alt="App" style="width: 36px; height: 36px; border-radius: 8px;">
                     </div>
-                    <button onclick="installPWA()" style="background: white; color: #2563eb; border: none; 
-                            padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 700; font-size: 16px;">Install A Lazy Human</div>
+                        <div style="font-size: 13px; opacity: 0.9;">Add to home screen for quick access</div>
+                    </div>
+                    <button onclick="installPWA()" style="background: white; color: #1e40af; border: none; 
+                            padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; 
+                            font-size: 14px; white-space: nowrap;">
                         Install
                     </button>
-                    <button onclick="dismissPWABanner()" style="background: transparent; border: none; 
-                            color: white; cursor: pointer; padding: 5px;">
-                        <i class="fas fa-times"></i>
+                    <button onclick="dismissPWABanner(false)" style="background: transparent; border: none; 
+                            color: white; cursor: pointer; padding: 8px; opacity: 0.8;">
+                        <i class="fas fa-times" style="font-size: 18px;"></i>
                     </button>
                 </div>
+                <style>
+                    @keyframes slideUp {
+                        from { transform: translateY(100%); }
+                        to { transform: translateY(0); }
+                    }
+                    @keyframes slideDown {
+                        from { transform: translateY(0); }
+                        to { transform: translateY(100%); }
+                    }
+                </style>
             `;
             document.body.appendChild(banner);
         }
@@ -6038,18 +6642,27 @@
             deferredPrompt.userChoice.then((choiceResult) => {
                 if (choiceResult.outcome === 'accepted') {
                     console.log('✅ PWA: User accepted install prompt');
-                    if (typeof showToast === 'function') {
-                        showToast('A Lazy Human installed! Check your home screen.', 'success');
-                    }
+                    showNotification('A Lazy Human installed! Check your home screen.', 'success');
                 }
                 deferredPrompt = null;
-                dismissPWABanner();
+                dismissPWABanner(true);
             });
         }
         
-        function dismissPWABanner() {
+        function dismissPWABanner(permanent) {
             const banner = document.getElementById('pwaInstallBanner');
-            if (banner) banner.remove();
+            if (banner) {
+                banner.style.animation = 'slideDown 0.3s ease-out forwards';
+                setTimeout(() => banner.remove(), 300);
+            }
+            // If user dismisses 3 times, don't show again
+            if (!permanent) {
+                const dismissCount = parseInt(localStorage.getItem('pwa_dismiss_count') || '0') + 1;
+                localStorage.setItem('pwa_dismiss_count', dismissCount);
+                if (dismissCount >= 3) {
+                    localStorage.setItem('pwa_prompt_dismissed', 'true');
+                }
+            }
         }
         
         // Detect if running as installed PWA

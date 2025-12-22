@@ -199,6 +199,12 @@ function closePurchaseOrderModal() {
 }
 
 function generatePONumber() {
+    // Use customizable document numbering if available
+    if (typeof generateDocumentNumber === 'function') {
+        return generateDocumentNumber('purchaseorder');
+    }
+    
+    // Fallback to original logic
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
     const month = (date.getMonth() + 1).toString().padStart(2, '0');

@@ -10,17 +10,33 @@ function initializeCustomers() {
 }
 
 function loadCustomers() {
-    // First check window.customers (set by tenant data loading)
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.customers) && tenantData.customers.length > 0) {
+            customers = tenantData.customers;
+            window.customers = customers;
+            console.log('✅ Customers loaded from tenant:', customers.length);
+            renderCustomers();
+            return;
+        }
+    }
+    
+    // PRIORITY 2: Check window.customers (set by tenant data loading)
     if (Array.isArray(window.customers) && window.customers.length > 0) {
         customers = window.customers;
+        console.log('✅ Customers loaded from window:', customers.length);
     } else {
-        // Fall back to localStorage
+        // PRIORITY 3: Fall back to localStorage key
         const stored = localStorage.getItem(CUSTOMERS_KEY);
         if (stored) {
             try {
                 const parsed = JSON.parse(stored);
                 if (Array.isArray(parsed)) {
                     customers = parsed;
+                    console.log('✅ Customers loaded from localStorage key:', customers.length);
                 }
             } catch (e) {
                 console.error('Error parsing customers from localStorage:', e);
@@ -43,10 +59,18 @@ function saveCustomers() {
     // Update UI stats
     updateCustomerStats();
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    // DIRECT tenant save - don't rely on saveToUserTenant
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.customers = customers;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Customers saved directly to tenant:', customers.length);
     }
+    
+    // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
 // ==================== CUSTOMER MODAL ====================

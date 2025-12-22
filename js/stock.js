@@ -12,20 +12,50 @@ function initializeStock() {
 }
 
 function loadStockMovements() {
-    const stored = localStorage.getItem(STOCK_MOVEMENTS_KEY);
-    if (stored) {
-        stockMovements = JSON.parse(stored);
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.stockMovements) && tenantData.stockMovements.length > 0) {
+            stockMovements = tenantData.stockMovements;
+            window.stockMovements = stockMovements;
+            console.log('✅ Stock movements loaded from tenant:', stockMovements.length);
+            return;
+        }
     }
+    
+    // PRIORITY 2: Check window.stockMovements
+    if (Array.isArray(window.stockMovements) && window.stockMovements.length > 0) {
+        stockMovements = window.stockMovements;
+        console.log('✅ Stock movements loaded from window:', stockMovements.length);
+    } else {
+        // PRIORITY 3: Load from localStorage
+        const stored = localStorage.getItem(STOCK_MOVEMENTS_KEY);
+        if (stored) {
+            stockMovements = JSON.parse(stored);
+            console.log('✅ Stock movements loaded from localStorage key:', stockMovements.length);
+        }
+    }
+    window.stockMovements = stockMovements;
 }
 
 function saveStockMovements() {
     localStorage.setItem(STOCK_MOVEMENTS_KEY, JSON.stringify(stockMovements));
+    window.stockMovements = stockMovements;
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        window.stockMovements = stockMovements;
-        saveToUserTenant();
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.stockMovements = stockMovements;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Stock movements saved directly to tenant:', stockMovements.length);
     }
+    
+    // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
 // ==================== STOCK ADJUSTMENT MODAL ====================

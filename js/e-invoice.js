@@ -1166,9 +1166,14 @@ async function generateDemoInvoice() {
         const tax = subtotal * taxRate;
         const total = subtotal + tax;
         
-        // Generate invoice number
+        // Generate invoice number using customizable document numbering if available
         const date = new Date();
-        const invNum = `INV${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${Math.floor(Math.random() * 9000 + 1000)}`;
+        let invNum;
+        if (typeof generateDocumentNumber === 'function') {
+            invNum = generateDocumentNumber('invoice');
+        } else {
+            invNum = `INV${date.getFullYear()}${(date.getMonth() + 1).toString().padStart(2, '0')}${Math.floor(Math.random() * 9000 + 1000)}`;
+        }
         
         // Create demo invoice object
         const demoInvoice = {

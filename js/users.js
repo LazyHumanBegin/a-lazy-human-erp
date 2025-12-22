@@ -130,10 +130,12 @@ const ERP_MODULE_CATEGORIES = [
         modules: [
             { id: 'pos', name: 'Point of Sale', icon: 'fa-cash-register' },
             { id: 'quotations', name: 'Quotations', icon: 'fa-file-alt' },
+            { id: 'invoices', name: 'Invoices', icon: 'fa-file-invoice-dollar' },
             { id: 'orders', name: 'Orders', icon: 'fa-shopping-cart' },
             { id: 'crm', name: 'CRM / Customers', icon: 'fa-users' },
             { id: 'einvoice', name: 'e-Invoice', icon: 'fa-file-invoice-dollar' },
-            { id: 'email-invoice', name: 'Email Invoice/Receipt', icon: 'fa-envelope' }
+            { id: 'email-invoice', name: 'Invoice/Receipt', icon: 'fa-envelope' },
+            { id: 'customers', name: 'Customers', icon: 'fa-address-book' }
         ]
     },
     {
@@ -143,7 +145,8 @@ const ERP_MODULE_CATEGORIES = [
         color: '#f59e0b',
         modules: [
             { id: 'inventory', name: 'Inventory', icon: 'fa-boxes' },
-            { id: 'stock', name: 'Stock Management', icon: 'fa-warehouse' }
+            { id: 'stock', name: 'Stock Control', icon: 'fa-warehouse' },
+            { id: 'products', name: 'Products', icon: 'fa-box' }
         ]
     },
     {
@@ -923,6 +926,14 @@ function loadUserTenantData(user) {
     // Set flag to prevent saveData from overwriting tenant data during load
     window._isLoadingUserData = true;
     
+    // SAFETY: Ensure flag is cleared after 5 seconds max (in case of errors)
+    setTimeout(() => {
+        if (window._isLoadingUserData) {
+            console.warn('⚠️ _isLoadingUserData flag was stuck, clearing it');
+            window._isLoadingUserData = false;
+        }
+    }, 5000);
+    
     if (!user || !user.tenantId) {
         console.log('No tenant ID for user, creating new tenant...');
         // Create tenant for existing user without one
@@ -936,69 +947,121 @@ function loadUserTenantData(user) {
         return;
     }
     
-    // CRITICAL: Reset ALL data first to prevent data leakage between accounts
-    resetToEmptyData();
+    // Check if we're loading the SAME tenant (page refresh) vs DIFFERENT tenant (user switch)
+    const lastLoadedTenant = localStorage.getItem('ezcubic_last_tenant_id');
+    const isSameTenant = lastLoadedTenant === user.tenantId;
+    
+    // Store current tenant ID for future comparisons
+    localStorage.setItem('ezcubic_last_tenant_id', user.tenantId);
     
     const tenantKey = 'ezcubic_tenant_' + user.tenantId;
     const tenantData = JSON.parse(localStorage.getItem(tenantKey) || 'null');
     
     console.log('Loading tenant data from key:', tenantKey);
+    console.log('Is same tenant (page refresh):', isSameTenant);
     console.log('Tenant data found:', tenantData ? 'Yes' : 'No');
     if (tenantData) {
-        console.log('Tenant data transactions:', tenantData.transactions?.length || 0);
         console.log('Tenant data products:', tenantData.products?.length || 0);
+        console.log('Tenant data customers:', tenantData.customers?.length || 0);
+        console.log('Tenant data CRM customers:', tenantData.crmCustomers?.length || 0);
+        console.log('Tenant data suppliers:', tenantData.suppliers?.length || 0);
+        console.log('Tenant data quotations:', tenantData.quotations?.length || 0);
+    }
+    
+    // ONLY reset data if switching to a DIFFERENT tenant
+    // If same tenant (page refresh), preserve localStorage data
+    if (!isSameTenant) {
+        console.log('Different tenant - resetting data');
+        resetToEmptyData();
+    } else {
+        console.log('Same tenant (page refresh) - preserving localStorage, only resetting window arrays');
+        // Just reset window arrays but NOT localStorage
+        resetWindowArraysOnly();
     }
     
     if (tenantData) {
         console.log('Loading tenant data for:', user.tenantId);
         
-        // Map tenant data to global businessData
+        // SMART MERGE: For page refresh, localStorage might have newer data
+        // Prefer localStorage if it has more items than tenant data
+        const mergeWithLocalStorage = (tenantArray, localStorageKey) => {
+            const localData = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
+            const tenantLen = (tenantArray || []).length;
+            const localLen = localData.length;
+            // If localStorage has more data OR tenant is empty, use localStorage
+            if (localLen > tenantLen || tenantLen === 0) {
+                console.log(`Using localStorage for ${localStorageKey}: ${localLen} items (tenant had ${tenantLen})`);
+                return localData;
+            }
+            return tenantArray || [];
+        };
+        
+        // Get merged data - prefer localStorage when it has more items
+        const mergedProducts = mergeWithLocalStorage(tenantData.products, 'ezcubic_products');
+        const mergedCustomers = mergeWithLocalStorage(tenantData.customers, 'ezcubic_customers');
+        const mergedSuppliers = mergeWithLocalStorage(tenantData.suppliers, 'ezcubic_suppliers');
+        const mergedBranches = mergeWithLocalStorage(tenantData.branches, 'ezcubic_branches');
+        const mergedQuotations = mergeWithLocalStorage(tenantData.quotations, 'ezcubic_quotations');
+        const mergedProjects = mergeWithLocalStorage(tenantData.projects, 'ezcubic_projects');
+        const mergedCRMCustomers = mergeWithLocalStorage(tenantData.crmCustomers, 'ezcubic_crm_customers');
+        const mergedEmployees = mergeWithLocalStorage(tenantData.employees, 'ezcubic_employees');
+        const mergedStockMovements = mergeWithLocalStorage(tenantData.stockMovements, 'ezcubic_stock_movements');
+        const mergedSales = mergeWithLocalStorage(tenantData.sales, 'ezcubic_sales');
+        const mergedOrders = mergeWithLocalStorage(tenantData.orders, 'ezcubic_orders');
+        const mergedPurchaseOrders = mergeWithLocalStorage(tenantData.purchaseOrders, 'ezcubic_purchase_orders');
+        
+        // Map merged data to global businessData
         if (typeof businessData !== 'undefined') {
             businessData.transactions = tenantData.transactions || [];
             businessData.bills = tenantData.bills || [];
-            businessData.products = tenantData.products || [];
-            businessData.customers = tenantData.customers || [];
-            businessData.stockMovements = tenantData.stockMovements || [];
-            businessData.sales = tenantData.sales || [];
-            businessData.suppliers = tenantData.suppliers || [];
-            businessData.branches = tenantData.branches || [];
-            businessData.quotations = tenantData.quotations || [];
-            businessData.projects = tenantData.projects || [];
-            businessData.purchaseOrders = tenantData.purchaseOrders || [];
+            businessData.products = mergedProducts;
+            businessData.customers = mergedCustomers;
+            businessData.stockMovements = mergedStockMovements;
+            businessData.sales = mergedSales;
+            businessData.suppliers = mergedSuppliers;
+            businessData.branches = mergedBranches;
+            businessData.quotations = mergedQuotations;
+            businessData.projects = mergedProjects;
+            businessData.purchaseOrders = mergedPurchaseOrders;
             businessData.deliveryOrders = tenantData.deliveryOrders || [];
             if (tenantData.settings) {
                 businessData.settings = { ...getDefaultSettings(), ...tenantData.settings };
             }
         }
         
-        // Update global arrays
-        window.products = tenantData.products || [];
-        window.customers = tenantData.customers || [];
-        window.stockMovements = tenantData.stockMovements || [];
-        window.sales = tenantData.sales || [];
+        // Update global arrays with merged data
+        window.products = mergedProducts;
+        window.customers = mergedCustomers;
+        window.stockMovements = mergedStockMovements;
+        window.sales = mergedSales;
         window.transactions = tenantData.transactions || [];
-        window.suppliers = tenantData.suppliers || [];
-        window.branches = tenantData.branches || [];
+        window.suppliers = mergedSuppliers;
+        window.branches = mergedBranches;
         window.branchTransfers = tenantData.branchTransfers || [];
-        window.quotations = tenantData.quotations || [];
-        window.projects = tenantData.projects || [];
-        window.purchaseOrders = tenantData.purchaseOrders || [];
+        window.quotations = mergedQuotations;
+        window.projects = mergedProjects;
+        window.purchaseOrders = mergedPurchaseOrders;
         window.goodsReceipts = tenantData.goodsReceipts || [];
         window.deliveryOrders = tenantData.deliveryOrders || [];
+        window.crmCustomers = mergedCRMCustomers;
+        window.employees = mergedEmployees;
+        window.orders = mergedOrders;
         
         // Also update local module variables directly
-        if (typeof products !== 'undefined') products = tenantData.products || [];
-        if (typeof customers !== 'undefined') customers = tenantData.customers || [];
-        if (typeof stockMovements !== 'undefined') stockMovements = tenantData.stockMovements || [];
-        if (typeof sales !== 'undefined') sales = tenantData.sales || [];
-        if (typeof suppliers !== 'undefined') suppliers = tenantData.suppliers || [];
-        if (typeof branches !== 'undefined') branches = tenantData.branches || [];
+        if (typeof products !== 'undefined') products = mergedProducts;
+        if (typeof customers !== 'undefined') customers = mergedCustomers;
+        if (typeof stockMovements !== 'undefined') stockMovements = mergedStockMovements;
+        if (typeof sales !== 'undefined') sales = mergedSales;
+        if (typeof suppliers !== 'undefined') suppliers = mergedSuppliers;
+        if (typeof branches !== 'undefined') branches = mergedBranches;
         if (typeof branchTransfers !== 'undefined') branchTransfers = tenantData.branchTransfers || [];
-        if (typeof quotations !== 'undefined') quotations = tenantData.quotations || [];
-        if (typeof projects !== 'undefined') projects = tenantData.projects || [];
-        if (typeof purchaseOrders !== 'undefined') purchaseOrders = tenantData.purchaseOrders || [];
+        if (typeof quotations !== 'undefined') quotations = mergedQuotations;
+        if (typeof projects !== 'undefined') projects = mergedProjects;
+        if (typeof purchaseOrders !== 'undefined') purchaseOrders = mergedPurchaseOrders;
         if (typeof goodsReceipts !== 'undefined') goodsReceipts = tenantData.goodsReceipts || [];
         if (typeof deliveryOrders !== 'undefined') deliveryOrders = tenantData.deliveryOrders || [];
+        if (typeof crmCustomers !== 'undefined') crmCustomers = mergedCRMCustomers;
+        if (typeof orders !== 'undefined') orders = mergedOrders;
         
         // HR & Payroll module variables
         // Check if localStorage has data but tenant doesn't - recover from localStorage
@@ -1036,19 +1099,22 @@ function loadUserTenantData(user) {
         }
         
         // Save to legacy storage keys for compatibility with modules
-        localStorage.setItem('ezcubic_products', JSON.stringify(tenantData.products || []));
-        localStorage.setItem('ezcubic_customers', JSON.stringify(tenantData.customers || []));
-        localStorage.setItem('ezcubic_suppliers', JSON.stringify(tenantData.suppliers || []));
-        localStorage.setItem('ezcubic_branches', JSON.stringify(tenantData.branches || []));
+        // Use merged data (which already prefers localStorage when it has more items)
+        localStorage.setItem('ezcubic_products', JSON.stringify(mergedProducts));
+        localStorage.setItem('ezcubic_customers', JSON.stringify(mergedCustomers));
+        localStorage.setItem('ezcubic_suppliers', JSON.stringify(mergedSuppliers));
+        localStorage.setItem('ezcubic_branches', JSON.stringify(mergedBranches));
         localStorage.setItem('ezcubic_branch_transfers', JSON.stringify(tenantData.branchTransfers || []));
-        localStorage.setItem('ezcubic_quotations', JSON.stringify(tenantData.quotations || []));
-        localStorage.setItem('ezcubic_projects', JSON.stringify(tenantData.projects || []));
-        localStorage.setItem('ezcubic_purchase_orders', JSON.stringify(tenantData.purchaseOrders || []));
+        localStorage.setItem('ezcubic_quotations', JSON.stringify(mergedQuotations));
+        localStorage.setItem('ezcubic_projects', JSON.stringify(mergedProjects));
+        localStorage.setItem('ezcubic_purchase_orders', JSON.stringify(mergedPurchaseOrders));
         localStorage.setItem('ezcubic_goods_receipts', JSON.stringify(tenantData.goodsReceipts || []));
         window.goodsReceipts = tenantData.goodsReceipts || [];
-        localStorage.setItem('ezcubic_stock_movements', JSON.stringify(tenantData.stockMovements || []));
-        localStorage.setItem('ezcubic_sales', JSON.stringify(tenantData.sales || []));
+        localStorage.setItem('ezcubic_stock_movements', JSON.stringify(mergedStockMovements));
+        localStorage.setItem('ezcubic_sales', JSON.stringify(mergedSales));
         localStorage.setItem('ezcubic_delivery_orders', JSON.stringify(tenantData.deliveryOrders || []));
+        localStorage.setItem('ezcubic_crm_customers', JSON.stringify(mergedCRMCustomers));
+        localStorage.setItem('ezcubic_orders', JSON.stringify(mergedOrders));
         
         // HR & Payroll storage keys - use the recovered/merged data
         localStorage.setItem('ezcubic_employees', JSON.stringify(employeesToUse));
@@ -4199,6 +4265,33 @@ function initializeEmptyTenantData(tenantId, userName) {
         status: 'active'
     };
     localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+}
+
+// Reset only window arrays (for page refresh with same tenant)
+// Does NOT clear localStorage - preserves data saved by modules
+function resetWindowArraysOnly() {
+    console.log('Resetting window arrays only (preserving localStorage)...');
+    
+    // Reset window arrays to empty - they'll be repopulated from localStorage/tenant
+    window.products = [];
+    window.customers = [];
+    window.stockMovements = [];
+    window.sales = [];
+    window.transactions = [];
+    window.suppliers = [];
+    window.branches = [];
+    window.quotations = [];
+    window.projects = [];
+    window.purchaseOrders = [];
+    window.goodsReceipts = [];
+    window.deliveryOrders = [];
+    window.crmCustomers = [];
+    window.chartOfAccounts = [];
+    window.journalEntries = [];
+    window.employees = [];
+    window.payrollRecords = [];
+    
+    // Note: We do NOT clear localStorage here - modules will load from it
 }
 
 // Reset global data to empty state - clears in-memory data AND legacy storage

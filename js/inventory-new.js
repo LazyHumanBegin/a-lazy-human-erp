@@ -36,14 +36,56 @@ function loadInventoryBranchFilter() {
 
 // ==================== PRODUCT CRUD ====================
 function loadProducts() {
-    const stored = localStorage.getItem(PRODUCTS_KEY);
-    if (stored) {
-        products = JSON.parse(stored);
+    console.log('📦 loadProducts called');
+    
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        console.log('📦 Tenant data products:', tenantData.products?.length || 0);
+        if (Array.isArray(tenantData.products) && tenantData.products.length > 0) {
+            products = tenantData.products;
+            window.products = products;
+            // Also sync to businessData if it exists
+            if (typeof businessData !== 'undefined') {
+                businessData.products = products;
+            }
+            console.log('✅ Products loaded from tenant:', products.length);
+            renderProducts();
+            return;
+        }
     }
+    
+    // PRIORITY 2: Check window.products
+    if (Array.isArray(window.products) && window.products.length > 0) {
+        products = window.products;
+        console.log('✅ Products loaded from window:', products.length);
+    } else {
+        // PRIORITY 3: Load from localStorage
+        const stored = localStorage.getItem(PRODUCTS_KEY);
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+                products = parsed;
+                console.log('✅ Products loaded from localStorage key:', products.length);
+            }
+        }
+    }
+    
+    // Sync everywhere
+    window.products = products;
+    if (typeof businessData !== 'undefined') {
+        businessData.products = products;
+    }
+    
+    console.log('📦 Final products count:', products.length);
     renderProducts();
 }
 
 function saveProducts() {
+    console.log('💾 saveProducts called, products:', products.length, products.map(p => ({name: p.name, stock: p.stock, branchStock: p.branchStock})));
+    
     localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
     updateInventoryStats();
     updateLowStockBadge();
@@ -51,15 +93,32 @@ function saveProducts() {
     // Sync to window for tenant save
     window.products = products;
     
-    // Also save to user's tenant storage
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
-        console.log('Products saved to tenant, count:', products.length);
+    // Also sync to businessData
+    if (typeof businessData !== 'undefined') {
+        businessData.products = products;
     }
+    
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.products = products;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Products saved directly to tenant:', products.length);
+    }
+    
+    // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
 function showProductModal(productId = null) {
     console.log('showProductModal called with:', productId);
+    
+    // Ensure HQ branch exists for stock allocation
+    if (typeof ensureDefaultHQExists === 'function') {
+        ensureDefaultHQExists();
+    }
     
     const modal = document.getElementById('productModal');
     const title = document.getElementById('productModalTitle');
@@ -818,36 +877,128 @@ function loadBranchStockInputs(productId = null) {
         return;
     }
     
-    // Check if multi-branch is available on current plan
+    // Check if multi-branch is available on current plan OR role
     const currentUserPlan = window.currentUser?.plan || 'starter';
-    const isMultiBranchPlan = ['professional', 'enterprise'].includes(currentUserPlan);
-    console.log('Plan check:', { currentUserPlan, isMultiBranchPlan, windowCurrentUser: !!window.currentUser });
+    const currentUserRole = window.currentUser?.role || '';
+    // Include founder, erp_assistant roles OR professional, enterprise plans for multi-branch
+    const isMultiBranchPlan = ['founder', 'erp_assistant', 'professional', 'enterprise'].includes(currentUserPlan) ||
+                              ['founder', 'erp_assistant'].includes(currentUserRole);
+    console.log('Plan check:', { currentUserPlan, currentUserRole, isMultiBranchPlan, windowCurrentUser: !!window.currentUser });
     
-    // Get branches from branches module - refresh from localStorage or window
+    // Get branches/outlets from multiple sources
     let branchList = [];
-    const storedBranches = localStorage.getItem('ezcubic_branches');
-    if (storedBranches) {
-        branchList = JSON.parse(storedBranches);
-    } else if (typeof branches !== 'undefined' && branches.length > 0) {
-        branchList = branches;
-    } else if (window.branches && window.branches.length > 0) {
-        branchList = window.branches;
+    const user = window.currentUser;
+    
+    // PRIORITY 1: Get branches from tenant storage
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        
+        // Check branches first
+        if (Array.isArray(tenantData.branches) && tenantData.branches.length > 0) {
+            branchList = tenantData.branches;
+            console.log('Branches loaded from tenant:', branchList.length);
+        }
+        
+        // ALSO check outlets from tenant - they might have more than branches
+        if (Array.isArray(tenantData.outlets) && tenantData.outlets.length > branchList.length) {
+            // Convert outlets to branch format if they have more data
+            branchList = tenantData.outlets.map(o => ({
+                id: o.id,
+                name: o.name,
+                code: o.code || o.name.substring(0, 3).toUpperCase(),
+                status: o.status || 'active',
+                type: o.type || 'outlet'
+            }));
+            console.log('Using outlets from tenant instead:', branchList.length);
+        }
+    }
+    
+    // PRIORITY 2: Fall back to window.branches or window.outlets
+    if (branchList.length === 0) {
+        if (window.branches && window.branches.length > 0) {
+            branchList = window.branches;
+            console.log('Branches loaded from window:', branchList.length);
+        } else if (window.outlets && window.outlets.length > 0) {
+            branchList = window.outlets.map(o => ({
+                id: o.id,
+                name: o.name,
+                code: o.code || o.name.substring(0, 3).toUpperCase(),
+                status: o.status || 'active',
+                type: o.type || 'outlet'
+            }));
+            console.log('Outlets loaded from window:', branchList.length);
+        }
+    }
+    
+    // PRIORITY 3: Fall back to localStorage keys
+    if (branchList.length === 0) {
+        const storedBranches = localStorage.getItem('ezcubic_branches');
+        if (storedBranches) {
+            branchList = JSON.parse(storedBranches);
+            console.log('Branches loaded from localStorage key:', branchList.length);
+        }
+        
+        if (branchList.length === 0) {
+            const storedOutlets = localStorage.getItem('ezcubic_outlets');
+            if (storedOutlets) {
+                const outlets = JSON.parse(storedOutlets);
+                branchList = outlets.map(o => ({
+                    id: o.id,
+                    name: o.name,
+                    code: o.code || o.name.substring(0, 3).toUpperCase(),
+                    status: o.status || 'active',
+                    type: o.type || 'outlet'
+                }));
+                console.log('Outlets loaded from localStorage key:', branchList.length);
+            }
+        }
+    }
+    
+    // PRIORITY 4: Fall back to module variables
+    if (branchList.length === 0) {
+        if (typeof branches !== 'undefined' && branches.length > 0) {
+            branchList = branches;
+            console.log('Branches loaded from module var:', branchList.length);
+        } else if (typeof outlets !== 'undefined' && outlets.length > 0) {
+            branchList = outlets.map(o => ({
+                id: o.id,
+                name: o.name,
+                code: o.code || o.name.substring(0, 3).toUpperCase(),
+                status: o.status || 'active',
+                type: o.type || 'outlet'
+            }));
+            console.log('Outlets loaded from module var:', branchList.length);
+        }
     }
     
     const activeBranches = branchList.filter(b => b.status === 'active');
+    console.log('Active branches/outlets:', activeBranches.length, activeBranches.map(b => b.name));
+    
+    // Helper to get products from tenant storage
+    function getProductsFromTenant() {
+        const user = window.currentUser;
+        if (user && user.tenantId) {
+            const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+            const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            if (Array.isArray(tenantData.products) && tenantData.products.length > 0) {
+                return tenantData.products;
+            }
+        }
+        // Fallback to localStorage key
+        const storedProducts = localStorage.getItem(PRODUCTS_KEY);
+        return storedProducts ? JSON.parse(storedProducts) : [];
+    }
     
     // If not a multi-branch plan OR no branches exist, show simple stock input
     if (!isMultiBranchPlan || activeBranches.length === 0) {
         // Get existing stock if editing product
         let currentStock = 0;
         if (productId) {
-            const storedProducts = localStorage.getItem(PRODUCTS_KEY);
-            if (storedProducts) {
-                const freshProducts = JSON.parse(storedProducts);
-                const product = freshProducts.find(p => p.id === productId);
-                if (product) {
-                    currentStock = product.stock || 0;
-                }
+            const freshProducts = getProductsFromTenant();
+            const product = freshProducts.find(p => p.id === productId);
+            if (product) {
+                currentStock = product.stock || 0;
             }
         }
         
@@ -873,17 +1024,13 @@ function loadBranchStockInputs(productId = null) {
         return;
     }
     
-    // Get existing stock for this product - always fetch fresh from storage
+    // Get existing stock for this product - always fetch fresh from tenant storage
     let productBranchStock = {};
     if (productId) {
-        // Refresh products from localStorage to get latest data
-        const storedProducts = localStorage.getItem(PRODUCTS_KEY);
-        if (storedProducts) {
-            const freshProducts = JSON.parse(storedProducts);
-            const product = freshProducts.find(p => p.id === productId);
-            if (product && product.branchStock) {
-                productBranchStock = product.branchStock;
-            }
+        const freshProducts = getProductsFromTenant();
+        const product = freshProducts.find(p => p.id === productId);
+        if (product && product.branchStock) {
+            productBranchStock = product.branchStock;
         }
     }
     

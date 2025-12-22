@@ -393,6 +393,12 @@ function toggleDOTypeFields() {
 }
 
 function generateDONumber() {
+    // Use customizable document numbering if available
+    if (typeof generateDocumentNumber === 'function') {
+        return generateDocumentNumber('deliveryorder');
+    }
+    
+    // Fallback to original logic
     const year = new Date().getFullYear();
     const count = deliveryOrders.filter(d => d.doNumber?.includes(`DO-${year}`)).length + 1;
     return `DO-${year}-${String(count).padStart(4, '0')}`;

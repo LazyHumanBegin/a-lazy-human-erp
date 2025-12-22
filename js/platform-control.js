@@ -29,7 +29,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
             color: '#64748b',
             description: 'For personal finance tracking',
             limits: {
-                transactions: 100,
+                transactions: 500,
                 products: 0,
                 customers: 0,
                 users: 1,
@@ -46,7 +46,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
             color: '#2563eb',
             description: 'For small businesses',
             limits: {
-                transactions: 500,
+                transactions: 5000,
                 products: 100,
                 customers: 100,
                 users: 3,
@@ -54,7 +54,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 storage: 500
             },
             // Starter gets basic business features + can add up to 3 users
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'crm', 'bills', 'quotations', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'settings', 'users'],
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'crm', 'bills', 'quotations', 'invoices', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'settings', 'users'],
             hiddenSections: ['stock', 'orders', 'suppliers', 'projects', 'payroll', 'leave-attendance', 'einvoice', 'branches', 'purchase-orders', 'delivery-orders', 'employees', 'kpi', 'bank-reconciliation']
         },
         professional: {
@@ -71,7 +71,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 storage: 2000
             },
             // Professional gets ALL features including branches (up to 3)
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'bills', 'quotations', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'settings', 'users'],
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'settings', 'users'],
             hiddenSections: [] // Professional now has access to branches (limited to 3)
         },
         enterprise: {
@@ -627,7 +627,8 @@ function getPlanFeaturesSummary(planId) {
         'purchase-orders': 'Purchase Orders',
         'delivery-orders': 'Delivery Orders',
         'quotations': 'Quotations',
-        'email-invoice': 'Email Invoice/Receipt',
+        'invoices': 'Invoices',
+        'email-invoice': 'Invoice/Receipt',
         'projects': 'Project Management',
         'employees': 'Employee Directory',
         'payroll': 'Payroll Management',
@@ -988,12 +989,13 @@ function showUpgradePlanModal() {
             name: 'Sales & CRM',
             icon: 'fa-shopping-cart',
             features: [
-                { id: 'pos', name: 'Point of Sale (POS)', plans: ['business', 'professional', 'enterprise'] },
-                { id: 'quotations', name: 'Quotations', plans: ['business', 'professional', 'enterprise'] },
+                { id: 'pos', name: 'Point of Sale (POS)', plans: ['starter', 'business', 'professional', 'enterprise'] },
+                { id: 'quotations', name: 'Quotations', plans: ['starter', 'business', 'professional', 'enterprise'] },
+                { id: 'invoices', name: 'Invoices', plans: ['starter', 'business', 'professional', 'enterprise'] },
                 { id: 'orders', name: 'Order Management', plans: ['business', 'professional', 'enterprise'] },
-                { id: 'crm', name: 'Customer Management (CRM)', plans: ['business', 'professional', 'enterprise'] },
+                { id: 'crm', name: 'Customer Management (CRM)', plans: ['starter', 'business', 'professional', 'enterprise'] },
                 { id: 'einvoice', name: 'E-Invoice (Malaysia)', plans: ['professional', 'enterprise'] },
-                { id: 'email-invoice', name: 'Email Invoices', plans: ['professional', 'enterprise'] }
+                { id: 'email-invoice', name: 'Invoice/Receipt', plans: ['professional', 'enterprise'] }
             ]
         },
         inventory: {
@@ -1470,6 +1472,62 @@ window.showUpgradePlanModal = showUpgradePlanModal;
 window.requestPlanUpgrade = requestPlanUpgrade;
 window.renderUsageWidget = renderUsageWidget;
 
+// ==================== TEST LIMIT FUNCTION ====================
+/**
+ * Test function to simulate transaction limit
+ * Usage in console: testTransactionLimit(500) - simulates 500 transactions
+ */
+function testTransactionLimit(simulatedCount = null) {
+    const user = window.currentUser;
+    if (!user) {
+        console.log('❌ No user logged in');
+        return;
+    }
+    
+    const limits = getCurrentPlanLimits();
+    const usage = getCurrentUsage();
+    
+    console.log('📊 Current Plan:', user.plan || 'starter');
+    console.log('📈 Transaction Limit:', limits?.transactions === -1 ? 'Unlimited' : limits?.transactions);
+    console.log('📝 Current Transactions:', usage?.transactions || 0);
+    
+    if (simulatedCount !== null) {
+        // Temporarily override for testing
+        const originalUsage = getCurrentUsage;
+        window.getCurrentUsage = function() {
+            const real = originalUsage();
+            return { ...real, transactions: simulatedCount };
+        };
+        
+        console.log('\n🧪 SIMULATING', simulatedCount, 'transactions...');
+        const result = checkLimit('transactions');
+        console.log('Result:', result);
+        
+        if (!result.allowed) {
+            console.log('🚫 LIMIT REACHED! Showing modal...');
+            showLimitReachedModal('transactions', result);
+        } else {
+            console.log('✅ Still allowed. Remaining:', result.remaining);
+        }
+        
+        // Restore original
+        window.getCurrentUsage = originalUsage;
+    } else {
+        // Just check current status
+        const result = checkLimit('transactions');
+        console.log('\n📋 Limit Check Result:', result);
+        
+        if (!result.allowed) {
+            console.log('🚫 LIMIT REACHED!');
+        } else {
+            console.log('✅ Allowed. Remaining:', result.remaining);
+        }
+    }
+    
+    return checkLimit('transactions');
+}
+window.testTransactionLimit = testTransactionLimit;
+
 // ==================== PLATFORM CONTROL PANEL ====================
 function renderPlatformControl() {
     const container = document.getElementById('platformControlContent');
@@ -1867,10 +1925,11 @@ function renderPlanFeaturesRows(plans) {
         { id: 'aging-reports', name: 'AR/AP Aging Reports', category: 'Accounting' },
         { id: 'pos', name: 'Point of Sale', category: 'Sales' },
         { id: 'quotations', name: 'Quotations', category: 'Sales' },
+        { id: 'invoices', name: 'Invoices', category: 'Sales' },
         { id: 'orders', name: 'Orders', category: 'Sales' },
         { id: 'crm', name: 'CRM / Customers', category: 'Sales' },
         { id: 'einvoice', name: 'e-Invoice', category: 'Sales' },
-        { id: 'email-invoice', name: 'Email Invoice/Receipt', category: 'Sales' },
+        { id: 'email-invoice', name: 'Invoice/Receipt', category: 'Sales' },
         { id: 'inventory', name: 'Inventory', category: 'Stock' },
         { id: 'stock', name: 'Stock Management', category: 'Stock' },
         { id: 'suppliers', name: 'Suppliers', category: 'Purchasing' },
@@ -2173,10 +2232,11 @@ function showEditPlanFeaturesModal() {
         { id: 'aging-reports', name: 'AR/AP Aging Reports', category: 'Accounting' },
         { id: 'pos', name: 'Point of Sale', category: 'Sales' },
         { id: 'quotations', name: 'Quotations', category: 'Sales' },
+        { id: 'invoices', name: 'Invoices', category: 'Sales' },
         { id: 'orders', name: 'Orders', category: 'Sales' },
         { id: 'crm', name: 'CRM / Customers', category: 'Sales' },
         { id: 'einvoice', name: 'e-Invoice', category: 'Sales' },
-        { id: 'email-invoice', name: 'Email Invoice/Receipt', category: 'Sales' },
+        { id: 'email-invoice', name: 'Invoice/Receipt', category: 'Sales' },
         { id: 'inventory', name: 'Inventory', category: 'Stock' },
         { id: 'stock', name: 'Stock Management', category: 'Stock' },
         { id: 'suppliers', name: 'Suppliers', category: 'Purchasing' },
@@ -2756,6 +2816,7 @@ function applyFeatureRestrictions(planId) {
         'customers': "showSection('customers')",
         'suppliers': "showSection('suppliers')",
         'quotations': "showSection('quotations')",
+        'invoices': "showSection('invoices')",
         'projects': "showSection('projects')",
         'payroll': "showSection('payroll')",
         'leave-attendance': "showSection('leave-attendance')",
