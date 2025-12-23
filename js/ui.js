@@ -131,6 +131,11 @@ function showSection(sectionId) {
         if (typeof loadDocumentNumberingSettings === 'function') loadDocumentNumberingSettings();
     }
     
+    // Update AI contextual help for the current section
+    if (typeof updateContextualHelp === 'function') {
+        updateContextualHelp(sectionId);
+    }
+    
     // Scroll main content to top (not sidebar)
     const mainContent = document.querySelector('.main-content');
     if (mainContent) {

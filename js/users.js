@@ -15,6 +15,67 @@ function generateSessionToken() {
     return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
 }
 
+// ==================== PASSWORD HASHING ====================
+// Secure password hashing using SHA-256 (built-in Web Crypto API)
+async function hashPassword(password) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password + 'ezcubic_salt_2024'); // Add salt for extra security
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+}
+
+// Sync version for backward compatibility (uses simple hash)
+function hashPasswordSync(password) {
+    // Simple hash for sync operations - still better than plain text
+    let hash = 0;
+    const str = password + 'ezcubic_salt_2024';
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    // Convert to hex and pad to make it look like a proper hash
+    return 'h1_' + Math.abs(hash).toString(16).padStart(8, '0') + Date.now().toString(36).slice(-4);
+}
+
+// Check if a password is hashed (starts with hash prefix or is 64 chars hex)
+function isPasswordHashed(password) {
+    if (!password) return false;
+    // Check for our hash prefixes or SHA-256 length (64 hex chars)
+    return password.startsWith('h1_') || /^[a-f0-9]{64}$/.test(password);
+}
+
+// Verify password (handles both hashed and legacy plain text)
+async function verifyPassword(inputPassword, storedPassword) {
+    // If stored password is not hashed (legacy), compare directly
+    if (!isPasswordHashed(storedPassword)) {
+        return inputPassword === storedPassword;
+    }
+    
+    // If it's our sync hash format
+    if (storedPassword.startsWith('h1_')) {
+        // For h1_ hashes, we need to compare the base hash part (first 8 chars after prefix)
+        const inputHash = hashPasswordSync(inputPassword);
+        return storedPassword.substring(0, 11) === inputHash.substring(0, 11);
+    }
+    
+    // SHA-256 hash comparison
+    const inputHash = await hashPassword(inputPassword);
+    return inputHash === storedPassword;
+}
+
+// Generate unique Company Code for tenant (e.g., "ACME-7X2K")
+function generateCompanyCode() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No confusing chars (0,O,1,I,L)
+    let code = '';
+    for (let i = 0; i < 4; i++) {
+        code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code + '-' + Date.now().toString(36).toUpperCase().slice(-4);
+}
+
 // Default Founder Account (You)
 const DEFAULT_FOUNDER = {
     id: 'founder_001',
@@ -362,12 +423,13 @@ function migrateFounderData(tenantId) {
     // Save to founder's tenant storage
     localStorage.setItem(tenantKey, JSON.stringify(founderTenantData));
     
-    // Register founder tenant
+    // Register founder tenant with Company Code
     const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
     tenants[tenantId] = {
         id: tenantId,
         ownerId: 'founder_001',
         businessName: existingData.settings?.businessName || "Founder's Business",
+        companyCode: generateCompanyCode(), // For device sync
         createdAt: new Date().toISOString(),
         status: 'active'
     };
@@ -460,7 +522,7 @@ window.forceMigration = function() {
 function saveUsers() {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
     
-    // CLOUD SYNC: Automatically sync users to cloud after any change
+    // CLOUD SYNC: Automatically sync users AND tenants to cloud after any change
     setTimeout(async () => {
         try {
             // Try CloudSync first
@@ -476,9 +538,10 @@ function saveUsers() {
             
             if (window.supabase && window.supabase.createClient) {
                 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                const usersData = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
                 
-                const { error } = await client
+                // Sync users
+                const usersData = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                const { error: userError } = await client
                     .from('tenant_data')
                     .upsert({
                         tenant_id: 'global',
@@ -487,14 +550,25 @@ function saveUsers() {
                         updated_at: new Date().toISOString()
                     }, { onConflict: 'tenant_id,data_key' });
                 
-                if (error) {
-                    console.warn('⚠️ Direct sync failed:', error.message);
+                // Also sync tenants (for Company Codes)
+                const tenantsData = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+                const { error: tenantError } = await client
+                    .from('tenant_data')
+                    .upsert({
+                        tenant_id: 'global',
+                        data_key: 'ezcubic_tenants',
+                        data: { key: 'ezcubic_tenants', value: tenantsData, synced_at: new Date().toISOString() },
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: 'tenant_id,data_key' });
+                
+                if (userError || tenantError) {
+                    console.warn('⚠️ Sync partial:', userError?.message, tenantError?.message);
                 } else {
-                    console.log('👥 Users synced to cloud (direct)');
+                    console.log('☁️ Users + Tenants synced to cloud');
                 }
             }
         } catch (err) {
-            console.warn('⚠️ Users cloud sync failed:', err);
+            console.warn('⚠️ Cloud sync failed:', err);
         }
     }, 200);
 }
@@ -801,10 +875,19 @@ async function tryLoginWithCloudSync(email, password) {
         return false;
     }
     
-    // Check password
-    if (userByEmail.password !== password) {
+    // Check password (supports both hashed and legacy plain text)
+    const passwordValid = await verifyPassword(password, userByEmail.password);
+    if (!passwordValid) {
         showLoginError('Incorrect password. Please try again.');
         return false;
+    }
+    
+    // Auto-upgrade: If password is plain text, hash it now
+    if (!isPasswordHashed(userByEmail.password)) {
+        const hashedPw = await hashPassword(password);
+        userByEmail.password = hashedPw;
+        saveUsers();
+        console.log('🔒 Password upgraded to hashed format');
     }
     
     // Successful login - hide any error messages
@@ -2060,6 +2143,30 @@ function showLoginPage() {
                         </div>
                     </div>
                     
+                    <!-- Cloud Sync with Company Code -->
+                    <div id="syncSection" style="text-align: center; margin-top: 15px;">
+                        <a href="#" onclick="toggleCompanyCodeSync(); return false;" style="color: #64748b; font-size: 12px; text-decoration: none;">
+                            <i class="fas fa-cloud-download-alt"></i> Sync from another device?
+                        </a>
+                        <div id="companyCodeSync" style="display: none; margin-top: 15px; padding: 15px; background: #f8fafc; border-radius: 12px; text-align: left;">
+                            <p style="font-size: 12px; color: #64748b; margin-bottom: 10px;">
+                                <i class="fas fa-building"></i> Enter your Company Code (ask your Admin)
+                            </p>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" id="companyCodeInput" placeholder="e.g. ACME-7X2K" 
+                                    style="flex: 1; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; text-transform: uppercase; font-family: monospace; letter-spacing: 1px;"
+                                    maxlength="12">
+                                <button onclick="syncByCompanyCode()" 
+                                    style="padding: 10px 16px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 13px;">
+                                    <i class="fas fa-sync"></i> Sync
+                                </button>
+                            </div>
+                            <p style="font-size: 11px; color: #94a3b8; margin-top: 8px;">
+                                💡 Your Admin can find this in Settings → Company Code
+                            </p>
+                        </div>
+                    </div>
+                    
                     <div class="login-page-footer">
                         <p>© ${new Date().getFullYear()} EZCubic. All rights reserved.</p>
                     </div>
@@ -2162,58 +2269,79 @@ function handleRegisterPage(event) {
         return;
     }
     
-    // Create a unique tenant for this user
-    const tenantId = 'tenant_' + Date.now();
-    
-    // Create personal user
-    const newUser = {
-        id: 'user_' + Date.now(),
-        email: email,
-        password: password,
-        name: name,
-        role: 'personal',
-        plan: 'personal',
-        status: 'active',
-        permissions: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot', 'bills'],
-        tenantId: tenantId,
-        createdAt: new Date().toISOString(),
-        registeredVia: 'free_signup'
-    };
-    
-    users.push(newUser);
-    saveUsers();
-    
-    // Initialize empty tenant data
-    initializeEmptyTenantData(tenantId, name);
-    
-    // Auto-login
-    currentUser = newUser;
-    window.currentUser = newUser;
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
-    
-    // Remove guest mode
-    isGuestMode = false;
-    removeViewOnlyMode();
-    
-    // Load tenant data
-    if (typeof loadCurrentTenantData === 'function') {
-        loadCurrentTenantData();
-    } else {
-        resetToEmptyData();
-    }
-    
-    // Update UI
-    updateAuthUI();
-    hideLoginPage();
-    
-    showToast(`Welcome ${name}! Your free account is ready.`, 'success');
-    
-    if (typeof showSection === 'function') {
+    // Hash password before storing
+    hashPassword(password).then(hashedPassword => {
+        // Create a unique tenant for this user
+        const tenantId = 'tenant_' + Date.now();
+        
+        // Create personal user with hashed password
+        const newUser = {
+            id: 'user_' + Date.now(),
+            email: email,
+            password: hashedPassword, // Now hashed!
+            name: name,
+            role: 'personal',
+            plan: 'personal',
+            status: 'active',
+            permissions: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot', 'bills'],
+            tenantId: tenantId,
+            createdAt: new Date().toISOString(),
+            registeredVia: 'free_signup'
+        };
+        
+        users.push(newUser);
+        saveUsers();
+        
+        // Initialize empty tenant data
+        initializeEmptyTenantData(tenantId, name);
+        
+        // Auto-login
+        currentUser = newUser;
+        window.currentUser = newUser;
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+        
+        // Remove guest mode
+        isGuestMode = false;
+        removeViewOnlyMode();
+        
+        // Load tenant data
+        if (typeof loadCurrentTenantData === 'function') {
+            loadCurrentTenantData();
+        } else {
+            resetToEmptyData();
+        }
+        
+        showToast(`Welcome ${name}! Your free account is ready.`, 'success');
+        
+        // Hide login page and show main app
+        const loginPage = document.getElementById('loginPageOverlay');
+        if (loginPage) loginPage.classList.add('hidden');
+        
+        document.body.classList.remove('logged-out');
+        const appContainer = document.querySelector('.app-container');
+        if (appContainer) appContainer.classList.remove('logged-out');
+        
+        // Show mobile menu button
+        const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+        if (mobileMenuBtn) mobileMenuBtn.style.display = '';
+        
+        // Update auth panel
+        updateAuthPanel();
+        
+        // Apply plan restrictions
+        if (typeof applyPlanRestrictions === 'function') {
+            applyPlanRestrictions();
+        }
+        
+        // Show dashboard
         showSection('dashboard');
-    }
-    if (typeof updateDashboard === 'function') {
-        updateDashboard();
-    }
+        
+        // Refresh displays
+        if (typeof updateDisplay === 'function') updateDisplay();
+        if (typeof renderDashboard === 'function') renderDashboard();
+        
+        console.log('🔒 User registered with hashed password');
+    });
 }
 
 function verifyForgotEmail() {
@@ -3396,7 +3524,7 @@ function toggleFullAccess(checkbox) {
     ERP_MODULE_CATEGORIES.forEach(cat => updateCategoryCount(cat.id));
 }
 
-function saveNewUser(event) {
+async function saveNewUser(event) {
     event.preventDefault();
     
     const name = document.getElementById('newUserName').value.trim();
@@ -3494,11 +3622,12 @@ function saveNewUser(event) {
         userId = 'user_' + Date.now();
     }
     
-    // Create user
+    // Create user with hashed password
+    const hashedPw = await hashPassword(password);
     const newUser = {
         id: userId,
         email: email,
-        password: password, // In production, hash this
+        password: hashedPw, // Securely hashed
         name: name,
         role: role,
         status: 'active',
@@ -4255,16 +4384,20 @@ function initializeEmptyTenantData(tenantId, userName) {
     // Save tenant data
     localStorage.setItem('ezcubic_tenant_' + tenantId, JSON.stringify(emptyTenantData));
     
-    // Also register the tenant in the tenants list
+    // Also register the tenant in the tenants list with Company Code
     const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    const companyCode = generateCompanyCode();
     tenants[tenantId] = {
         id: tenantId,
         ownerId: 'user_' + Date.now(),
         businessName: userName + "'s Business",
+        companyCode: companyCode, // For staff device sync
         createdAt: new Date().toISOString(),
         status: 'active'
     };
     localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+    
+    console.log('🏢 Company Code for new tenant:', companyCode);
     
     // CLOUD SYNC: Sync new tenant data to cloud
     syncTenantDataToCloud(tenantId, emptyTenantData);
@@ -5036,6 +5169,7 @@ window.forceSyncUsersToCloud = async function() {
 };
 
 // Download users from cloud to this device - run: downloadUsersFromCloud()
+// ROLE-AWARE: Founder gets all, Admin gets only their tenant's users
 window.downloadUsersFromCloud = async function() {
     console.log('📥 Downloading users from cloud...');
     const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
@@ -5048,6 +5182,14 @@ window.downloadUsersFromCloud = async function() {
         }
         
         const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Check current user's role to determine access level
+        const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+        const isFounder = currentUser.role === 'founder';
+        const currentTenantId = currentUser.tenantId;
+        
+        console.log('  Current role:', currentUser.role || 'none (login page)');
+        console.log('  Tenant:', currentTenantId || 'global');
         
         // Get users from cloud
         const { data, error } = await client.from('tenant_data')
@@ -5068,32 +5210,61 @@ window.downloadUsersFromCloud = async function() {
                 const cloudUsers = record.data.value;
                 const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
                 
-                // Merge: Add cloud users not in local
-                cloudUsers.forEach(cu => {
-                    if (!localUsers.find(lu => lu.id === cu.id || lu.email === cu.email)) {
+                // ROLE-BASED FILTERING
+                let usersToSync = cloudUsers;
+                
+                if (!isFounder && currentTenantId) {
+                    // Admin/Staff: Only sync users from their tenant
+                    usersToSync = cloudUsers.filter(u => 
+                        u.tenantId === currentTenantId || 
+                        u.id === currentUser.id // Always include self
+                    );
+                    console.log('  🔒 Filtered to tenant users only:', usersToSync.length, 'of', cloudUsers.length);
+                } else if (isFounder) {
+                    // Founder: Gets ALL users
+                    console.log('  👑 Founder access: All', cloudUsers.length, 'users');
+                }
+                
+                // Merge: Add filtered cloud users not in local
+                usersToSync.forEach(cu => {
+                    const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
+                    if (existingIdx === -1) {
                         localUsers.push(cu);
+                    } else {
+                        // Update existing user with cloud data
+                        localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
                     }
                 });
                 
                 localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
-                usersDownloaded = localUsers.length;
-                console.log('  Users:', cloudUsers.length, '→ merged to', localUsers.length);
+                usersDownloaded = usersToSync.length;
+                console.log('  Users synced:', usersToSync.length);
             }
             
             if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
                 const cloudTenants = record.data.value;
                 const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
                 
-                // Merge tenants
-                Object.assign(localTenants, cloudTenants);
+                if (!isFounder && currentTenantId) {
+                    // Admin: Only get their own tenant info
+                    if (cloudTenants[currentTenantId]) {
+                        localTenants[currentTenantId] = cloudTenants[currentTenantId];
+                        console.log('  🔒 Synced own tenant only:', currentTenantId);
+                    }
+                } else {
+                    // Founder: Gets ALL tenants
+                    Object.assign(localTenants, cloudTenants);
+                    console.log('  👑 Founder access: All', Object.keys(cloudTenants).length, 'tenants');
+                }
+                
                 localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
                 tenantsDownloaded = Object.keys(localTenants).length;
-                console.log('  Tenants:', Object.keys(cloudTenants).length);
             }
         }
         
+        const roleMsg = isFounder ? '👑 Founder (Full Access)' : '🔒 ' + (currentUser.role || 'User') + ' (Tenant Only)';
         console.log('✅ Download complete!');
-        alert('✅ Downloaded from cloud!\n\nUsers: ' + usersDownloaded + '\nTenants: ' + tenantsDownloaded + '\n\nRefreshing page...');
+        alert('✅ Downloaded from cloud!\n\n' + roleMsg + '\nUsers: ' + usersDownloaded + '\nTenants: ' + tenantsDownloaded + '\n\nRefreshing page...');
         location.reload();
         
     } catch (err) {
@@ -5245,6 +5416,454 @@ window.fullCloudSync = async function() {
     await window.syncAllTenantDataToCloud();
     
     console.log('✅ FULL sync complete!');
+};
+
+// Mobile-friendly cloud download (shows UI feedback)
+// LOGIN PAGE SYNC: Downloads only user credentials for login purposes
+// After login, role-based sync applies (Admin=tenant only, Founder=all)
+window.mobileDownloadFromCloud = async function() {
+    // Show loading
+    const btn = event?.target?.closest('a');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.style.pointerEvents = 'none';
+    }
+    
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        // Wait for Supabase SDK
+        let retries = 0;
+        while (!window.supabase?.createClient && retries < 10) {
+            await new Promise(r => setTimeout(r, 300));
+            retries++;
+        }
+        
+        if (!window.supabase?.createClient) {
+            alert('❌ Cloud service not ready. Please refresh and try again.');
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.style.pointerEvents = '';
+            }
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Check if already logged in (role-based sync)
+        const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+        const isLoggedIn = !!currentUser.id;
+        const isFounder = currentUser.role === 'founder';
+        const currentTenantId = currentUser.tenantId;
+        
+        // Get users from cloud
+        const { data, error } = await client.from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global');
+        
+        if (error) {
+            alert('❌ Sync failed: ' + error.message);
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.style.pointerEvents = '';
+            }
+            return;
+        }
+        
+        let usersFound = 0;
+        let tenantsFound = 0;
+        
+        for (const record of data || []) {
+            if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                const cloudUsers = record.data.value;
+                const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                
+                // ROLE-BASED FILTERING (when logged in)
+                let usersToSync = cloudUsers;
+                
+                if (isLoggedIn && !isFounder && currentTenantId) {
+                    // Admin/Staff: Only sync their tenant's users
+                    usersToSync = cloudUsers.filter(u => 
+                        u.tenantId === currentTenantId || 
+                        u.id === currentUser.id
+                    );
+                }
+                // If not logged in (login page), sync all for authentication purposes
+                
+                // Merge: Add cloud users not in local
+                usersToSync.forEach(cu => {
+                    const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
+                    if (existingIdx === -1) {
+                        localUsers.push(cu);
+                    } else {
+                        localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+                    }
+                });
+                
+                localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
+                usersFound = usersToSync.length;
+            }
+            
+            if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
+                const cloudTenants = record.data.value;
+                const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+                
+                if (isLoggedIn && !isFounder && currentTenantId) {
+                    // Admin: Only their tenant
+                    if (cloudTenants[currentTenantId]) {
+                        localTenants[currentTenantId] = cloudTenants[currentTenantId];
+                    }
+                } else {
+                    // Founder or login page: All tenants
+                    Object.assign(localTenants, cloudTenants);
+                }
+                
+                localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+                tenantsFound = Object.keys(localTenants).length;
+            }
+        }
+        
+        if (usersFound > 0) {
+            const roleInfo = isLoggedIn 
+                ? (isFounder ? '👑 Full Access' : '🔒 Tenant Only') 
+                : '🔑 Login Credentials';
+            alert('✅ Synced from cloud!\n\n' + roleInfo + '\n' + usersFound + ' users synced.\n\nPage will refresh...');
+            location.reload();
+        } else {
+            alert('ℹ️ No cloud data found.\n\nMake sure you ran fullCloudSync() on your main device first.');
+            if (btn) {
+                btn.innerHTML = originalText;
+                btn.style.pointerEvents = '';
+            }
+        }
+        
+    } catch (err) {
+        alert('❌ Error: ' + err.message);
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.style.pointerEvents = '';
+        }
+    }
+};
+
+// Toggle Company Code sync panel on login page
+window.toggleCompanyCodeSync = function() {
+    const panel = document.getElementById('companyCodeSync');
+    if (panel) {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel.style.display === 'block') {
+            document.getElementById('companyCodeInput')?.focus();
+        }
+    }
+};
+
+// Sync by Company Code - only downloads users from that specific tenant
+window.syncByCompanyCode = async function() {
+    const codeInput = document.getElementById('companyCodeInput');
+    const code = (codeInput?.value || '').trim().toUpperCase();
+    
+    if (!code || code.length < 4) {
+        alert('⚠️ Please enter a valid Company Code');
+        return;
+    }
+    
+    // Show loading
+    const btn = event?.target?.closest('button');
+    const originalText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+    }
+    
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        // Wait for Supabase SDK
+        let retries = 0;
+        while (!window.supabase?.createClient && retries < 10) {
+            await new Promise(r => setTimeout(r, 300));
+            retries++;
+        }
+        
+        if (!window.supabase?.createClient) {
+            alert('❌ Cloud service not ready. Please refresh and try again.');
+            resetBtn();
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Get tenants and users from cloud
+        const { data, error } = await client.from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global');
+        
+        if (error) {
+            alert('❌ Sync failed: ' + error.message);
+            resetBtn();
+            return;
+        }
+        
+        // Find tenant by Company Code
+        let targetTenantId = null;
+        let targetTenantInfo = null;
+        let cloudTenants = {};
+        let cloudUsers = [];
+        
+        for (const record of data || []) {
+            if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
+                cloudTenants = record.data.value;
+                
+                // Find tenant matching the Company Code
+                for (const [tenantId, tenant] of Object.entries(cloudTenants)) {
+                    if (tenant.companyCode && tenant.companyCode.toUpperCase() === code) {
+                        targetTenantId = tenantId;
+                        targetTenantInfo = tenant;
+                        break;
+                    }
+                }
+            }
+            if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                cloudUsers = record.data.value;
+            }
+        }
+        
+        if (!targetTenantId) {
+            alert('❌ Company Code not found: ' + code + '\n\nPlease check with your Admin for the correct code.');
+            resetBtn();
+            return;
+        }
+        
+        console.log('🏢 Found company:', targetTenantInfo.businessName, '(' + targetTenantId + ')');
+        
+        // Filter users to only this tenant
+        const tenantUsers = cloudUsers.filter(u => u.tenantId === targetTenantId);
+        
+        if (tenantUsers.length === 0) {
+            alert('⚠️ No users found for this company.\n\nAsk your Admin to create your account first.');
+            resetBtn();
+            return;
+        }
+        
+        // Save filtered users locally
+        const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        tenantUsers.forEach(cu => {
+            const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
+            if (existingIdx === -1) {
+                localUsers.push(cu);
+            } else {
+                localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+            }
+        });
+        localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
+        
+        // Save tenant info
+        const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+        localTenants[targetTenantId] = targetTenantInfo;
+        localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+        
+        console.log('✅ Synced', tenantUsers.length, 'users from', targetTenantInfo.businessName);
+        
+        alert('✅ Synced successfully!\n\n🏢 ' + targetTenantInfo.businessName + '\n👥 ' + tenantUsers.length + ' user(s) synced\n\nYou can now login with your account.');
+        location.reload();
+        
+    } catch (err) {
+        console.error('❌ Sync error:', err);
+        alert('❌ Error: ' + err.message);
+        resetBtn();
+    }
+    
+    function resetBtn() {
+        if (btn) {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        }
+    }
+};
+
+// Get Company Code for current tenant (for Admin to share)
+window.getCompanyCode = function() {
+    const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    if (!currentUser.tenantId) {
+        console.log('❌ No tenant found');
+        return null;
+    }
+    
+    const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    const tenant = tenants[currentUser.tenantId];
+    
+    if (!tenant) {
+        console.log('❌ Tenant not found');
+        return null;
+    }
+    
+    // Generate code if missing
+    if (!tenant.companyCode) {
+        tenant.companyCode = generateCompanyCode();
+        tenants[currentUser.tenantId] = tenant;
+        localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+        console.log('🆕 Generated new Company Code');
+    }
+    
+    console.log('═══════════════════════════════════════');
+    console.log('🏢 Company Code for:', tenant.businessName);
+    console.log('═══════════════════════════════════════');
+    console.log('   📋 ' + tenant.companyCode);
+    console.log('═══════════════════════════════════════');
+    console.log('Share this code with your staff so they');
+    console.log('can sync their devices to login.');
+    console.log('═══════════════════════════════════════');
+    
+    return tenant.companyCode;
+};
+
+// Regenerate Company Code (if leaked)
+window.regenerateCompanyCode = function() {
+    const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    if (!currentUser.tenantId) {
+        console.log('❌ No tenant found');
+        return null;
+    }
+    
+    if (!['founder', 'business_admin'].includes(currentUser.role)) {
+        console.log('❌ Only Admin/Founder can regenerate Company Code');
+        return null;
+    }
+    
+    const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    const tenant = tenants[currentUser.tenantId];
+    
+    if (!tenant) {
+        console.log('❌ Tenant not found');
+        return null;
+    }
+    
+    const oldCode = tenant.companyCode;
+    tenant.companyCode = generateCompanyCode();
+    tenants[currentUser.tenantId] = tenant;
+    localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+    
+    console.log('✅ Company Code regenerated!');
+    console.log('   Old:', oldCode);
+    console.log('   New:', tenant.companyCode);
+    console.log('⚠️ Remember to run fullCloudSync() to update cloud!');
+    
+    return tenant.companyCode;
+};
+
+// ==================== COMPANY CODE UI FUNCTIONS ====================
+
+// Initialize Company Code section in Settings
+window.initCompanyCodeUI = function() {
+    const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    const section = document.getElementById('companyCodeSection');
+    const display = document.getElementById('companyCodeDisplay');
+    
+    if (!section) return;
+    
+    // Only show for Founder and Business Admin
+    if (!['founder', 'business_admin'].includes(currentUser.role)) {
+        section.style.display = 'none';
+        return;
+    }
+    
+    section.style.display = 'block';
+    
+    // Get or generate company code
+    const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    const tenant = tenants[currentUser.tenantId];
+    
+    if (tenant) {
+        if (!tenant.companyCode) {
+            tenant.companyCode = generateCompanyCode();
+            tenants[currentUser.tenantId] = tenant;
+            localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+        }
+        if (display) {
+            display.textContent = tenant.companyCode;
+        }
+    } else {
+        if (display) {
+            display.textContent = 'N/A';
+        }
+    }
+};
+
+// Copy Company Code to clipboard
+window.copyCompanyCode = function() {
+    const display = document.getElementById('companyCodeDisplay');
+    const code = display?.textContent;
+    
+    if (!code || code === '----' || code === 'N/A') {
+        alert('⚠️ No Company Code available');
+        return;
+    }
+    
+    navigator.clipboard.writeText(code).then(() => {
+        // Show feedback
+        const btn = event?.target?.closest('button');
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+            btn.style.background = '#10b981';
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.style.background = '#0ea5e9';
+            }, 2000);
+        }
+    }).catch(() => {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        alert('📋 Copied: ' + code);
+    });
+};
+
+// Regenerate Company Code from UI
+window.regenerateCompanyCodeUI = function() {
+    if (!confirm('⚠️ Regenerate Company Code?\n\nThis will invalidate the old code.\nStaff with the old code will need the new one to sync.\n\nContinue?')) {
+        return;
+    }
+    
+    const newCode = regenerateCompanyCode();
+    
+    if (newCode) {
+        const display = document.getElementById('companyCodeDisplay');
+        if (display) {
+            display.textContent = newCode;
+            display.style.animation = 'pulse 0.5s ease';
+            setTimeout(() => display.style.animation = '', 500);
+        }
+        
+        // Prompt to sync to cloud
+        if (confirm('✅ New Company Code: ' + newCode + '\n\nSync to cloud now?\n(Required for staff to use the new code)')) {
+            if (typeof fullCloudSync === 'function') {
+                fullCloudSync();
+            } else if (typeof window.fullCloudSync === 'function') {
+                window.fullCloudSync();
+            } else {
+                alert('Run fullCloudSync() in console to sync the new code to cloud.');
+            }
+        }
+    }
+};
+
+// Call initCompanyCodeUI when Settings section is shown
+const originalShowSection = window.showSection;
+window.showSection = function(sectionId) {
+    if (originalShowSection) {
+        originalShowSection(sectionId);
+    }
+    if (sectionId === 'settings') {
+        setTimeout(initCompanyCodeUI, 100);
+    }
 };
 
 // Initialize on load

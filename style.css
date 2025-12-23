@@ -190,13 +190,13 @@ body {
 
 /* Navigation Panel - EZCubic Theme */
 .nav-panel {
-    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    background: white;
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08);
     display: flex;
     flex-direction: column;
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(37, 99, 235, 0.1);
     position: relative;
     z-index: 10;
 }
@@ -205,11 +205,11 @@ body {
     text-align: center;
     margin-bottom: 25px;
     padding-bottom: 15px;
-    border-bottom: 2px solid rgba(37, 99, 235, 0.5);
+    border-bottom: 2px solid #2563eb;
 }
 
 .logo h1 {
-    color: #60a5fa;
+    color: #2563eb;
     font-size: 26px;
     display: flex;
     align-items: center;
@@ -220,12 +220,12 @@ body {
 }
 
 .logo h1 i {
-    color: #fbbf24;
+    color: #f59e0b;
     font-size: 20px;
 }
 
 .logo .tagline {
-    color: #94a3b8;
+    color: #64748b;
     font-size: 13px;
     margin-top: 5px;
     font-weight: 500;
@@ -235,8 +235,8 @@ body {
     display: inline-block;
     margin-top: 8px;
     padding: 2px 8px;
-    background: rgba(251, 191, 36, 0.2);
-    color: #fbbf24;
+    background: #fef3c7;
+    color: #92400e;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 600;
@@ -255,30 +255,29 @@ body {
     align-items: center;
     gap: 12px;
     padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
+    background: #f8fafc;
     border: none;
     border-radius: 10px;
     cursor: pointer;
     text-align: left;
     font-size: 15px;
-    color: #94a3b8;
+    color: #475569;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
 }
 
 .nav-btn:hover {
-    background: rgba(37, 99, 235, 0.3);
-    color: #fff;
+    background: #e2e8f0;
+    color: #1e293b;
     transform: translateX(5px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 .nav-btn.active {
-    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+    background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
     color: white;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 4px 12px rgba(30, 41, 59, 0.3);
 }
 
 .nav-btn.active::before {
@@ -287,27 +286,30 @@ body {
     left: 0;
     top: 0;
     height: 100%;
-    width: 3px;
-    background: #fbbf24;
+    width: 4px;
+    background: #f59e0b;
 }
 
 .nav-btn i {
     font-size: 18px;
     width: 24px;
     transition: transform 0.3s;
-    color: #60a5fa;
+    color: #64748b;
 }
 
-.nav-btn:hover i,
-.nav-btn.active i {
+.nav-btn:hover i {
     transform: scale(1.1);
-    color: #fff;
+    color: #1e293b;
+}
+
+.nav-btn.active i {
+    color: white;
 }
 
 .nav-badge {
     margin-left: auto;
-    background: #fbbf24;
-    color: #1e293b;
+    background: #f59e0b;
+    color: white;
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 10px;
@@ -371,14 +373,14 @@ body {
 .quick-actions {
     margin-top: 20px;
     padding: 15px;
-    background: rgba(251, 191, 36, 0.1);
+    background: #fef3c7;
     border-radius: 10px;
-    border: 2px dashed rgba(251, 191, 36, 0.3);
+    border: 2px dashed #f59e0b;
 }
 
 .quick-actions h3 {
     font-size: 14px;
-    color: #fbbf24;
+    color: #92400e;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -389,10 +391,10 @@ body {
     width: 100%;
     padding: 12px;
     margin-bottom: 8px;
-    background: rgba(37, 99, 235, 0.2);
-    border: 2px solid rgba(37, 99, 235, 0.5);
+    background: white;
+    border: 2px solid #2563eb;
     border-radius: 8px;
-    color: #60a5fa;
+    color: #2563eb;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
@@ -410,15 +412,14 @@ body {
 }
 
 .quick-action-btn.alt {
-    border-color: rgba(251, 191, 36, 0.5);
-    background: rgba(251, 191, 36, 0.1);
-    color: #fbbf24;
+    border-color: #f59e0b;
+    color: #92400e;
 }
 
 .quick-action-btn.alt:hover {
-    background: #fbbf24;
-    color: #1e293b;
-    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+    background: #f59e0b;
+    color: white;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
 }
 
 /* Main Content Area */
@@ -1404,10 +1405,8 @@ input:focus, select:focus, textarea:focus {
         height: 100vh;
         z-index: 1001;
         transition: left 0.3s ease;
-        box-shadow: 5px 0 30px rgba(0,0,0,0.5);
+        box-shadow: 5px 0 20px rgba(0,0,0,0.2);
         overflow-y: auto;
-        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .nav-panel.active {
@@ -3478,13 +3477,13 @@ input:focus, select:focus, textarea:focus {
 .ai-avatar {
     width: 40px;
     height: 40px;
-    background: linear-gradient(135deg, #3b82f6, #60a5fa);
+    background: transparent !important;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .ai-avatar i {
@@ -3493,10 +3492,11 @@ input:focus, select:focus, textarea:focus {
 }
 
 .ai-logo-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    object-fit: contain;
+    border-radius: 0;
+    background: transparent !important;
 }
 
 .response-content {
@@ -3531,6 +3531,112 @@ input:focus, select:focus, textarea:focus {
     background: rgba(59, 130, 246, 0.2);
     color: #60a5fa;
     border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* AI Action Buttons - New Enhanced Styles */
+.ai-action-btn {
+    padding: 8px 16px;
+    background: rgba(59, 130, 246, 0.2);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    color: #60a5fa;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ai-action-btn:hover {
+    background: rgba(59, 130, 246, 0.3);
+    transform: translateY(-1px);
+}
+
+.ai-action-btn.primary {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    color: white;
+    border-color: transparent;
+}
+
+.ai-action-btn.primary:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+}
+
+.ai-action-btn.success {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border-color: transparent;
+}
+
+.ai-action-btn.success:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+}
+
+.ai-action-btn.secondary {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+    border-color: rgba(100, 116, 139, 0.3);
+}
+
+.ai-action-btn.secondary:hover {
+    background: rgba(100, 116, 139, 0.3);
+    color: #cbd5e1;
+}
+
+.ai-action-btn.outline {
+    background: transparent;
+    color: #94a3b8;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.ai-action-btn.outline:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+}
+
+.ai-action-btn.small {
+    padding: 6px 10px;
+    font-size: 11px;
+}
+
+/* Module Tutorial Styles */
+.module-tutorial {
+    animation: slideIn 0.3s ease;
+}
+
+.contextual-help {
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Tutorial Progress Bar */
+.tutorial-progress {
+    background: rgba(0, 0, 0, 0.2);
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.tutorial-progress-bar {
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    height: 100%;
+    transition: width 0.3s ease;
 }
 
 /* AI Automation Panel */
@@ -13282,19 +13388,17 @@ body.logged-out {
     top: 0;
     height: 100%;
     width: 3px;
-    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    background: linear-gradient(135deg, #f59e0b, #d97706);
     transform: scaleY(0);
     transition: transform 0.2s ease;
 }
 
-.nav-btn:hover::before,
-.nav-btn.active::before {
+.nav-btn:hover::before {
     transform: scaleY(1);
 }
 
-.nav-btn.active {
-    background: linear-gradient(90deg, rgba(37, 99, 235, 0.1), transparent);
-}
+/* Note: .nav-btn.active styles are defined earlier in the file (line ~276) 
+   with dark background and white text - don't override here */
 
 /* Enhanced Modal */
 .modal {

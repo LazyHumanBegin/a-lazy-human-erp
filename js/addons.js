@@ -238,27 +238,147 @@ function addDarkModeStyles() {
             --text-primary: #f1f5f9;
             --text-secondary: #94a3b8;
             --border-color: #334155;
+            background: #0f172a !important;
         }
+        
+        /* Main Content Area */
         body.dark-mode .main-content { background: #0f172a; }
         body.dark-mode .content-card { background: #1e293b; border-color: #334155; }
+        body.dark-mode .card-header { background: #1e293b; border-color: #334155; }
         body.dark-mode .card-header h2 { color: #f1f5f9; }
-        body.dark-mode .stat-card { background: #334155; }
+        
+        /* Nav Panel / Sidebar */
+        body.dark-mode .nav-panel {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
+            border-color: #334155 !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        body.dark-mode .logo { border-bottom-color: rgba(37, 99, 235, 0.4) !important; }
+        body.dark-mode .logo h1 { color: #60a5fa !important; }
+        body.dark-mode .logo .tagline { color: #94a3b8 !important; }
+        body.dark-mode .logo .version { 
+            background: rgba(251, 191, 36, 0.2) !important; 
+            color: #fbbf24 !important; 
+        }
+        body.dark-mode .nav-btn {
+            background: rgba(255, 255, 255, 0.05) !important;
+            color: #94a3b8 !important;
+        }
+        body.dark-mode .nav-btn:hover {
+            background: rgba(37, 99, 235, 0.3) !important;
+            color: #fff !important;
+        }
+        body.dark-mode .nav-btn.active {
+            background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
+            color: white !important;
+        }
+        body.dark-mode .nav-btn i { color: #60a5fa !important; }
+        body.dark-mode .nav-btn:hover i,
+        body.dark-mode .nav-btn.active i { color: #fff !important; }
+        body.dark-mode .nav-separator span { color: #64748b !important; }
+        body.dark-mode .quick-actions {
+            background: rgba(251, 191, 36, 0.1) !important;
+            border-color: rgba(251, 191, 36, 0.3) !important;
+        }
+        body.dark-mode .quick-actions h3 { color: #fbbf24 !important; }
+        body.dark-mode .quick-action-btn {
+            background: rgba(37, 99, 235, 0.2) !important;
+            border-color: rgba(37, 99, 235, 0.4) !important;
+            color: #60a5fa !important;
+        }
+        body.dark-mode .quick-action-btn:hover {
+            background: #2563eb !important;
+            color: white !important;
+        }
+        body.dark-mode .quick-action-btn.alt {
+            background: rgba(251, 191, 36, 0.1) !important;
+            border-color: rgba(251, 191, 36, 0.4) !important;
+            color: #fbbf24 !important;
+        }
+        body.dark-mode .quick-action-btn.alt:hover {
+            background: #fbbf24 !important;
+            color: #1e293b !important;
+        }
+        
+        /* Stats */
+        body.dark-mode .stat-card { background: #334155; border-color: #475569; }
         body.dark-mode .stat-label { color: #94a3b8; }
         body.dark-mode .stat-value { color: #f1f5f9; }
+        
+        /* Forms */
         body.dark-mode .form-control { background: #334155; border-color: #475569; color: #f1f5f9; }
         body.dark-mode .form-control::placeholder { color: #64748b; }
+        body.dark-mode .form-label { color: #e2e8f0; }
+        body.dark-mode select.form-control { background: #334155; color: #f1f5f9; }
+        
+        /* Tables */
         body.dark-mode table { background: #1e293b; }
         body.dark-mode th { background: #334155; color: #f1f5f9; }
         body.dark-mode td { color: #e2e8f0; border-color: #334155; }
         body.dark-mode tr:hover { background: #334155; }
-        body.dark-mode .modal-content { background: #1e293b; }
-        body.dark-mode .modal-header { background: #334155; }
-        body.dark-mode h3, body.dark-mode h4 { color: #f1f5f9; }
+        body.dark-mode .data-table { background: #1e293b; }
+        
+        /* Modals */
+        body.dark-mode .modal-content { background: #1e293b; color: #f1f5f9; }
+        body.dark-mode .modal-header { background: #334155; border-color: #475569; }
+        body.dark-mode .modal-footer { background: #1e293b; border-color: #334155; }
+        body.dark-mode .modal-title { color: #f1f5f9; }
+        
+        /* Tabs */
         body.dark-mode .tabs { background: #334155; }
         body.dark-mode .tab { color: #94a3b8; }
         body.dark-mode .tab.active { background: #1e293b; color: #f1f5f9; }
+        
+        /* Other */
+        body.dark-mode h3, body.dark-mode h4 { color: #f1f5f9; }
         body.dark-mode .transaction-item { background: #334155; border-color: #475569; }
         body.dark-mode .empty-state { color: #94a3b8; }
+        body.dark-mode p { color: #cbd5e1; }
+        body.dark-mode label { color: #e2e8f0; }
+        body.dark-mode .btn-secondary { 
+            background: #334155 !important; 
+            color: #e2e8f0 !important; 
+            border-color: #475569 !important; 
+        }
+        body.dark-mode .btn-secondary:hover { 
+            background: #475569 !important; 
+        }
+        body.dark-mode .section-header { border-color: #334155; }
+        body.dark-mode .divider { border-color: #334155; }
+        body.dark-mode .status-badge { opacity: 0.9; }
+        
+        /* AI Assistant Logo */
+        body.dark-mode .ai-avatar { background: transparent !important; }
+        body.dark-mode .ai-logo-img { 
+            background: transparent !important;
+            filter: brightness(1.1);
+        }
+        
+        /* Top Auth Bar */
+        body.dark-mode .top-auth-bar {
+            background: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        body.dark-mode .top-auth-bar span,
+        body.dark-mode .top-auth-bar label { color: #94a3b8 !important; }
+        
+        /* Platform Control */
+        body.dark-mode .platform-section { 
+            background: #1e293b !important; 
+            border-color: #334155 !important; 
+        }
+        body.dark-mode .platform-stat { 
+            background: #334155 !important; 
+        }
+        body.dark-mode .settings-group { 
+            background: #0f172a !important; 
+        }
+        body.dark-mode .pricing-plan-card {
+            background: #334155 !important;
+        }
+        
+        /* Charts */
+        body.dark-mode .chart-container { background: #1e293b; }
     `;
     document.head.appendChild(style);
 }

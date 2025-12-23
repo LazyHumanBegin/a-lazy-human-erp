@@ -4055,6 +4055,37 @@
                             </div>
                         </div>
                         
+                        <!-- Company Code for Staff Device Sync -->
+                        <div id="companyCodeSection" style="margin: 20px 0; padding: 15px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 10px; border: 1px solid #7dd3fc; display: none;">
+                            <h4 style="margin: 0 0 10px; color: #0369a1; font-size: 14px;">
+                                <i class="fas fa-key" style="color: #0ea5e9;"></i> Company Code
+                                <span style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); 
+                                             color: white; padding: 2px 8px; border-radius: 4px; 
+                                             font-size: 10px; margin-left: 8px; font-weight: 600;">
+                                    FOR STAFF SYNC
+                                </span>
+                            </h4>
+                            <p style="font-size: 12px; color: #64748b; margin: 0 0 12px;">
+                                Share this code with your staff so they can sync their devices to login.
+                            </p>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <div style="flex: 1; background: white; border: 2px dashed #7dd3fc; border-radius: 8px; padding: 12px 16px; text-align: center;">
+                                    <span id="companyCodeDisplay" style="font-family: 'SF Mono', Monaco, monospace; font-size: 20px; font-weight: 700; letter-spacing: 3px; color: #0369a1;">
+                                        ----
+                                    </span>
+                                </div>
+                                <button type="button" onclick="copyCompanyCode()" class="btn-secondary" style="background: #0ea5e9; color: white; border: none; padding: 12px 16px;">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                                <button type="button" onclick="regenerateCompanyCodeUI()" class="btn-secondary" style="background: #f59e0b; color: white; border: none; padding: 12px 16px;" title="Generate new code (invalidates old one)">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <p style="font-size: 11px; color: #94a3b8; margin: 10px 0 0;">
+                                <i class="fas fa-info-circle"></i> Staff enter this code on the login page → "Sync from another device?" → Enter Company Code
+                            </p>
+                        </div>
+                        
                         <div class="form-group">
                             <label>
                                 Default Corporate Tax Rate (%)

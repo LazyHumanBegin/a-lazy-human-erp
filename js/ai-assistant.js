@@ -22,7 +22,174 @@ let aiState = {
     timeSaved: 0,
     analyticsPeriod: 'month',
     learningProgress: 0,
-    isProcessing: false
+    isProcessing: false,
+    currentSection: 'dashboard',
+    viewedTutorials: [],
+    helpDismissed: false
+};
+
+// ==================== MODULE TUTORIALS ====================
+const MODULE_TUTORIALS = {
+    'dashboard': {
+        title: 'Dashboard Overview',
+        icon: 'fa-home',
+        color: '#3b82f6',
+        steps: [
+            { title: 'Welcome to Dashboard', content: 'Your dashboard is the command center - see all your business finances at a glance. Revenue, expenses, profit, and trends are all here.', highlight: '.stats-grid' },
+            { title: 'Key Metrics', content: 'The top cards show: Total Revenue (money in), Total Expenses (money out), Net Profit (what\'s left), and Pending Bills.', highlight: '.stat-card' },
+            { title: 'Charts & Trends', content: 'The charts below show your income vs expenses over time. Green is good (income), red is costs. Look for upward income trends!', highlight: '.chart-container' },
+            { title: 'Quick Actions', content: 'Use the sidebar to quickly jump to any section. Or ask me anything in the AI Assistant!', highlight: '.sidebar' }
+        ]
+    },
+    'income': {
+        title: 'Recording Income',
+        icon: 'fa-arrow-down',
+        color: '#10b981',
+        steps: [
+            { title: 'What is Income?', content: 'Income is money your business RECEIVES - from sales, services, interest, or any other source.', highlight: null },
+            { title: 'Adding Income', content: 'Click "Add Income" to record money received. Enter the amount, add a description (e.g., "Sale to Customer A"), pick the date, and select payment method.', highlight: '#addIncomeBtn' },
+            { title: 'Categories', content: 'Categorize income properly: Sales, Services, Interest, Commission, etc. This helps with tax reporting!', highlight: '.category-select' },
+            { title: 'Pro Tips', content: '💡 Record income the same day you receive it!\n💡 Add invoice numbers in descriptions for easy tracking\n💡 Export monthly for your records', highlight: null }
+        ]
+    },
+    'expenses': {
+        title: 'Recording Expenses',
+        icon: 'fa-arrow-up',
+        color: '#ef4444',
+        steps: [
+            { title: 'What are Expenses?', content: 'Expenses are business costs - rent, utilities, supplies, salaries, marketing, anything you spend money on.', highlight: null },
+            { title: 'Adding Expenses', content: 'Click "Add Expense", enter amount, choose category (Rent, Utilities, etc.), add description and receipt number if available.', highlight: '#addExpenseBtn' },
+            { title: 'Why Categories Matter', content: 'Proper categorization = better tax deductions! Rent, utilities, office supplies, marketing - all deductible. Wrong category = missed savings.', highlight: '.category-select' },
+            { title: 'Keep Receipts!', content: '⚠️ LHDN requires receipts for 7 years!\n💡 Take photos of paper receipts\n💡 Add receipt numbers in descriptions\n💡 No receipt = No tax deduction', highlight: null }
+        ]
+    },
+    'pos': {
+        title: 'Point of Sale (POS)',
+        icon: 'fa-cash-register',
+        color: '#8b5cf6',
+        steps: [
+            { title: 'Welcome to POS', content: 'The POS is your digital cash register! Perfect for retail shops, restaurants, or any business selling products directly to customers.', highlight: null },
+            { title: 'Making a Sale', content: '1. Search or click products to add to cart\n2. Adjust quantities if needed\n3. Apply discounts if any\n4. Select payment method\n5. Complete the sale!', highlight: '.pos-grid' },
+            { title: 'Product Management', content: 'Go to Inventory to add products. Set prices, stock levels, and categories. Products will appear in POS automatically.', highlight: null },
+            { title: 'Daily Summary', content: 'At end of day, check "Daily Sales" to see total sales, payment breakdown, and top-selling items. Great for cash reconciliation!', highlight: null }
+        ]
+    },
+    'inventory': {
+        title: 'Inventory Management',
+        icon: 'fa-boxes',
+        color: '#f59e0b',
+        steps: [
+            { title: 'Why Inventory?', content: 'Track what you have, what\'s selling, and when to reorder. Never run out of stock or overstock again!', highlight: null },
+            { title: 'Adding Products', content: 'Click "Add Product" → Enter name, SKU, cost price, selling price, quantity, and category. Set low stock alert level!', highlight: '#addProductBtn' },
+            { title: 'Stock Movements', content: 'Record stock in (purchases from supplier) and stock out (sales, damaged, etc.). Every movement is tracked for accurate counts.', highlight: '.stock-actions' },
+            { title: 'Low Stock Alerts', content: 'Set minimum stock levels. When stock drops below, you\'ll see alerts. Never lose sales due to stockouts!', highlight: '.low-stock-alert' }
+        ]
+    },
+    'crm': {
+        title: 'Customer Management (CRM)',
+        icon: 'fa-users',
+        color: '#06b6d4',
+        steps: [
+            { title: 'What is CRM?', content: 'CRM = Customer Relationship Management. Keep track of all your customers, their purchase history, and communication.', highlight: null },
+            { title: 'Adding Customers', content: 'Click "Add Customer" → Enter name, email, phone, address. Link to a company if B2B. Track every interaction!', highlight: '#addCustomerBtn' },
+            { title: 'Customer History', content: 'Click any customer to see their complete history: orders, payments, notes. Know your best customers!', highlight: '.customer-card' },
+            { title: 'Why Track Customers?', content: '💡 Identify VIP customers (top spenders)\n💡 Send targeted promotions\n💡 Follow up on unpaid invoices\n💡 Build lasting relationships', highlight: null }
+        ]
+    },
+    'quotations': {
+        title: 'Quotations',
+        icon: 'fa-file-invoice-dollar',
+        color: '#ec4899',
+        steps: [
+            { title: 'What are Quotations?', content: 'Quotations are price estimates you give to customers BEFORE they confirm an order. Professional way to win business!', highlight: null },
+            { title: 'Creating a Quote', content: '1. Click "New Quotation"\n2. Select customer\n3. Add items with prices\n4. Set validity period\n5. Add terms & notes\n6. Send to customer!', highlight: '#newQuotationBtn' },
+            { title: 'Quote to Order', content: 'When customer accepts, click "Convert to Order" - automatically creates order from the quotation. No double work!', highlight: '.convert-btn' },
+            { title: 'Track Win Rate', content: 'See how many quotes convert to orders. Low conversion? Maybe adjust pricing or follow up faster!', highlight: null }
+        ]
+    },
+    'projects': {
+        title: 'Project Management',
+        icon: 'fa-project-diagram',
+        color: '#14b8a6',
+        steps: [
+            { title: 'What are Projects?', content: 'Track long-term work with multiple milestones. Perfect for contractors, agencies, consultants, and service businesses.', highlight: null },
+            { title: 'Creating Projects', content: '1. Click "New Project"\n2. Enter name, client, start/end dates\n3. Set budget\n4. Add milestones\n5. Assign team members', highlight: '#newProjectBtn' },
+            { title: 'Milestones & Tasks', content: 'Break projects into milestones. Each milestone has tasks. Track progress percentage and due dates.', highlight: '.milestone-list' },
+            { title: 'Profitability', content: 'Track costs vs budget. See if project is profitable before it ends. Adjust scope if over budget!', highlight: '.project-budget' }
+        ]
+    },
+    'bills': {
+        title: 'Bills Management',
+        icon: 'fa-file-invoice',
+        color: '#f97316',
+        steps: [
+            { title: 'Never Miss a Payment', content: 'Track all your recurring bills - rent, utilities, subscriptions, loans. Get reminders before due dates!', highlight: null },
+            { title: 'Adding Bills', content: 'Click "Add Bill" → Enter name, amount, due date, category. Set as recurring if it repeats monthly/yearly.', highlight: '#addBillBtn' },
+            { title: 'Payment Tracking', content: 'Mark bills as paid when you pay them. The system calculates what\'s upcoming and what\'s overdue.', highlight: '.bill-status' },
+            { title: 'Recurring Bills', content: '💡 Set up monthly bills once, they auto-repeat!\n💡 Examples: TNB, Water, Internet, Rent, Insurance\n💡 Check "Bills Due" on dashboard regularly', highlight: null }
+        ]
+    },
+    'taxes': {
+        title: 'Tax Center',
+        icon: 'fa-percentage',
+        color: '#ef4444',
+        steps: [
+            { title: 'Malaysian Tax Basics', content: 'Business tax in Malaysia: 15% on first RM150k, 17% on next RM450k, 24% above. SST is separate (Sales 10%, Service 8%).', highlight: null },
+            { title: 'Tax Calculator', content: 'Enter your income and expenses, the calculator estimates your tax automatically. Shows deductions and final amount.', highlight: '.tax-calculator' },
+            { title: 'Reduce Tax Legally', content: '💡 Record ALL business expenses (reduce taxable profit)\n💡 EPF/SOCSO contributions are deductible\n💡 Capital allowances for equipment\n💡 Keep proper records!', highlight: null },
+            { title: 'SST Registration', content: 'Annual revenue > RM500k? You must register for SST. Charge SST on sales, claim back on purchases.', highlight: '.sst-section' }
+        ]
+    },
+    'reports': {
+        title: 'Reports & Analysis',
+        icon: 'fa-chart-pie',
+        color: '#8b5cf6',
+        steps: [
+            { title: 'Why Reports?', content: 'Reports show the big picture. Are you profitable? Where\'s money going? What\'s trending? Make better decisions!', highlight: null },
+            { title: 'Key Reports', content: '📊 Profit & Loss - Income vs Expenses\n📋 Balance Sheet - Assets vs Liabilities\n📈 Cash Flow - Money movement\n🧾 Tax Summary - For LHDN filing', highlight: '.report-list' },
+            { title: 'Monthly Review', content: 'Every month, check your P&L report. Compare to previous months. Spot problems early!', highlight: '.monthly-reports' },
+            { title: 'Export for Accountant', content: 'Use Export to PDF/Excel. Send to your accountant for tax filing. Professional reports = happy accountant!', highlight: '.export-btn' }
+        ]
+    },
+    'balance-sheet': {
+        title: 'Balance Sheet',
+        icon: 'fa-balance-scale',
+        color: '#6366f1',
+        steps: [
+            { title: 'What is Balance Sheet?', content: 'Shows your business NET WORTH at a point in time. Assets (what you own) minus Liabilities (what you owe) = Equity (your worth).', highlight: null },
+            { title: 'Assets', content: 'What you OWN:\n💰 Cash in bank\n📦 Inventory value\n🏢 Equipment/vehicles\n📄 Money owed to you (receivables)', highlight: '.assets-section' },
+            { title: 'Liabilities', content: 'What you OWE:\n🏦 Bank loans\n💳 Credit card debt\n📋 Unpaid bills\n👥 Money owed to suppliers', highlight: '.liabilities-section' },
+            { title: 'Reading It', content: '✅ Assets > Liabilities = GOOD (positive equity)\n❌ Liabilities > Assets = TROUBLE (debt exceeds worth)\n💡 Goal: Grow assets, minimize liabilities', highlight: null }
+        ]
+    },
+    'settings': {
+        title: 'Settings',
+        icon: 'fa-cog',
+        color: '#64748b',
+        steps: [
+            { title: 'Business Profile', content: 'Enter your business name, SSM number, address, and TIN. This appears on all reports and exports.', highlight: '.business-profile' },
+            { title: 'User Management', content: 'Add staff accounts with different permissions. Manager, Staff, Viewer roles. Control who sees what.', highlight: '.user-management' },
+            { title: 'Cloud Sync', content: 'Enable cloud sync to backup data and access from multiple devices. Enter Company Code to sync with team.', highlight: '.cloud-sync' },
+            { title: 'Preferences', content: 'Dark/light mode, currency format, date format, notifications. Customize to your liking!', highlight: '.preferences' }
+        ]
+    }
+};
+
+// Quick Help Topics - Contextual
+const QUICK_HELP = {
+    'dashboard': ['How do I read my dashboard?', 'What does net profit mean?', 'How to improve my profit?'],
+    'income': ['How to add income?', 'What categories for income?', 'How to record a sale?'],
+    'expenses': ['How to add an expense?', 'What receipts to keep?', 'Tax-deductible expenses?'],
+    'pos': ['How to make a sale?', 'How to apply discount?', 'How to add products to POS?'],
+    'inventory': ['How to add products?', 'How to track stock?', 'What is low stock alert?'],
+    'crm': ['How to add customers?', 'How to track customer orders?', 'What is customer history?'],
+    'quotations': ['How to create quotation?', 'How to convert quote to order?', 'Quotation templates?'],
+    'projects': ['How to create project?', 'How to add milestones?', 'How to track project profit?'],
+    'bills': ['How to add recurring bill?', 'How to mark bill as paid?', 'Bill reminders setup?'],
+    'taxes': ['How much tax do I pay?', 'Malaysian tax rates?', 'How to reduce tax legally?'],
+    'reports': ['How to generate report?', 'Export to Excel/PDF?', 'Monthly vs yearly reports?'],
+    'balance-sheet': ['What is balance sheet?', 'Assets vs liabilities?', 'How to read balance sheet?'],
+    'settings': ['How to change business name?', 'How to add team members?', 'How to sync data?']
 };
 
 // ==================== INITIALIZATION ====================
@@ -970,6 +1137,443 @@ function generateAIResponse(query) {
         };
     }
     
+    // ==================== POS QUESTIONS ====================
+    if (lowerQuery.includes('pos') || lowerQuery.includes('point of sale') || lowerQuery.includes('cash register')) {
+        if (lowerQuery.includes('how') || lowerQuery.includes('use') || lowerQuery.includes('work')) {
+            return {
+                text: `<strong>🛒 How to Use POS (Point of Sale)</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <p>POS is your digital cash register - perfect for retail sales!</p>
+                        
+                        <div style="background: rgba(139, 92, 246, 0.15); padding: 20px; border-radius: 10px; margin: 15px 0;">
+                            <strong style="color: #a78bfa;">Quick Steps to Make a Sale:</strong>
+                            <ol style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 8px;">Go to <strong>POS</strong> section</li>
+                                <li style="margin-bottom: 8px;">Search or click products to add to cart</li>
+                                <li style="margin-bottom: 8px;">Adjust quantity using +/- buttons</li>
+                                <li style="margin-bottom: 8px;">Apply discount if needed</li>
+                                <li style="margin-bottom: 8px;">Select payment: Cash, Card, or E-Wallet</li>
+                                <li>Click <strong>"Complete Sale"</strong></li>
+                            </ol>
+                        </div>
+                        
+                        <div style="background: rgba(245, 158, 11, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #fcd34d;">💡 Tips:</strong>
+                            <ul style="color: #94a3b8; padding-left: 20px; margin-top: 5px; font-size: 13px;">
+                                <li>Add products in Inventory first</li>
+                                <li>Use barcode scanner for faster checkout</li>
+                                <li>Check Daily Sales for cash reconciliation</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '🛒 Go to POS', action: "showSection('pos')" },
+                    { label: '📦 Add Products', action: "showSection('inventory')" },
+                    { label: '📚 POS Tutorial', action: "startModuleTutorial('pos')" }
+                ]
+            };
+        }
+        
+        if (lowerQuery.includes('discount')) {
+            return {
+                text: `<strong>💰 How to Apply Discounts in POS</strong>
+                    <div style="margin-top: 15px;">
+                        <ol style="color: #cbd5e1; padding-left: 20px; line-height: 2;">
+                            <li>Add items to cart first</li>
+                            <li>Click <strong>"Apply Discount"</strong> button</li>
+                            <li>Enter discount:
+                                <ul style="padding-left: 20px; margin-top: 5px;">
+                                    <li>Percentage: e.g., 10%</li>
+                                    <li>Fixed amount: e.g., RM 5</li>
+                                </ul>
+                            </li>
+                            <li>Discount will be applied to total</li>
+                        </ol>
+                        
+                        <div style="background: rgba(16, 185, 129, 0.15); padding: 12px; border-radius: 8px; margin-top: 15px;">
+                            <strong style="color: #6ee7b7;">💡 Pro Tip:</strong>
+                            <span style="color: #94a3b8;"> Set up preset discounts (5%, 10%, 20%) for faster checkout!</span>
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '🛒 Go to POS', action: "showSection('pos')" }
+                ]
+            };
+        }
+    }
+    
+    // ==================== INVENTORY QUESTIONS ====================
+    if (lowerQuery.includes('inventory') || lowerQuery.includes('stock') || lowerQuery.includes('product')) {
+        if (lowerQuery.includes('add') || lowerQuery.includes('create') || lowerQuery.includes('new')) {
+            return {
+                text: `<strong>📦 How to Add Products to Inventory</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <div style="background: rgba(245, 158, 11, 0.15); padding: 20px; border-radius: 10px; margin-bottom: 15px;">
+                            <strong style="color: #fcd34d;">Step-by-Step:</strong>
+                            <ol style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 8px;">Go to <strong>Inventory</strong> section</li>
+                                <li style="margin-bottom: 8px;">Click <strong>"Add Product"</strong></li>
+                                <li style="margin-bottom: 8px;">Enter product details:
+                                    <ul style="padding-left: 15px; margin-top: 5px; color: #94a3b8;">
+                                        <li>Name: Product name</li>
+                                        <li>SKU: Unique code (optional)</li>
+                                        <li>Cost Price: What you pay</li>
+                                        <li>Selling Price: What customer pays</li>
+                                        <li>Quantity: Current stock</li>
+                                        <li>Category: Food, Electronics, etc.</li>
+                                    </ul>
+                                </li>
+                                <li style="margin-bottom: 8px;">Set <strong>Low Stock Alert</strong> level</li>
+                                <li>Click <strong>"Save Product"</strong></li>
+                            </ol>
+                        </div>
+                        
+                        <p style="color: #10b981;">✓ Product will automatically appear in POS!</p>
+                    </div>`,
+                actions: [
+                    { label: '📦 Go to Inventory', action: "showSection('inventory')" },
+                    { label: '📚 Inventory Tutorial', action: "startModuleTutorial('inventory')" }
+                ]
+            };
+        }
+        
+        if (lowerQuery.includes('low') || lowerQuery.includes('alert') || lowerQuery.includes('reorder')) {
+            return {
+                text: `<strong>⚠️ Low Stock Alerts</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <p>Get notified when products are running low so you never miss a sale!</p>
+                        
+                        <div style="background: rgba(239, 68, 68, 0.15); padding: 15px; border-radius: 10px; margin: 15px 0;">
+                            <strong style="color: #fca5a5;">How it Works:</strong>
+                            <ol style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li>When adding/editing a product, set "Low Stock Level"</li>
+                                <li>Example: Set to 10 units</li>
+                                <li>When stock drops to 10 or below, you'll see alerts</li>
+                                <li>Alerts appear on Dashboard and Inventory</li>
+                            </ol>
+                        </div>
+                        
+                        <div style="background: rgba(245, 158, 11, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #fcd34d;">💡 Recommended Levels:</strong>
+                            <ul style="color: #94a3b8; padding-left: 20px; margin-top: 5px; font-size: 13px;">
+                                <li>Fast-selling items: 20-30 units</li>
+                                <li>Normal items: 10-15 units</li>
+                                <li>Slow-moving items: 5 units</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '📦 Check Inventory', action: "showSection('inventory')" }
+                ]
+            };
+        }
+        
+        if (lowerQuery.includes('track') || lowerQuery.includes('manage')) {
+            return {
+                text: `<strong>📦 Inventory Tracking Guide</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <div style="display: grid; gap: 12px;">
+                            <div style="background: rgba(16, 185, 129, 0.15); padding: 15px; border-radius: 8px;">
+                                <strong style="color: #6ee7b7;">📥 Stock In (Receiving)</strong>
+                                <p style="color: #94a3b8; font-size: 13px; margin-top: 5px;">When you receive stock from supplier, add a "Stock In" movement to increase quantity.</p>
+                            </div>
+                            <div style="background: rgba(239, 68, 68, 0.15); padding: 15px; border-radius: 8px;">
+                                <strong style="color: #fca5a5;">📤 Stock Out (Sales/Adjustments)</strong>
+                                <p style="color: #94a3b8; font-size: 13px; margin-top: 5px;">POS sales auto-deduct. For damaged/lost items, add "Stock Out" manually.</p>
+                            </div>
+                            <div style="background: rgba(59, 130, 246, 0.15); padding: 15px; border-radius: 8px;">
+                                <strong style="color: #93c5fd;">📊 Stock Reports</strong>
+                                <p style="color: #94a3b8; font-size: 13px; margin-top: 5px;">View stock levels, valuation, movement history. Export for stocktake!</p>
+                            </div>
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '📦 Go to Inventory', action: "showSection('inventory')" },
+                    { label: '📚 Full Tutorial', action: "startModuleTutorial('inventory')" }
+                ]
+            };
+        }
+    }
+    
+    // ==================== CRM / CUSTOMER QUESTIONS ====================
+    if (lowerQuery.includes('customer') || lowerQuery.includes('crm') || lowerQuery.includes('client')) {
+        if (lowerQuery.includes('add') || lowerQuery.includes('new') || lowerQuery.includes('create')) {
+            return {
+                text: `<strong>👥 How to Add Customers</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <div style="background: rgba(6, 182, 212, 0.15); padding: 20px; border-radius: 10px;">
+                            <strong style="color: #22d3ee;">Quick Steps:</strong>
+                            <ol style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 8px;">Go to <strong>CRM / Customers</strong></li>
+                                <li style="margin-bottom: 8px;">Click <strong>"Add Customer"</strong></li>
+                                <li style="margin-bottom: 8px;">Enter details:
+                                    <ul style="padding-left: 15px; margin-top: 5px; color: #94a3b8;">
+                                        <li>Name (required)</li>
+                                        <li>Email</li>
+                                        <li>Phone number</li>
+                                        <li>Address</li>
+                                        <li>Company (if B2B)</li>
+                                    </ul>
+                                </li>
+                                <li>Click <strong>"Save Customer"</strong></li>
+                            </ol>
+                        </div>
+                        
+                        <div style="margin-top: 15px; color: #94a3b8; font-size: 13px;">
+                            💡 You can also add customers during POS checkout or when creating quotations!
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '👥 Go to CRM', action: "showSection('crm')" },
+                    { label: '📚 CRM Tutorial', action: "startModuleTutorial('crm')" }
+                ]
+            };
+        }
+        
+        if (lowerQuery.includes('history') || lowerQuery.includes('track') || lowerQuery.includes('order')) {
+            return {
+                text: `<strong>📋 Customer History & Tracking</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <p>Click on any customer to see their complete history!</p>
+                        
+                        <div style="background: rgba(6, 182, 212, 0.15); padding: 15px; border-radius: 10px; margin: 15px 0;">
+                            <strong style="color: #22d3ee;">What You Can See:</strong>
+                            <ul style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li>All orders/purchases</li>
+                                <li>Total spent (lifetime value)</li>
+                                <li>Payment history</li>
+                                <li>Outstanding amounts</li>
+                                <li>Notes & interactions</li>
+                                <li>Quotations sent</li>
+                            </ul>
+                        </div>
+                        
+                        <div style="background: rgba(245, 158, 11, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #fcd34d;">💡 Why Track Customers?</strong>
+                            <ul style="color: #94a3b8; padding-left: 20px; margin-top: 5px; font-size: 13px;">
+                                <li>Identify VIP customers (top spenders)</li>
+                                <li>Follow up on unpaid invoices</li>
+                                <li>Send birthday/loyalty promotions</li>
+                                <li>Personalize service based on history</li>
+                            </ul>
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '👥 View Customers', action: "showSection('crm')" }
+                ]
+            };
+        }
+    }
+    
+    // ==================== QUOTATION QUESTIONS ====================
+    if (lowerQuery.includes('quotation') || lowerQuery.includes('quote') || lowerQuery.includes('estimate')) {
+        if (lowerQuery.includes('create') || lowerQuery.includes('how') || lowerQuery.includes('make')) {
+            return {
+                text: `<strong>📝 How to Create a Quotation</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <div style="background: rgba(236, 72, 153, 0.15); padding: 20px; border-radius: 10px;">
+                            <strong style="color: #f472b6;">Step-by-Step:</strong>
+                            <ol style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 8px;">Go to <strong>Quotations</strong></li>
+                                <li style="margin-bottom: 8px;">Click <strong>"New Quotation"</strong></li>
+                                <li style="margin-bottom: 8px;">Select or add customer</li>
+                                <li style="margin-bottom: 8px;">Add items:
+                                    <ul style="padding-left: 15px; margin-top: 5px; color: #94a3b8;">
+                                        <li>Item description</li>
+                                        <li>Quantity</li>
+                                        <li>Unit price</li>
+                                    </ul>
+                                </li>
+                                <li style="margin-bottom: 8px;">Set validity period (e.g., 14 days)</li>
+                                <li style="margin-bottom: 8px;">Add terms & conditions</li>
+                                <li>Click <strong>"Save"</strong> then <strong>"Send"</strong></li>
+                            </ol>
+                        </div>
+                        
+                        <p style="margin-top: 15px; color: #10b981;">✓ Customer accepts? Click "Convert to Order" - no retyping!</p>
+                    </div>`,
+                actions: [
+                    { label: '📝 Create Quotation', action: "showSection('quotations')" },
+                    { label: '📚 Quotations Tutorial', action: "startModuleTutorial('quotations')" }
+                ]
+            };
+        }
+        
+        if (lowerQuery.includes('convert') || lowerQuery.includes('order') || lowerQuery.includes('accept')) {
+            return {
+                text: `<strong>✅ Converting Quotation to Order</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <p>When customer accepts your quotation:</p>
+                        
+                        <div style="background: rgba(16, 185, 129, 0.15); padding: 15px; border-radius: 10px; margin: 15px 0;">
+                            <ol style="color: #cbd5e1; padding-left: 20px;">
+                                <li style="margin-bottom: 8px;">Open the quotation</li>
+                                <li style="margin-bottom: 8px;">Click <strong>"Convert to Order"</strong></li>
+                                <li style="margin-bottom: 8px;">Review order details</li>
+                                <li>Confirm and save</li>
+                            </ol>
+                        </div>
+                        
+                        <p style="color: #94a3b8; font-size: 13px;">
+                            💡 All items, prices, and customer info are auto-copied. The quotation is marked as "Accepted".
+                        </p>
+                    </div>`,
+                actions: [
+                    { label: '📝 View Quotations', action: "showSection('quotations')" }
+                ]
+            };
+        }
+    }
+    
+    // ==================== PROJECT QUESTIONS ====================
+    if (lowerQuery.includes('project') || lowerQuery.includes('milestone') || lowerQuery.includes('task')) {
+        if (lowerQuery.includes('create') || lowerQuery.includes('new') || lowerQuery.includes('how')) {
+            return {
+                text: `<strong>📋 How to Create & Manage Projects</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <div style="background: rgba(20, 184, 166, 0.15); padding: 20px; border-radius: 10px;">
+                            <strong style="color: #2dd4bf;">Creating a Project:</strong>
+                            <ol style="color: #cbd5e1; padding-left: 20px; margin-top: 10px;">
+                                <li style="margin-bottom: 8px;">Go to <strong>Projects</strong></li>
+                                <li style="margin-bottom: 8px;">Click <strong>"New Project"</strong></li>
+                                <li style="margin-bottom: 8px;">Enter details:
+                                    <ul style="padding-left: 15px; margin-top: 5px; color: #94a3b8;">
+                                        <li>Project name</li>
+                                        <li>Client/Customer</li>
+                                        <li>Start & end dates</li>
+                                        <li>Budget</li>
+                                    </ul>
+                                </li>
+                                <li style="margin-bottom: 8px;">Add <strong>Milestones</strong> (phases)</li>
+                                <li>Add <strong>Tasks</strong> under each milestone</li>
+                            </ol>
+                        </div>
+                        
+                        <div style="margin-top: 15px; background: rgba(245, 158, 11, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #fcd34d;">💡 Example Milestones:</strong>
+                            <span style="color: #94a3b8;"> Design → Development → Testing → Launch</span>
+                        </div>
+                    </div>`,
+                actions: [
+                    { label: '📋 Go to Projects', action: "showSection('projects')" },
+                    { label: '📚 Projects Tutorial', action: "startModuleTutorial('projects')" }
+                ]
+            };
+        }
+        
+        if (lowerQuery.includes('profit') || lowerQuery.includes('budget') || lowerQuery.includes('cost')) {
+            return {
+                text: `<strong>💰 Project Profitability Tracking</strong>
+                    <div style="margin-top: 15px; line-height: 1.8;">
+                        <p>Track if your project is profitable before it ends!</p>
+                        
+                        <div style="display: grid; gap: 10px; margin: 15px 0;">
+                            <div style="background: rgba(16, 185, 129, 0.15); padding: 12px; border-radius: 8px;">
+                                <strong style="color: #6ee7b7;">Budget</strong>
+                                <p style="color: #94a3b8; font-size: 13px;">Set when creating project - what client pays</p>
+                            </div>
+                            <div style="background: rgba(239, 68, 68, 0.15); padding: 12px; border-radius: 8px;">
+                                <strong style="color: #fca5a5;">Costs</strong>
+                                <p style="color: #94a3b8; font-size: 13px;">Add expenses as you incur them - materials, labor, etc.</p>
+                            </div>
+                            <div style="background: rgba(59, 130, 246, 0.15); padding: 12px; border-radius: 8px;">
+                                <strong style="color: #93c5fd;">Profit = Budget - Costs</strong>
+                                <p style="color: #94a3b8; font-size: 13px;">See real-time profit margin throughout the project</p>
+                            </div>
+                        </div>
+                        
+                        <p style="color: #f59e0b;">⚠️ If costs exceed budget, adjust scope or timeline!</p>
+                    </div>`,
+                actions: [
+                    { label: '📋 View Projects', action: "showSection('projects')" }
+                ]
+            };
+        }
+    }
+    
+    // ==================== TUTORIAL/HELP REQUESTS ====================
+    if (lowerQuery.includes('tutorial') || lowerQuery.includes('learn') || lowerQuery.includes('guide') || lowerQuery.includes('teach')) {
+        return {
+            text: `<strong>📚 Available Tutorials & Guides</strong>
+                <div style="margin-top: 15px; line-height: 1.8;">
+                    <p style="color: #cbd5e1;">Click any topic to start learning:</p>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px;">
+                        <button onclick="startBeginnerTutorial()" style="background: rgba(59, 130, 246, 0.2); border: none; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left;">
+                            <strong style="color: #60a5fa;">🎓 Beginner Tutorial</strong>
+                            <p style="color: #94a3b8; font-size: 12px; margin-top: 3px;">New to accounting? Start here!</p>
+                        </button>
+                        <button onclick="startModuleTutorial('dashboard')" style="background: rgba(16, 185, 129, 0.2); border: none; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left;">
+                            <strong style="color: #6ee7b7;">📊 Dashboard</strong>
+                            <p style="color: #94a3b8; font-size: 12px; margin-top: 3px;">Understand your finances</p>
+                        </button>
+                        <button onclick="startModuleTutorial('pos')" style="background: rgba(139, 92, 246, 0.2); border: none; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left;">
+                            <strong style="color: #a78bfa;">🛒 POS System</strong>
+                            <p style="color: #94a3b8; font-size: 12px; margin-top: 3px;">Make sales like a pro</p>
+                        </button>
+                        <button onclick="startModuleTutorial('inventory')" style="background: rgba(245, 158, 11, 0.2); border: none; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left;">
+                            <strong style="color: #fcd34d;">📦 Inventory</strong>
+                            <p style="color: #94a3b8; font-size: 12px; margin-top: 3px;">Track your products</p>
+                        </button>
+                        <button onclick="startModuleTutorial('taxes')" style="background: rgba(239, 68, 68, 0.2); border: none; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left;">
+                            <strong style="color: #fca5a5;">🧾 Taxes</strong>
+                            <p style="color: #94a3b8; font-size: 12px; margin-top: 3px;">Malaysian tax guide</p>
+                        </button>
+                        <button onclick="showAllTutorials()" style="background: rgba(100, 116, 139, 0.2); border: none; padding: 15px; border-radius: 8px; cursor: pointer; text-align: left;">
+                            <strong style="color: #94a3b8;">📖 All Tutorials</strong>
+                            <p style="color: #64748b; font-size: 12px; margin-top: 3px;">See full list</p>
+                        </button>
+                    </div>
+                </div>`,
+            actions: [
+                { label: '🎓 Start Beginner Tutorial', action: "startBeginnerTutorial()" },
+                { label: '📖 All Tutorials', action: "showAllTutorials()" }
+            ]
+        };
+    }
+    
+    // ==================== HELP / WHAT CAN YOU DO ====================
+    if (lowerQuery.includes('help') || lowerQuery.includes('what can you') || lowerQuery.includes('assist')) {
+        return {
+            text: `<strong>🤖 Hi! I'm your AI Assistant!</strong>
+                <div style="margin-top: 15px; line-height: 1.8;">
+                    <p style="color: #cbd5e1;">I can help you with lots of things:</p>
+                    
+                    <div style="display: grid; gap: 10px; margin-top: 15px;">
+                        <div style="background: rgba(59, 130, 246, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #60a5fa;">📚 Learn & Tutorial</strong>
+                            <p style="color: #94a3b8; font-size: 12px;">Step-by-step guides for every feature</p>
+                        </div>
+                        <div style="background: rgba(16, 185, 129, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #6ee7b7;">📊 Business Insights</strong>
+                            <p style="color: #94a3b8; font-size: 12px;">"Show my profit", "Top expenses", "Cash flow"</p>
+                        </div>
+                        <div style="background: rgba(245, 158, 11, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #fcd34d;">🧾 Tax Help</strong>
+                            <p style="color: #94a3b8; font-size: 12px;">Malaysian tax rates, deductions, SST info</p>
+                        </div>
+                        <div style="background: rgba(239, 68, 68, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #fca5a5;">📅 Reminders</strong>
+                            <p style="color: #94a3b8; font-size: 12px;">"Bills due soon", upcoming payments</p>
+                        </div>
+                        <div style="background: rgba(139, 92, 246, 0.15); padding: 12px; border-radius: 8px;">
+                            <strong style="color: #a78bfa;">🔧 How-To Guides</strong>
+                            <p style="color: #94a3b8; font-size: 12px;">POS, Inventory, CRM, Projects, Quotations</p>
+                        </div>
+                    </div>
+                    
+                    <p style="margin-top: 15px; color: #f59e0b; font-size: 13px;">
+                        💡 Just type your question or click the buttons below!
+                    </p>
+                </div>`,
+            actions: [
+                { label: '🎓 Start Tutorial', action: "startBeginnerTutorial()" },
+                { label: '📊 My Profit', action: "askAIExample('Show my profit this month')" },
+                { label: '📚 All Guides', action: "showAllTutorials()" }
+            ]
+        };
+    }
+    
     // Default response - more helpful with guided options
     return {
         text: `<strong>I'm here to help! 🤖</strong>
@@ -1851,6 +2455,383 @@ window.prevTutorialStep = prevTutorialStep;
 window.skipTutorial = skipTutorial;
 window.closeTutorial = closeTutorial;
 window.restartTutorial = restartTutorial;
+window.startModuleTutorial = startModuleTutorial;
+window.nextModuleStep = nextModuleStep;
+window.prevModuleStep = prevModuleStep;
+window.closeModuleTutorial = closeModuleTutorial;
+window.showContextualHelp = showContextualHelp;
+window.showQuickGuide = showQuickGuide;
+window.dismissContextualHelp = dismissContextualHelp;
+window.showAllTutorials = showAllTutorials;
+
+// ==================== MODULE TUTORIAL SYSTEM ====================
+let currentModuleTutorial = null;
+let moduleStep = 0;
+
+function startModuleTutorial(moduleName) {
+    const tutorial = MODULE_TUTORIALS[moduleName];
+    if (!tutorial) {
+        showNotification('Tutorial not available for this section', 'info');
+        return;
+    }
+    
+    currentModuleTutorial = moduleName;
+    moduleStep = 0;
+    
+    // Track viewed tutorials
+    if (!aiState.viewedTutorials.includes(moduleName)) {
+        aiState.viewedTutorials.push(moduleName);
+        saveAIState();
+    }
+    
+    displayModuleTutorialStep();
+    showNotification(`Starting ${tutorial.title} tutorial 🎓`, 'info');
+}
+
+function displayModuleTutorialStep() {
+    const tutorial = MODULE_TUTORIALS[currentModuleTutorial];
+    if (!tutorial) return;
+    
+    const step = tutorial.steps[moduleStep];
+    if (!step) return;
+    
+    const container = document.getElementById('aiResponseContainer');
+    if (!container) return;
+    
+    const progressPercent = Math.round(((moduleStep + 1) / tutorial.steps.length) * 100);
+    
+    container.innerHTML = `
+        <div class="ai-response module-tutorial" style="border: 2px solid ${tutorial.color}33; background: ${tutorial.color}08;">
+            <div class="ai-avatar" style="background: ${tutorial.color};">
+                <i class="fas ${tutorial.icon}"></i>
+            </div>
+            <div class="response-content">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <span style="color: ${tutorial.color}; font-size: 12px; text-transform: uppercase;">${tutorial.title}</span>
+                        <h3 style="color: white; margin-top: 5px;">${step.title}</h3>
+                    </div>
+                    <span style="color: #64748b; font-size: 12px;">Step ${moduleStep + 1}/${tutorial.steps.length}</span>
+                </div>
+                
+                <div style="background: rgba(0,0,0,0.2); height: 4px; border-radius: 2px; margin-bottom: 15px;">
+                    <div style="background: ${tutorial.color}; height: 100%; width: ${progressPercent}%; border-radius: 2px; transition: width 0.3s;"></div>
+                </div>
+                
+                <div class="response-text" style="white-space: pre-line; line-height: 1.8;">
+                    ${step.content}
+                </div>
+                
+                <div class="response-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
+                    ${moduleStep > 0 ? '<button class="ai-action-btn secondary" onclick="prevModuleStep()"><i class="fas fa-arrow-left"></i> Back</button>' : ''}
+                    ${moduleStep < tutorial.steps.length - 1 
+                        ? '<button class="ai-action-btn primary" onclick="nextModuleStep()">Next <i class="fas fa-arrow-right"></i></button>' 
+                        : '<button class="ai-action-btn success" onclick="closeModuleTutorial()"><i class="fas fa-check"></i> Done!</button>'}
+                    <button class="ai-action-btn outline" onclick="closeModuleTutorial()">Exit Tutorial</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.scrollTop = 0;
+}
+
+function nextModuleStep() {
+    const tutorial = MODULE_TUTORIALS[currentModuleTutorial];
+    if (moduleStep < tutorial.steps.length - 1) {
+        moduleStep++;
+        displayModuleTutorialStep();
+    }
+}
+
+function prevModuleStep() {
+    if (moduleStep > 0) {
+        moduleStep--;
+        displayModuleTutorialStep();
+    }
+}
+
+function closeModuleTutorial() {
+    const tutorial = MODULE_TUTORIALS[currentModuleTutorial];
+    currentModuleTutorial = null;
+    moduleStep = 0;
+    
+    const container = document.getElementById('aiResponseContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="ai-response">
+                <div class="ai-avatar" style="background: #10b981;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="response-content">
+                    <div class="response-text">
+                        <strong style="color: #10b981;">Tutorial Complete! 🎉</strong>
+                        <p style="margin-top: 10px; color: #cbd5e1;">
+                            Great job! You've learned the basics of ${tutorial?.title || 'this module'}.
+                        </p>
+                        <p style="margin-top: 10px; color: #94a3b8; font-size: 13px;">
+                            💡 Need more help? Just ask me anything or type your question below!
+                        </p>
+                    </div>
+                    <div class="response-actions" style="margin-top: 15px;">
+                        <button class="ai-action-btn" onclick="showAllTutorials()">📚 More Tutorials</button>
+                        <button class="ai-action-btn" onclick="askAIExample('What else can you help me with?')">💬 Ask a Question</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    aiState.tasksCompleted++;
+    saveAIState();
+}
+
+function showAllTutorials() {
+    const container = document.getElementById('aiResponseContainer');
+    if (!container) return;
+    
+    const tutorialCards = Object.entries(MODULE_TUTORIALS).map(([key, tutorial]) => {
+        const completed = aiState.viewedTutorials.includes(key);
+        return `
+            <div onclick="startModuleTutorial('${key}')" 
+                 style="background: ${tutorial.color}15; padding: 15px; border-radius: 10px; cursor: pointer; 
+                        border-left: 4px solid ${tutorial.color}; transition: all 0.2s;"
+                 onmouseover="this.style.transform='translateX(5px)'" 
+                 onmouseout="this.style.transform='translateX(0)'">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <i class="fas ${tutorial.icon}" style="color: ${tutorial.color}; font-size: 20px;"></i>
+                    <div style="flex: 1;">
+                        <strong style="color: white;">${tutorial.title}</strong>
+                        <p style="color: #94a3b8; font-size: 12px; margin-top: 3px;">${tutorial.steps.length} steps</p>
+                    </div>
+                    ${completed ? '<i class="fas fa-check-circle" style="color: #10b981;"></i>' : '<i class="fas fa-play-circle" style="color: #64748b;"></i>'}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    container.innerHTML = `
+        <div class="ai-response">
+            <div class="ai-avatar" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6);">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+            <div class="response-content">
+                <h3 style="color: white; margin-bottom: 5px;">📚 Available Tutorials</h3>
+                <p style="color: #94a3b8; font-size: 13px; margin-bottom: 20px;">Click any tutorial to start learning!</p>
+                
+                <div style="display: grid; gap: 10px; max-height: 400px; overflow-y: auto;">
+                    ${tutorialCards}
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: rgba(245, 158, 11, 0.15); border-radius: 10px;">
+                    <strong style="color: #fcd34d;"><i class="fas fa-lightbulb"></i> Tip:</strong>
+                    <span style="color: #cbd5e1;"> Start with "Dashboard Overview" if you're new!</span>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.scrollTop = 0;
+}
+
+// ==================== CONTEXTUAL HELP SYSTEM ====================
+function updateContextualHelp(sectionName) {
+    aiState.currentSection = sectionName;
+    
+    // Auto-show contextual help for first-time visitors
+    if (!aiState.viewedTutorials.includes(sectionName) && !aiState.helpDismissed) {
+        showContextualHelp(sectionName);
+    }
+}
+
+function showContextualHelp(sectionName) {
+    const tutorial = MODULE_TUTORIALS[sectionName];
+    const quickHelp = QUICK_HELP[sectionName];
+    
+    if (!tutorial && !quickHelp) return;
+    
+    const container = document.getElementById('aiResponseContainer');
+    if (!container) return;
+    
+    const quickQuestions = quickHelp ? quickHelp.map(q => 
+        `<button class="ai-action-btn outline small" onclick="askAIExample('${q}')" style="font-size: 12px; padding: 8px 12px;">${q}</button>`
+    ).join('') : '';
+    
+    container.innerHTML = `
+        <div class="ai-response contextual-help" style="border: 2px solid ${tutorial?.color || '#3b82f6'}33;">
+            <div class="ai-avatar" style="background: ${tutorial?.color || '#3b82f6'};">
+                <i class="fas ${tutorial?.icon || 'fa-question-circle'}"></i>
+            </div>
+            <div class="response-content">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <span style="color: ${tutorial?.color || '#3b82f6'}; font-size: 11px; text-transform: uppercase;">Need Help?</span>
+                        <h3 style="color: white; margin-top: 5px;">${tutorial?.title || sectionName}</h3>
+                    </div>
+                    <button onclick="dismissContextualHelp()" style="background: none; border: none; color: #64748b; cursor: pointer; padding: 5px;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <p style="color: #94a3b8; margin-top: 10px; font-size: 14px;">
+                    ${tutorial?.steps[0]?.content?.substring(0, 150) || 'Welcome to this section!'}...
+                </p>
+                
+                ${quickHelp ? `
+                    <div style="margin-top: 15px;">
+                        <p style="color: #64748b; font-size: 11px; margin-bottom: 10px;">QUICK QUESTIONS:</p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                            ${quickQuestions}
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <div class="response-actions" style="margin-top: 15px; display: flex; gap: 10px;">
+                    ${tutorial ? `<button class="ai-action-btn primary" onclick="startModuleTutorial('${sectionName}')"><i class="fas fa-play"></i> Start Tutorial</button>` : ''}
+                    <button class="ai-action-btn outline" onclick="dismissContextualHelp()">Got it!</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function dismissContextualHelp() {
+    const container = document.getElementById('aiResponseContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="ai-response">
+                <div class="ai-avatar"><img src="images/ai-logo.png" alt="AI" class="ai-logo-img"></div>
+                <div class="response-content">
+                    <div class="response-text">
+                        <p style="color: #cbd5e1;">👋 I'm here if you need help! Just type a question below or click one of the quick actions.</p>
+                    </div>
+                    <div class="response-actions" style="margin-top: 10px;">
+                        <button class="ai-action-btn" onclick="showAllTutorials()">📚 Tutorials</button>
+                        <button class="ai-action-btn" onclick="askAIExample('How do I get started?')">🚀 Get Started</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// ==================== QUICK GUIDES ====================
+function showQuickGuide(topic) {
+    const guides = {
+        'add-income': {
+            title: 'Quick Guide: Add Income',
+            steps: [
+                '1. Click "Income" in the sidebar (or Record Income)',
+                '2. Click the "Add Income" button',
+                '3. Enter the amount you received',
+                '4. Add a description (e.g., "Sale to Customer ABC")',
+                '5. Select the date and payment method',
+                '6. Click "Save" or "Add Income"',
+                '✅ Done! Your income is recorded.'
+            ]
+        },
+        'add-expense': {
+            title: 'Quick Guide: Add Expense',
+            steps: [
+                '1. Click "Expenses" in the sidebar',
+                '2. Click the "Add Expense" button',
+                '3. Enter the amount spent',
+                '4. Select a category (Rent, Utilities, etc.)',
+                '5. Add description and receipt number',
+                '6. Pick the date and click "Save"',
+                '💡 Tip: Proper categories = better tax deductions!'
+            ]
+        },
+        'make-sale': {
+            title: 'Quick Guide: Make a Sale (POS)',
+            steps: [
+                '1. Go to POS (Point of Sale)',
+                '2. Search or click products to add to cart',
+                '3. Adjust quantity if needed',
+                '4. Apply discount (if any)',
+                '5. Select payment method (Cash/Card/E-Wallet)',
+                '6. Click "Complete Sale"',
+                '🧾 Receipt will be generated automatically!'
+            ]
+        },
+        'add-product': {
+            title: 'Quick Guide: Add Product',
+            steps: [
+                '1. Go to Inventory section',
+                '2. Click "Add Product"',
+                '3. Enter product name and SKU',
+                '4. Set cost price and selling price',
+                '5. Enter current stock quantity',
+                '6. Set low stock alert level',
+                '7. Click "Save Product"',
+                '📦 Product will appear in POS!'
+            ]
+        },
+        'add-customer': {
+            title: 'Quick Guide: Add Customer',
+            steps: [
+                '1. Go to CRM / Customers section',
+                '2. Click "Add Customer"',
+                '3. Enter name, email, phone',
+                '4. Add address (optional)',
+                '5. Add any notes about the customer',
+                '6. Click "Save Customer"',
+                '👥 Now you can track their orders!'
+            ]
+        },
+        'create-quotation': {
+            title: 'Quick Guide: Create Quotation',
+            steps: [
+                '1. Go to Quotations section',
+                '2. Click "New Quotation"',
+                '3. Select customer (or add new)',
+                '4. Add items with quantities and prices',
+                '5. Set validity period (e.g., 14 days)',
+                '6. Add terms & conditions',
+                '7. Click "Save" then "Send to Customer"',
+                '✉️ Email the PDF to your customer!'
+            ]
+        },
+        'export-report': {
+            title: 'Quick Guide: Export Report',
+            steps: [
+                '1. Go to Reports section',
+                '2. Select report type (P&L, Balance Sheet, etc.)',
+                '3. Choose date range',
+                '4. Click "Generate Report"',
+                '5. Review the report',
+                '6. Click "Export to PDF" or "Export to Excel"',
+                '📄 Save and send to your accountant!'
+            ]
+        }
+    };
+    
+    const guide = guides[topic];
+    if (!guide) return;
+    
+    const container = document.getElementById('aiResponseContainer');
+    if (!container) return;
+    
+    const stepsHtml = guide.steps.map(step => `<li style="margin-bottom: 8px;">${step}</li>`).join('');
+    
+    container.innerHTML = `
+        <div class="ai-response">
+            <div class="ai-avatar" style="background: #3b82f6;">
+                <i class="fas fa-list-ol"></i>
+            </div>
+            <div class="response-content">
+                <h3 style="color: white; margin-bottom: 15px;">${guide.title}</h3>
+                <ol style="color: #cbd5e1; padding-left: 20px; line-height: 1.8;">
+                    ${stepsHtml}
+                </ol>
+                <div class="response-actions" style="margin-top: 15px;">
+                    <button class="ai-action-btn" onclick="askAIExample('What else can you help me with?')">More Help</button>
+                    <button class="ai-action-btn outline" onclick="dismissContextualHelp()">Got it!</button>
+                </div>
+            </div>
+        </div>
+    `;
+}
 
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {

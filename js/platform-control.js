@@ -1657,27 +1657,42 @@ function renderPlatformControl() {
                     <thead>
                         <tr>
                             <th>Business</th>
+                            <th>Company Code</th>
                             <th>Plan</th>
                             <th>Status</th>
                             <th>Expires</th>
-                            <th>Usage</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${tenantList.length === 0 ? `
-                            <tr><td colspan="6" style="text-align: center; padding: 40px; color: #64748b;">No businesses yet</td></tr>
+                            <tr><td colspan="7" style="text-align: center; padding: 40px; color: #64748b;">No businesses yet</td></tr>
                         ` : tenantList.map(tenant => {
                             const sub = subs[tenant.id];
                             const status = sub ? checkSubscriptionStatus(tenant.id) : { valid: false, reason: 'no_subscription' };
                             const usage = getTenantUsage(tenant.id);
                             const plan = sub ? settings.plans[sub.plan] : null;
                             
+                            // Get or generate Company Code
+                            let companyCode = tenant.companyCode;
+                            if (!companyCode) {
+                                // Generate if missing
+                                companyCode = generateCompanyCodeForTenant(tenant.id);
+                            }
+                            
                             return `
                                 <tr>
                                     <td>
                                         <strong>${escapeHtml(tenant.businessName)}</strong>
                                         <small style="display: block; color: #64748b;">${tenant.id}</small>
+                                    </td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <code style="background: #f0f9ff; color: #0369a1; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; letter-spacing: 1px;">${companyCode || 'N/A'}</code>
+                                            <button class="btn-icon" onclick="copyTenantCompanyCode('${companyCode}')" title="Copy Code" style="padding: 4px;">
+                                                <i class="fas fa-copy" style="font-size: 11px;"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                     <td>
                                         ${plan ? `
@@ -1693,11 +1708,6 @@ function renderPlatformControl() {
                                         ${status.daysLeft !== undefined && !sub?.isFree && sub?.plan !== 'personal' ? `<small>(${status.daysLeft} days left)</small>` : ''}
                                     </td>
                                     <td>${sub?.isFree || sub?.plan === 'personal' ? '<span style="color: #10b981;"><i class="fas fa-infinity"></i> Never</span>' : sub ? new Date(sub.expiresAt).toLocaleDateString() : '-'}</td>
-                                    <td>
-                                        ${usage ? `
-                                            <small>${usage.transactions} txn, ${usage.products} prod</small>
-                                        ` : '-'}
-                                    </td>
                                     <td>
                                         <button class="btn-icon" onclick="showChangePlanModal('${tenant.id}')" title="Change Plan">
                                             <i class="fas fa-exchange-alt"></i>
@@ -3032,3 +3042,52 @@ window.applyPlanRestrictions = applyPlanRestrictions;
 window.showUpgradeModal = showUpgradeModal;
 window.requestUpgrade = requestUpgrade;
 window.requestDowngrade = requestDowngrade;
+
+// ==================== COMPANY CODE HELPERS ====================
+
+// Generate Company Code for a tenant (if missing)
+function generateCompanyCodeForTenant(tenantId) {
+    const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    const tenant = tenants[tenantId];
+    
+    if (!tenant) return null;
+    
+    if (!tenant.companyCode) {
+        // Generate new code
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let code = '';
+        for (let i = 0; i < 4; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        tenant.companyCode = code + '-' + Date.now().toString(36).toUpperCase().slice(-4);
+        tenants[tenantId] = tenant;
+        localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+        console.log('🏢 Generated Company Code for', tenantId, ':', tenant.companyCode);
+    }
+    
+    return tenant.companyCode;
+}
+
+// Copy tenant Company Code to clipboard
+window.copyTenantCompanyCode = function(code) {
+    if (!code || code === 'N/A') {
+        showToast('No Company Code available', 'warning');
+        return;
+    }
+    
+    navigator.clipboard.writeText(code).then(() => {
+        showToast('📋 Company Code copied: ' + code, 'success');
+    }).catch(() => {
+        // Fallback
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('📋 Company Code copied: ' + code, 'success');
+    });
+};
+
+// Export helper
+window.generateCompanyCodeForTenant = generateCompanyCodeForTenant;
