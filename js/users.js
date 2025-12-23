@@ -641,11 +641,17 @@ async function loadUsersFromCloud() {
                 users = Array.from(userMap.values());
                 localStorage.setItem(USERS_KEY, JSON.stringify(users));
                 console.log('👥 Users merged from cloud:', users.length);
+                
+                // CRITICAL: Ensure founder exists after cloud sync
+                ensureFounderExists();
             }
         }
     } catch (err) {
         console.warn('⚠️ Could not load users from cloud:', err);
     }
+    
+    // Final check: ensure founder exists
+    ensureFounderExists();
 }
 
 // Expose for cloud-sync module
@@ -654,7 +660,27 @@ window.loadUsers = function() {
     if (stored) {
         users = JSON.parse(stored);
     }
+    
+    // ALWAYS ensure founder account exists
+    ensureFounderExists();
 };
+
+// Helper function to ensure founder always exists
+function ensureFounderExists() {
+    if (!users.find(u => u.role === 'founder')) {
+        console.log('🔧 Adding missing founder account...');
+        users.push(DEFAULT_FOUNDER);
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+    
+    // Ensure founder has tenantId
+    const founder = users.find(u => u.role === 'founder');
+    if (founder && !founder.tenantId) {
+        founder.tenantId = 'tenant_founder';
+        localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    }
+}
+window.ensureFounderExists = ensureFounderExists;
 
 // ==================== AUTHENTICATION ====================
 // Session timeout in hours (24 hours by default)
@@ -5262,6 +5288,11 @@ window.downloadUsersFromCloud = async function() {
             }
         }
         
+        // Ensure founder account exists after download
+        if (typeof ensureFounderExists === 'function') {
+            ensureFounderExists();
+        }
+        
         const roleMsg = isFounder ? '👑 Founder (Full Access)' : '🔒 ' + (currentUser.role || 'User') + ' (Tenant Only)';
         console.log('✅ Download complete!');
         alert('✅ Downloaded from cloud!\n\n' + roleMsg + '\nUsers: ' + usersDownloaded + '\nTenants: ' + tenantsDownloaded + '\n\nRefreshing page...');
@@ -5525,6 +5556,11 @@ window.mobileDownloadFromCloud = async function() {
             }
         }
         
+        // CRITICAL: Ensure founder exists after sync
+        if (typeof ensureFounderExists === 'function') {
+            ensureFounderExists();
+        }
+        
         if (usersFound > 0) {
             const roleInfo = isLoggedIn 
                 ? (isFounder ? '👑 Full Access' : '🔒 Tenant Only') 
@@ -5532,11 +5568,9 @@ window.mobileDownloadFromCloud = async function() {
             alert('✅ Synced from cloud!\n\n' + roleInfo + '\n' + usersFound + ' users synced.\n\nPage will refresh...');
             location.reload();
         } else {
-            alert('ℹ️ No cloud data found.\n\nMake sure you ran fullCloudSync() on your main device first.');
-            if (btn) {
-                btn.innerHTML = originalText;
-                btn.style.pointerEvents = '';
-            }
+            // Even if no cloud users, ensure founder exists
+            alert('ℹ️ No cloud data found.\n\nUsing default Founder account.\n\nPage will refresh...');
+            location.reload();
         }
         
     } catch (err) {
@@ -5664,6 +5698,11 @@ window.syncByCompanyCode = async function() {
         const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
         localTenants[targetTenantId] = targetTenantInfo;
         localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+        
+        // Ensure founder account exists (for fallback login)
+        if (typeof ensureFounderExists === 'function') {
+            ensureFounderExists();
+        }
         
         console.log('✅ Synced', tenantUsers.length, 'users from', targetTenantInfo.businessName);
         
