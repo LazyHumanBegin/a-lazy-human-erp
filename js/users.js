@@ -4265,6 +4265,43 @@ function initializeEmptyTenantData(tenantId, userName) {
         status: 'active'
     };
     localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+    
+    // CLOUD SYNC: Sync new tenant data to cloud
+    syncTenantDataToCloud(tenantId, emptyTenantData);
+}
+
+// Sync tenant data to Supabase cloud
+async function syncTenantDataToCloud(tenantId, tenantData) {
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            console.warn('⚠️ Supabase SDK not loaded, tenant data not synced');
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        const { error } = await client.from('tenant_data').upsert({
+            tenant_id: tenantId,
+            data_key: 'tenant_full_data',
+            data: { 
+                tenantId: tenantId,
+                value: tenantData, 
+                synced_at: new Date().toISOString() 
+            },
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'tenant_id,data_key' });
+        
+        if (error) {
+            console.warn('⚠️ Tenant data sync failed:', error.message);
+        } else {
+            console.log('☁️ Tenant data synced to cloud:', tenantId);
+        }
+    } catch (err) {
+        console.warn('⚠️ Tenant sync error:', err);
+    }
 }
 
 // Reset only window arrays (for page refresh with same tenant)
@@ -4876,6 +4913,339 @@ async function debugSyncFromLoginPage() {
     }
 }
 window.debugSyncFromLoginPage = debugSyncFromLoginPage;
+
+// ==================== CLOUD SYNC TEST FUNCTIONS ====================
+// Test Supabase connection - run in console: testCloudConnection()
+window.testCloudConnection = async function() {
+    console.log('🧪 Testing Supabase connection...');
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            console.error('❌ Supabase SDK not loaded');
+            return { success: false, error: 'Supabase SDK not loaded' };
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Test SELECT
+        console.log('  Testing SELECT...');
+        const { data: selectData, error: selectError } = await client
+            .from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global')
+            .limit(5);
+        
+        if (selectError) {
+            console.error('❌ SELECT failed:', selectError.message);
+            console.log('💡 TIP: Did you run the database-schema.sql in Supabase SQL Editor?');
+            return { success: false, error: selectError.message, tip: 'Run database-schema.sql' };
+        }
+        
+        console.log('✅ SELECT OK - Found', selectData?.length || 0, 'records');
+        
+        // Test INSERT/UPSERT
+        console.log('  Testing UPSERT...');
+        const testData = {
+            tenant_id: 'test_connection',
+            data_key: 'connection_test',
+            data: { test: true, timestamp: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+        };
+        
+        const { error: upsertError } = await client
+            .from('tenant_data')
+            .upsert(testData, { onConflict: 'tenant_id,data_key' });
+        
+        if (upsertError) {
+            console.error('❌ UPSERT failed:', upsertError.message);
+            return { success: false, error: upsertError.message };
+        }
+        
+        console.log('✅ UPSERT OK');
+        
+        // Clean up test record
+        await client.from('tenant_data').delete().eq('tenant_id', 'test_connection');
+        
+        console.log('✅ ALL TESTS PASSED - Supabase is working!');
+        console.log('\n📊 Cloud data found:', selectData);
+        
+        return { success: true, data: selectData };
+        
+    } catch (err) {
+        console.error('❌ Test failed:', err);
+        return { success: false, error: err.message };
+    }
+};
+
+// Force sync all users to cloud NOW - run: forceSyncUsersToCloud()
+window.forceSyncUsersToCloud = async function() {
+    console.log('☁️ Force syncing users to cloud...');
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            alert('❌ Supabase SDK not loaded');
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+        
+        console.log('  Local users:', localUsers.length);
+        console.log('  Local tenants:', Object.keys(localTenants).length);
+        
+        // Sync users
+        const { error: usersError } = await client.from('tenant_data').upsert({
+            tenant_id: 'global',
+            data_key: 'ezcubic_users',
+            data: { key: 'ezcubic_users', value: localUsers, synced_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'tenant_id,data_key' });
+        
+        if (usersError) {
+            console.error('❌ Users sync failed:', usersError.message);
+            alert('❌ Users sync failed: ' + usersError.message);
+            return;
+        }
+        
+        // Sync tenants
+        const { error: tenantsError } = await client.from('tenant_data').upsert({
+            tenant_id: 'global',
+            data_key: 'ezcubic_tenants',
+            data: { key: 'ezcubic_tenants', value: localTenants, synced_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'tenant_id,data_key' });
+        
+        if (tenantsError) {
+            console.error('❌ Tenants sync failed:', tenantsError.message);
+        }
+        
+        console.log('✅ Synced to cloud!');
+        console.log('  Users:', localUsers.length);
+        console.log('  Tenants:', Object.keys(localTenants).length);
+        alert('✅ Synced ' + localUsers.length + ' users and ' + Object.keys(localTenants).length + ' tenants to cloud!');
+        
+    } catch (err) {
+        console.error('❌ Sync error:', err);
+        alert('❌ Error: ' + err.message);
+    }
+};
+
+// Download users from cloud to this device - run: downloadUsersFromCloud()
+window.downloadUsersFromCloud = async function() {
+    console.log('📥 Downloading users from cloud...');
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            alert('❌ Supabase SDK not loaded');
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Get users from cloud
+        const { data, error } = await client.from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global');
+        
+        if (error) {
+            console.error('❌ Download failed:', error.message);
+            alert('❌ Download failed: ' + error.message);
+            return;
+        }
+        
+        let usersDownloaded = 0;
+        let tenantsDownloaded = 0;
+        
+        for (const record of data || []) {
+            if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                const cloudUsers = record.data.value;
+                const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                
+                // Merge: Add cloud users not in local
+                cloudUsers.forEach(cu => {
+                    if (!localUsers.find(lu => lu.id === cu.id || lu.email === cu.email)) {
+                        localUsers.push(cu);
+                    }
+                });
+                
+                localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
+                usersDownloaded = localUsers.length;
+                console.log('  Users:', cloudUsers.length, '→ merged to', localUsers.length);
+            }
+            
+            if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
+                const cloudTenants = record.data.value;
+                const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+                
+                // Merge tenants
+                Object.assign(localTenants, cloudTenants);
+                localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+                tenantsDownloaded = Object.keys(localTenants).length;
+                console.log('  Tenants:', Object.keys(cloudTenants).length);
+            }
+        }
+        
+        console.log('✅ Download complete!');
+        alert('✅ Downloaded from cloud!\n\nUsers: ' + usersDownloaded + '\nTenants: ' + tenantsDownloaded + '\n\nRefreshing page...');
+        location.reload();
+        
+    } catch (err) {
+        console.error('❌ Download error:', err);
+        alert('❌ Error: ' + err.message);
+    }
+};
+
+// Show cloud sync status
+window.cloudSyncStatus = function() {
+    const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    
+    console.log('=== CLOUD SYNC STATUS ===');
+    console.log('Local Users:', localUsers.length);
+    localUsers.forEach(u => console.log('  -', u.email, '(' + u.role + ')'));
+    console.log('Local Tenants:', Object.keys(localTenants).length);
+    Object.entries(localTenants).forEach(([id, t]) => console.log('  -', id, ':', t.businessName));
+    console.log('=========================');
+    console.log('\nAvailable commands:');
+    console.log('  testCloudConnection()       - Test if Supabase is working');
+    console.log('  forceSyncUsersToCloud()     - Upload all users to cloud');
+    console.log('  downloadUsersFromCloud()    - Download users from cloud');
+    console.log('  syncAllTenantDataToCloud()  - Upload ALL tenant data');
+    console.log('  downloadTenantDataFromCloud(tenantId) - Download specific tenant data');
+    
+    return { users: localUsers.length, tenants: Object.keys(localTenants).length };
+};
+
+// Sync ALL tenant data to cloud (for Founder to upload everything)
+window.syncAllTenantDataToCloud = async function() {
+    console.log('☁️ Syncing ALL tenant data to cloud...');
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            alert('❌ Supabase SDK not loaded');
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Find all tenant data in localStorage
+        const tenantKeys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('ezcubic_tenant_')) {
+                tenantKeys.push(key);
+            }
+        }
+        
+        console.log('  Found', tenantKeys.length, 'tenants to sync');
+        let synced = 0;
+        let failed = 0;
+        
+        for (const key of tenantKeys) {
+            const tenantId = key.replace('ezcubic_tenant_', '');
+            const tenantData = JSON.parse(localStorage.getItem(key) || '{}');
+            
+            const { error } = await client.from('tenant_data').upsert({
+                tenant_id: tenantId,
+                data_key: 'tenant_full_data',
+                data: { 
+                    tenantId: tenantId,
+                    value: tenantData, 
+                    synced_at: new Date().toISOString() 
+                },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+            
+            if (error) {
+                console.error('  ❌', tenantId, ':', error.message);
+                failed++;
+            } else {
+                console.log('  ✅', tenantId);
+                synced++;
+            }
+        }
+        
+        console.log('☁️ Sync complete! Synced:', synced, 'Failed:', failed);
+        alert('☁️ Tenant Data Sync Complete!\n\nSynced: ' + synced + '\nFailed: ' + failed);
+        
+    } catch (err) {
+        console.error('❌ Sync error:', err);
+        alert('❌ Error: ' + err.message);
+    }
+};
+
+// Download specific tenant data from cloud
+window.downloadTenantDataFromCloud = async function(tenantId) {
+    if (!tenantId) {
+        // If no tenantId provided, use current user's tenantId
+        const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+        tenantId = currentUser.tenantId;
+        if (!tenantId) {
+            alert('No tenant ID provided and no current user tenant found');
+            return;
+        }
+    }
+    
+    console.log('📥 Downloading tenant data:', tenantId);
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            alert('❌ Supabase SDK not loaded');
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        const { data, error } = await client.from('tenant_data')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('data_key', 'tenant_full_data')
+            .single();
+        
+        if (error) {
+            console.error('❌ Download failed:', error.message);
+            alert('❌ No cloud data found for tenant: ' + tenantId);
+            return;
+        }
+        
+        if (data?.data?.value) {
+            localStorage.setItem('ezcubic_tenant_' + tenantId, JSON.stringify(data.data.value));
+            console.log('✅ Downloaded tenant data:', tenantId);
+            alert('✅ Downloaded tenant data!\n\nTenant: ' + tenantId + '\n\nRefreshing...');
+            location.reload();
+        } else {
+            alert('❌ No data found in cloud for tenant: ' + tenantId);
+        }
+        
+    } catch (err) {
+        console.error('❌ Download error:', err);
+        alert('❌ Error: ' + err.message);
+    }
+};
+
+// Full sync - users, tenants, and all tenant data
+window.fullCloudSync = async function() {
+    console.log('☁️ Starting FULL cloud sync...');
+    
+    // 1. Sync users
+    await window.forceSyncUsersToCloud();
+    
+    // 2. Sync all tenant data
+    await window.syncAllTenantDataToCloud();
+    
+    console.log('✅ FULL sync complete!');
+};
 
 // Initialize on load
 if (document.readyState === 'loading') {

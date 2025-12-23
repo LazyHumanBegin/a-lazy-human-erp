@@ -1652,7 +1652,7 @@ function renderPlatformControl() {
                 <h3><i class="fas fa-credit-card"></i> Subscription Management</h3>
             </div>
             
-            <div class="subscriptions-table">
+            <div class="subscriptions-table" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
                 <table>
                     <thead>
                         <tr>
