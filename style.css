@@ -190,13 +190,13 @@ body {
 
 /* Navigation Panel - EZCubic Theme */
 .nav-panel {
-    background: white;
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 4px 20px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     display: flex;
     flex-direction: column;
-    border: 1px solid rgba(37, 99, 235, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     position: relative;
     z-index: 10;
 }
@@ -205,11 +205,11 @@ body {
     text-align: center;
     margin-bottom: 25px;
     padding-bottom: 15px;
-    border-bottom: 2px solid #2563eb;
+    border-bottom: 2px solid rgba(37, 99, 235, 0.5);
 }
 
 .logo h1 {
-    color: #2563eb;
+    color: #60a5fa;
     font-size: 26px;
     display: flex;
     align-items: center;
@@ -220,12 +220,12 @@ body {
 }
 
 .logo h1 i {
-    color: #f59e0b;
+    color: #fbbf24;
     font-size: 20px;
 }
 
 .logo .tagline {
-    color: #64748b;
+    color: #94a3b8;
     font-size: 13px;
     margin-top: 5px;
     font-weight: 500;
@@ -235,8 +235,8 @@ body {
     display: inline-block;
     margin-top: 8px;
     padding: 2px 8px;
-    background: #fef3c7;
-    color: #92400e;
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 600;
@@ -255,30 +255,30 @@ body {
     align-items: center;
     gap: 12px;
     padding: 15px;
-    background: #f8fafc;
+    background: rgba(255, 255, 255, 0.05);
     border: none;
     border-radius: 10px;
     cursor: pointer;
     text-align: left;
     font-size: 15px;
-    color: #475569;
+    color: #94a3b8;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
 }
 
 .nav-btn:hover {
-    background: #2563eb;
-    color: white;
+    background: rgba(37, 99, 235, 0.3);
+    color: #fff;
     transform: translateX(5px);
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
 }
 
 .nav-btn.active {
-    background: #2563eb;
+    background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
     color: white;
     font-weight: 600;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
 .nav-btn.active::before {
@@ -288,23 +288,26 @@ body {
     top: 0;
     height: 100%;
     width: 3px;
-    background: #f59e0b;
+    background: #fbbf24;
 }
 
 .nav-btn i {
     font-size: 18px;
     width: 24px;
     transition: transform 0.3s;
+    color: #60a5fa;
 }
 
-.nav-btn:hover i {
+.nav-btn:hover i,
+.nav-btn.active i {
     transform: scale(1.1);
+    color: #fff;
 }
 
 .nav-badge {
     margin-left: auto;
-    background: #f59e0b;
-    color: white;
+    background: #fbbf24;
+    color: #1e293b;
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 10px;
@@ -368,14 +371,14 @@ body {
 .quick-actions {
     margin-top: 20px;
     padding: 15px;
-    background: #fef3c7;
+    background: rgba(251, 191, 36, 0.1);
     border-radius: 10px;
-    border: 2px dashed #f59e0b;
+    border: 2px dashed rgba(251, 191, 36, 0.3);
 }
 
 .quick-actions h3 {
     font-size: 14px;
-    color: #92400e;
+    color: #fbbf24;
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -386,10 +389,10 @@ body {
     width: 100%;
     padding: 12px;
     margin-bottom: 8px;
-    background: white;
-    border: 2px solid #2563eb;
+    background: rgba(37, 99, 235, 0.2);
+    border: 2px solid rgba(37, 99, 235, 0.5);
     border-radius: 8px;
-    color: #2563eb;
+    color: #60a5fa;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s;
@@ -403,18 +406,19 @@ body {
     background: #2563eb;
     color: white;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
 }
 
 .quick-action-btn.alt {
-    border-color: #f59e0b;
-    color: #92400e;
+    border-color: rgba(251, 191, 36, 0.5);
+    background: rgba(251, 191, 36, 0.1);
+    color: #fbbf24;
 }
 
 .quick-action-btn.alt:hover {
-    background: #f59e0b;
-    color: white;
-    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    background: #fbbf24;
+    color: #1e293b;
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
 }
 
 /* Main Content Area */
@@ -1400,8 +1404,10 @@ input:focus, select:focus, textarea:focus {
         height: 100vh;
         z-index: 1001;
         transition: left 0.3s ease;
-        box-shadow: 5px 0 20px rgba(0,0,0,0.2);
+        box-shadow: 5px 0 30px rgba(0,0,0,0.5);
         overflow-y: auto;
+        background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
     
     .nav-panel.active {
