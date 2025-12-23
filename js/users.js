@@ -519,8 +519,20 @@ window.forceMigration = function() {
     return 'Done! Refresh page now.';
 };
 
-function saveUsers() {
+function saveUsers(skipCloudSync = false) {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    
+    // SAFETY: Don't auto-sync to cloud if we only have founder account
+    // This prevents overwriting cloud data when a new device initializes
+    const usersData = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const hasOnlyFounder = usersData.length <= 1 && usersData.every(u => u.role === 'founder');
+    
+    if (skipCloudSync || hasOnlyFounder) {
+        if (hasOnlyFounder) {
+            console.log('⏸️ Skipping cloud sync (only founder account - use fullCloudSync() to force)');
+        }
+        return;
+    }
     
     // CLOUD SYNC: Automatically sync users AND tenants to cloud after any change
     setTimeout(async () => {
@@ -540,7 +552,6 @@ function saveUsers() {
                 const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
                 
                 // Sync users
-                const usersData = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
                 const { error: userError } = await client
                     .from('tenant_data')
                     .upsert({
