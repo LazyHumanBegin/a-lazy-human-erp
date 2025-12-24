@@ -766,6 +766,40 @@ input:focus, select:focus, textarea:focus {
     box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
 }
 
+.btn-warning {
+    background: #f59e0b;
+    color: white;
+    border: 2px solid #f59e0b;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+    border-color: #d97706;
+    box-shadow: 0 5px 15px rgba(245, 158, 11, 0.3);
+}
+
+.btn-success {
+    background: #10b981;
+    color: white;
+    border: 2px solid #10b981;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.btn-success:hover {
+    background: #059669;
+    border-color: #059669;
+    box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
+}
+
 /* Transaction List */
 .transaction-list {
     max-height: 400px;

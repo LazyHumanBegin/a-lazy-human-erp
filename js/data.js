@@ -1,6 +1,27 @@
 // ==================== DATA.JS ====================
 // Data Management Functions
 
+// ==================== APP VERSION ====================
+// Single source of truth for version number
+// Update this when releasing new versions
+const APP_VERSION = '2.1.13';
+window.APP_VERSION = APP_VERSION;
+
+// Update version display in UI
+function updateVersionDisplay() {
+    const versionEl = document.getElementById('appVersion');
+    if (versionEl) {
+        versionEl.textContent = 'v' + APP_VERSION;
+    }
+}
+
+// Run on DOM ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', updateVersionDisplay);
+} else {
+    updateVersionDisplay();
+}
+
 // Export functions to window for onclick handlers
 window.loadData = loadData;
 window.saveData = saveData;
@@ -21,7 +42,7 @@ function exportFullBackup() {
         
         // Gather ALL data from tenant storage OR from individual keys (using safe functions)
         const fullBackup = {
-            version: '2.1',
+            version: APP_VERSION,
             exportDate: new Date().toISOString(),
             tenantId: tenantId,
             // Core accounting

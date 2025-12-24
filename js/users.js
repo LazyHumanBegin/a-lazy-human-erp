@@ -5148,19 +5148,143 @@ function showUserDetailModal(userId) {
                         ` : ''}
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button class="btn-secondary" onclick="closeModal('userDetailModal')">Close</button>
-                    ${currentUser.role === 'founder' && user.role !== 'founder' ? `
-                        <button class="btn-primary" onclick="closeModal('userDetailModal'); editUser('${user.id}')">
-                            <i class="fas fa-edit"></i> Edit User
-                        </button>
-                    ` : ''}
+                <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        ${currentUser.role === 'founder' && user.role !== 'founder' ? `
+                            <button class="btn-danger" onclick="confirmDeleteUser('${user.id}')" style="margin-right: 8px;">
+                                <i class="fas fa-trash-alt"></i> Delete
+                            </button>
+                            ${user.status === 'active' ? `
+                                <button class="btn-warning" onclick="toggleUserStatus('${user.id}', 'inactive')">
+                                    <i class="fas fa-ban"></i> Deactivate
+                                </button>
+                            ` : `
+                                <button class="btn-success" onclick="toggleUserStatus('${user.id}', 'active')">
+                                    <i class="fas fa-check-circle"></i> Activate
+                                </button>
+                            `}
+                        ` : ''}
+                    </div>
+                    <div>
+                        <button class="btn-secondary" onclick="closeModal('userDetailModal')">Close</button>
+                        ${currentUser.role === 'founder' && user.role !== 'founder' ? `
+                            <button class="btn-primary" onclick="closeModal('userDetailModal'); editUser('${user.id}')">
+                                <i class="fas fa-edit"></i> Edit User
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
             </div>
         </div>
     `;
     
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Toggle user status (activate/deactivate) - Founder only
+function toggleUserStatus(userId, newStatus) {
+    if (currentUser.role !== 'founder') {
+        showToast('Only founder can change user status', 'error');
+        return;
+    }
+    
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showToast('User not found', 'error');
+        return;
+    }
+    
+    user.status = newStatus;
+    saveUsers();
+    
+    closeModal('userDetailModal');
+    showToast(`User ${user.name || user.email} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}`, 'success');
+    renderUserManagement();
+}
+
+// Confirm delete user - Founder only
+function confirmDeleteUser(userId) {
+    if (currentUser.role !== 'founder') {
+        showToast('Only founder can delete users', 'error');
+        return;
+    }
+    
+    const user = users.find(u => u.id === userId);
+    if (!user) {
+        showToast('User not found', 'error');
+        return;
+    }
+    
+    const confirmHTML = `
+        <div class="modal show" id="confirmDeleteUserModal" style="z-index: 10006;">
+            <div class="modal-content" style="max-width: 420px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
+                    <h3 class="modal-title" style="color: white;">
+                        <i class="fas fa-exclamation-triangle"></i> Delete User
+                    </h3>
+                    <button class="modal-close" onclick="closeModal('confirmDeleteUserModal')" style="color: white;">&times;</button>
+                </div>
+                <div class="modal-body" style="text-align: center; padding: 30px;">
+                    <div style="width: 70px; height: 70px; border-radius: 50%; background: #fee2e2; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <i class="fas fa-user-times" style="font-size: 28px; color: #dc2626;"></i>
+                    </div>
+                    <h4 style="margin: 0 0 10px; color: #1e293b;">Are you sure?</h4>
+                    <p style="color: #64748b; margin: 0 0 20px; font-size: 14px;">
+                        You are about to permanently delete:
+                    </p>
+                    <div style="background: #f8fafc; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                        <div style="font-weight: 600; color: #1e293b;">${escapeHtml(user.name || 'N/A')}</div>
+                        <div style="color: #64748b; font-size: 13px;">${escapeHtml(user.email || 'N/A')}</div>
+                        <code style="font-size: 11px; background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; margin-top: 8px; display: inline-block;">${user.id}</code>
+                    </div>
+                    <p style="color: #dc2626; font-size: 13px; margin: 0;">
+                        <i class="fas fa-warning"></i> This action cannot be undone!
+                    </p>
+                </div>
+                <div class="modal-footer" style="justify-content: center; gap: 12px;">
+                    <button class="btn-secondary" onclick="closeModal('confirmDeleteUserModal')" style="min-width: 100px;">
+                        Cancel
+                    </button>
+                    <button class="btn-danger" onclick="executeDeleteUser('${user.id}')" style="min-width: 100px;">
+                        <i class="fas fa-trash-alt"></i> Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    closeModal('userDetailModal');
+    document.body.insertAdjacentHTML('beforeend', confirmHTML);
+}
+
+// Execute delete user
+function executeDeleteUser(userId) {
+    if (currentUser.role !== 'founder') {
+        showToast('Only founder can delete users', 'error');
+        return;
+    }
+    
+    const userIndex = users.findIndex(u => u.id === userId);
+    if (userIndex === -1) {
+        showToast('User not found', 'error');
+        return;
+    }
+    
+    const user = users[userIndex];
+    const userName = user.name || user.email;
+    
+    // Remove user from array
+    users.splice(userIndex, 1);
+    saveUsers();
+    
+    closeModal('confirmDeleteUserModal');
+    showToast(`User "${userName}" has been deleted`, 'success');
+    renderUserManagement();
+    
+    // Schedule cloud sync to remove from cloud
+    if (typeof scheduleAutoCloudSync === 'function') {
+        scheduleAutoCloudSync();
+    }
 }
 
 function exportUserList() {
@@ -5189,6 +5313,9 @@ function exportUserList() {
 
 window.filterFounderUserList = filterFounderUserList;
 window.showUserDetailModal = showUserDetailModal;
+window.toggleUserStatus = toggleUserStatus;
+window.confirmDeleteUser = confirmDeleteUser;
+window.executeDeleteUser = executeDeleteUser;
 window.exportUserList = exportUserList;
 window.closeUserMenu = closeUserMenu;
 window.showUserManagement = showUserManagement;

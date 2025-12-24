@@ -696,6 +696,41 @@ function clearTenantSelection() {
     localStorage.removeItem('ezcubic_selected_tenant');
 }
 
+// ==================== AUTO CLOUD SYNC ====================
+// Debounced auto-sync to cloud when data changes
+let autoSyncTimer = null;
+const AUTO_SYNC_DELAY = 5000; // 5 seconds after last change
+
+function scheduleAutoCloudSync() {
+    // Auto-sync for ALL logged-in users with a tenant
+    // This ensures any team member's changes sync to cloud for their team
+    const currentUser = window.currentUser;
+    if (!currentUser || !currentUser.tenantId) {
+        return; // Must be logged in with a tenant
+    }
+    
+    // Clear previous timer
+    if (autoSyncTimer) {
+        clearTimeout(autoSyncTimer);
+    }
+    
+    // Schedule new sync
+    autoSyncTimer = setTimeout(async () => {
+        try {
+            if (typeof fullCloudSync === 'function') {
+                console.log('☁️ Auto-syncing to cloud...');
+                await fullCloudSync();
+                console.log('☁️ Auto-sync complete!');
+            }
+        } catch (err) {
+            console.warn('⚠️ Auto-sync failed:', err);
+        }
+    }, AUTO_SYNC_DELAY);
+}
+
+// Expose for manual trigger if needed
+window.scheduleAutoCloudSync = scheduleAutoCloudSync;
+
 // ==================== OVERRIDE SAVE DATA ====================
 // Hook into the existing saveData function to also save tenant data
 const originalSaveData = window.saveData;
@@ -707,6 +742,9 @@ window.saveData = function() {
     
     // Also save to tenant
     saveCurrentTenantData();
+    
+    // Schedule auto cloud sync (debounced)
+    scheduleAutoCloudSync();
 };
 
 // ==================== EXPORTS ====================
