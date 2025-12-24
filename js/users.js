@@ -537,14 +537,7 @@ function saveUsers(skipCloudSync = false) {
     // CLOUD SYNC: Automatically sync users AND tenants to cloud after any change
     setTimeout(async () => {
         try {
-            // Try CloudSync first
-            if (window.CloudSync && typeof window.CloudSync.syncUsersNow === 'function') {
-                await window.CloudSync.syncUsersNow();
-                console.log('👥 Users synced to cloud via CloudSync');
-                return;
-            }
-            
-            // Fallback: Direct Supabase upload
+            // Direct Supabase upload (skip CloudSync - it has issues)
             const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
             const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
             
@@ -586,31 +579,13 @@ function saveUsers(skipCloudSync = false) {
 
 // Load users from cloud on startup (for multi-device support)
 async function loadUsersFromCloud() {
-    // Try CloudSync first
-    if (window.CloudSync && typeof window.CloudSync.downloadGlobalData === 'function') {
-        try {
-            console.log('☁️ Checking cloud for user updates via CloudSync...');
-            await window.CloudSync.downloadGlobalData();
-            
-            // Reload users array from localStorage after cloud sync
-            const stored = localStorage.getItem(USERS_KEY);
-            if (stored) {
-                users = JSON.parse(stored);
-                console.log('👥 Users loaded from cloud:', users.length);
-            }
-            return;
-        } catch (err) {
-            console.warn('⚠️ CloudSync failed, trying direct...', err);
-        }
-    }
-    
-    // Fallback: Direct Supabase download
+    // Direct Supabase download (skip CloudSync - it has issues)
     try {
         const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
         
         if (window.supabase && window.supabase.createClient) {
-            console.log('☁️ Downloading users from cloud (direct)...');
+            console.log('☁️ Downloading users from cloud...');
             const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             
             const { data, error } = await client
@@ -2959,203 +2934,180 @@ function renderUserManagement() {
     // Show different stats based on role
     const showSubscriptionStats = (currentUser.role === 'founder' || currentUser.role === 'erp_assistant') && businessAdmins.length > 0;
     
+    // Track active tab
+    const activeTab = window.userMgmtActiveTab || 'users';
+    
     container.innerHTML = `
         ${isFounder ? `
-        <!-- FOUNDER: Platform Overview Panel -->
-        <div class="founder-overview-panel" style="background: linear-gradient(135deg, #1e1b4b, #312e81); border-radius: 16px; padding: 24px; margin-bottom: 24px; color: white;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div>
-                    <h3 style="margin: 0; font-size: 20px; font-weight: 600;">
-                        <i class="fas fa-chart-line" style="margin-right: 10px;"></i>Platform Overview
-                    </h3>
-                    <p style="margin: 5px 0 0 0; opacity: 0.7; font-size: 13px;">Monitor all users across the platform</p>
-                </div>
-                <div style="text-align: right;">
-                    <div style="font-size: 32px; font-weight: 700;">${founderStats.totalAll}</div>
-                    <div style="font-size: 12px; opacity: 0.7;">Total Users</div>
-                </div>
-            </div>
-            
-            <!-- Stats Grid -->
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 20px;">
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${founderStats.businessAdmins}</div>
-                    <div style="font-size: 11px; opacity: 0.8;"><i class="fas fa-building" style="margin-right: 4px;"></i>Business</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${founderStats.managers}</div>
-                    <div style="font-size: 11px; opacity: 0.8;"><i class="fas fa-user-tie" style="margin-right: 4px;"></i>Managers</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${founderStats.staff}</div>
-                    <div style="font-size: 11px; opacity: 0.8;"><i class="fas fa-user" style="margin-right: 4px;"></i>Staff</div>
-                </div>
-                <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${founderStats.personal}</div>
-                    <div style="font-size: 11px; opacity: 0.8;"><i class="fas fa-user-circle" style="margin-right: 4px;"></i>Personal</div>
-                </div>
-                <div style="background: rgba(16,185,129,0.3); border-radius: 10px; padding: 14px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${founderStats.activeAll}</div>
-                    <div style="font-size: 11px; opacity: 0.8;"><i class="fas fa-check-circle" style="margin-right: 4px;"></i>Active</div>
-                </div>
-                <div style="background: rgba(239,68,68,0.3); border-radius: 10px; padding: 14px; text-align: center;">
-                    <div style="font-size: 24px; font-weight: 700;">${founderStats.inactiveAll}</div>
-                    <div style="font-size: 11px; opacity: 0.8;"><i class="fas fa-ban" style="margin-right: 4px;"></i>Inactive</div>
-                </div>
-            </div>
-            
-            <!-- Plan Distribution -->
-            <div style="background: rgba(255,255,255,0.1); border-radius: 10px; padding: 14px;">
-                <div style="font-size: 12px; opacity: 0.7; margin-bottom: 10px;"><i class="fas fa-box" style="margin-right: 6px;"></i>Plan Distribution</div>
-                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                    ${Object.entries(platformSettings?.plans || {}).map(([planId, plan]) => {
-                        const count = planCounts[planId] || 0;
-                        return `
-                            <div style="background: ${plan.color}; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                                ${count} ${plan.name}
-                            </div>
-                        `;
-                    }).join('')}
-                    ${founderStats.trials > 0 ? `
-                        <div style="background: #f59e0b; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                            ${founderStats.trials} On Trial
-                        </div>
-                    ` : ''}
-                    ${founderStats.expired > 0 ? `
-                        <div style="background: #ef4444; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;">
-                            ${founderStats.expired} Expired
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-        </div>
-        
-        <!-- FOUNDER: Search Panel -->
-        <div class="founder-search-panel" style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-            <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
-                <div style="flex: 1; min-width: 200px;">
-                    <div style="position: relative;">
-                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
-                        <input type="text" id="founderUserSearch" placeholder="Search by UID, name, or email..." 
-                            style="width: 100%; padding: 10px 12px 10px 38px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px;"
-                            oninput="filterFounderUserList(this.value)">
-                    </div>
-                </div>
-                <select id="founderRoleFilter" onchange="filterFounderUserList(document.getElementById('founderUserSearch').value)" 
-                    style="padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; min-width: 140px;">
-                    <option value="">All Roles</option>
-                    <option value="business_admin">Business Admin</option>
-                    <option value="manager">Manager</option>
-                    <option value="staff">Staff</option>
-                    <option value="personal">Personal</option>
-                    <option value="erp_assistant">ERP Assistant</option>
-                </select>
-                <select id="founderPlanFilter" onchange="filterFounderUserList(document.getElementById('founderUserSearch').value)" 
-                    style="padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; min-width: 140px;">
-                    <option value="">All Plans</option>
-                    ${Object.entries(platformSettings?.plans || {}).map(([planId, plan]) => `
-                        <option value="${planId}">${plan.name}</option>
-                    `).join('')}
-                </select>
-                <select id="founderStatusFilter" onchange="filterFounderUserList(document.getElementById('founderUserSearch').value)" 
-                    style="padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; min-width: 120px;">
-                    <option value="">All Status</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
-                <button class="btn-outline" onclick="exportUserList()" style="white-space: nowrap;">
-                    <i class="fas fa-download"></i> Export
+        <!-- FOUNDER: Tabbed Interface -->
+        <div class="founder-tabs" style="margin-bottom: 20px;">
+            <div style="display: flex; gap: 0; border-bottom: 2px solid #e2e8f0;">
+                <button onclick="switchUserMgmtTab('users')" id="tabUsers" 
+                    style="padding: 12px 24px; border: none; background: ${activeTab === 'users' ? '#6366f1' : 'transparent'}; color: ${activeTab === 'users' ? 'white' : '#64748b'}; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s;">
+                    <i class="fas fa-user-plus" style="margin-right: 8px;"></i>Add Users
+                </button>
+                <button onclick="switchUserMgmtTab('control')" id="tabControl" 
+                    style="padding: 12px 24px; border: none; background: ${activeTab === 'control' ? '#6366f1' : 'transparent'}; color: ${activeTab === 'control' ? 'white' : '#64748b'}; font-weight: 600; font-size: 14px; cursor: pointer; border-radius: 8px 8px 0 0; transition: all 0.2s;">
+                    <i class="fas fa-users-cog" style="margin-right: 8px;"></i>User Control
+                    <span style="background: ${activeTab === 'control' ? 'rgba(255,255,255,0.3)' : '#e0e7ff'}; color: ${activeTab === 'control' ? 'white' : '#4338ca'}; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-left: 6px;">${allSystemUsers.length}</span>
                 </button>
             </div>
         </div>
         
-        <!-- FOUNDER: All Users Table -->
-        <div class="founder-users-table" style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 24px;">
-            <div style="padding: 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                <h4 style="margin: 0; font-size: 15px; color: #1e293b;">
-                    <i class="fas fa-list" style="margin-right: 8px; color: #6366f1;"></i>
-                    All Users <span id="founderUserCount" style="color: #94a3b8; font-weight: normal;">(${allSystemUsers.length})</span>
-                </h4>
-                <div style="font-size: 12px; color: #64748b;">
-                    <i class="fas fa-info-circle"></i> Click row to view details
+        <!-- TAB: User Control Panel -->
+        <div id="userControlTab" style="display: ${activeTab === 'control' ? 'block' : 'none'};">
+            <!-- Stats Overview -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-bottom: 20px;">
+                <div style="background: linear-gradient(135deg, #6366f1, #818cf8); border-radius: 12px; padding: 16px; color: white; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${founderStats.totalAll}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Total Users</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #10b981, #34d399); border-radius: 12px; padding: 16px; color: white; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${founderStats.activeAll}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Active</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #ef4444, #f87171); border-radius: 12px; padding: 16px; color: white; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${founderStats.inactiveAll}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Inactive</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #8b5cf6, #a78bfa); border-radius: 12px; padding: 16px; color: white; text-align: center;">
+                    <div style="font-size: 28px; font-weight: 700;">${founderStats.businessAdmins}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">Business</div>
                 </div>
             </div>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                    <thead>
-                        <tr style="background: #f8fafc;">
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">UID</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Name</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Email</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Role</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Status</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="founderUsersTableBody">
-                        ${allSystemUsers.map(user => {
-                            const role = ROLES[user.role] || {};
-                            const plan = platformSettings?.plans?.[user.plan];
-                            const isActive = user.status === 'active' || !user.status;
-                            return `
-                                <tr class="founder-user-row" data-uid="${user.id}" data-name="${(user.name || '').toLowerCase()}" data-email="${(user.email || '').toLowerCase()}" data-role="${user.role}" data-plan="${user.plan || ''}" data-status="${user.status}"
-                                    style="transition: background 0.15s;" 
-                                    onmouseover="this.style.background='#f1f5f9'" 
-                                    onmouseout="this.style.background=''">
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                                        <code style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${user.id}</code>
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; font-weight: 500;">${escapeHtml(user.name || 'N/A')}</td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #64748b;">${escapeHtml(user.email || 'N/A')}</td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                                        <span style="background: ${role.color}20; color: ${role.color}; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">
-                                            <i class="fas ${role.icon}" style="margin-right: 4px;"></i>${role.name || user.role}
-                                        </span>
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                                        <span style="background: ${isActive ? '#dcfce7' : '#fee2e2'}; color: ${isActive ? '#16a34a' : '#dc2626'}; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">
-                                            ${isActive ? 'Active' : 'Inactive'}
-                                        </span>
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                                        <div style="display: flex; gap: 6px;">
-                                            <button onclick="showUserDetailModal('${user.id}')" style="padding: 5px 10px; border: none; background: #e0e7ff; color: #4338ca; border-radius: 6px; cursor: pointer; font-size: 11px;" title="View Details">
-                                                <i class="fas fa-eye"></i>
-                                            </button>
-                                            ${isActive ? `
-                                                <button onclick="event.stopPropagation(); toggleUserStatus('${user.id}', 'inactive')" style="padding: 5px 10px; border: none; background: #fef3c7; color: #d97706; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Deactivate">
-                                                    <i class="fas fa-ban"></i>
-                                                </button>
-                                            ` : `
-                                                <button onclick="event.stopPropagation(); toggleUserStatus('${user.id}', 'active')" style="padding: 5px 10px; border: none; background: #dcfce7; color: #16a34a; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Activate">
-                                                    <i class="fas fa-check"></i>
-                                                </button>
-                                            `}
-                                            <button onclick="event.stopPropagation(); confirmDeleteUser('${user.id}')" style="padding: 5px 10px; border: none; background: #fee2e2; color: #dc2626; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Delete">
-                                                <i class="fas fa-trash"></i>
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('')}
-                    </tbody>
-                </table>
-            </div>
-            ${allSystemUsers.length === 0 ? `
-                <div style="padding: 40px; text-align: center; color: #94a3b8;">
-                    <i class="fas fa-users" style="font-size: 32px; margin-bottom: 10px;"></i>
-                    <p>No users found</p>
+            
+            <!-- Search & Filter Bar -->
+            <div style="background: white; border-radius: 12px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <div style="position: relative;">
+                            <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;"></i>
+                            <input type="text" id="founderUserSearch" placeholder="Search by ID, name, or email..." 
+                                style="width: 100%; padding: 10px 12px 10px 38px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px;"
+                                oninput="filterFounderUserList(this.value)">
+                        </div>
+                    </div>
+                    <div style="position: relative;">
+                        <button onclick="toggleFilterDropdown()" style="padding: 10px 16px; border: 1px solid #e2e8f0; background: white; border-radius: 8px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-filter" style="color: #6366f1;"></i>
+                            <span>Filters</span>
+                            <i class="fas fa-chevron-down" style="font-size: 10px; color: #94a3b8;"></i>
+                        </button>
+                        <div id="filterDropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 8px; background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.15); padding: 16px; min-width: 200px; z-index: 100;">
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Role</label>
+                                <select id="founderRoleFilter" onchange="filterFounderUserList(document.getElementById('founderUserSearch').value)" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; margin-top: 4px;">
+                                    <option value="">All Roles</option>
+                                    <option value="business_admin">Business Admin</option>
+                                    <option value="manager">Manager</option>
+                                    <option value="staff">Staff</option>
+                                    <option value="personal">Personal</option>
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 600;">Status</label>
+                                <select id="founderStatusFilter" onchange="filterFounderUserList(document.getElementById('founderUserSearch').value)" 
+                                    style="width: 100%; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; margin-top: 4px;">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                </select>
+                            </div>
+                            <button onclick="clearFilters()" style="width: 100%; padding: 8px; background: #f1f5f9; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b;">
+                                Clear Filters
+                            </button>
+                        </div>
+                    </div>
+                    <button class="btn-outline" onclick="exportUserList()" style="padding: 10px 16px; white-space: nowrap;">
+                        <i class="fas fa-download"></i> Export
+                    </button>
                 </div>
-            ` : ''}
+            </div>
+            
+            <!-- Users Table -->
+            <div style="background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06);">
+                <div style="padding: 16px; border-bottom: 1px solid #e2e8f0;">
+                    <h4 style="margin: 0; font-size: 15px; color: #1e293b;">
+                        All Users <span id="founderUserCount" style="color: #94a3b8; font-weight: normal;">(${allSystemUsers.length})</span>
+                    </h4>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f8fafc;">
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569;">User</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569;">Role</th>
+                                <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569;">Status</th>
+                                <th style="padding: 12px; text-align: center; font-weight: 600; color: #475569;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="founderUsersTableBody">
+                            ${allSystemUsers.map(user => {
+                                const role = ROLES[user.role] || {};
+                                const isActive = user.status === 'active' || !user.status;
+                                return `
+                                    <tr class="founder-user-row" data-uid="${user.id}" data-name="${(user.name || '').toLowerCase()}" data-email="${(user.email || '').toLowerCase()}" data-role="${user.role}" data-status="${user.status || 'active'}"
+                                        style="transition: background 0.15s;" 
+                                        onmouseover="this.style.background='#f8fafc'" 
+                                        onmouseout="this.style.background=''">
+                                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                                            <div style="display: flex; align-items: center; gap: 10px;">
+                                                <div style="width: 36px; height: 36px; border-radius: 50%; background: ${role.color || '#6366f1'}20; display: flex; align-items: center; justify-content: center;">
+                                                    <i class="fas ${role.icon || 'fa-user'}" style="color: ${role.color || '#6366f1'}; font-size: 14px;"></i>
+                                                </div>
+                                                <div>
+                                                    <div style="font-weight: 500; color: #1e293b;">${escapeHtml(user.name || 'N/A')}</div>
+                                                    <div style="font-size: 11px; color: #94a3b8;">${escapeHtml(user.email || 'N/A')}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                                            <span style="background: ${role.color || '#6366f1'}15; color: ${role.color || '#6366f1'}; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;">
+                                                ${role.name || user.role}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                                            <span style="background: ${isActive ? '#dcfce7' : '#fee2e2'}; color: ${isActive ? '#16a34a' : '#dc2626'}; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 500;">
+                                                ${isActive ? 'Active' : 'Inactive'}
+                                            </span>
+                                        </td>
+                                        <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; text-align: center;">
+                                            <div style="display: flex; gap: 6px; justify-content: center;">
+                                                <button onclick="showUserDetailModal('${user.id}')" style="padding: 6px 10px; border: none; background: #e0e7ff; color: #4338ca; border-radius: 6px; cursor: pointer; font-size: 11px;" title="View">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                ${isActive ? `
+                                                    <button onclick="toggleUserStatus('${user.id}', 'inactive')" style="padding: 6px 10px; border: none; background: #fef3c7; color: #d97706; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Deactivate">
+                                                        <i class="fas fa-ban"></i>
+                                                    </button>
+                                                ` : `
+                                                    <button onclick="toggleUserStatus('${user.id}', 'active')" style="padding: 6px 10px; border: none; background: #dcfce7; color: #16a34a; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Activate">
+                                                        <i class="fas fa-check"></i>
+                                                    </button>
+                                                `}
+                                                <button onclick="confirmDeleteUser('${user.id}')" style="padding: 6px 10px; border: none; background: #fee2e2; color: #dc2626; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                ${allSystemUsers.length === 0 ? `
+                    <div style="padding: 40px; text-align: center; color: #94a3b8;">
+                        <i class="fas fa-users" style="font-size: 32px; margin-bottom: 10px;"></i>
+                        <p>No users found</p>
+                    </div>
+                ` : ''}
+            </div>
         </div>
         
-        <div style="border-top: 2px solid #e2e8f0; padding-top: 24px; margin-top: 10px;">
-            <h4 style="margin: 0 0 16px 0; font-size: 15px; color: #475569;">
-                <i class="fas fa-user-plus" style="margin-right: 8px; color: #10b981;"></i>
-                Manage Platform Users
-            </h4>
-        </div>
+        <!-- TAB: Add Users (existing content) -->
+        <div id="addUsersTab" style="display: ${activeTab === 'users' ? 'block' : 'none'};">
         ` : ''}
         
         <div class="user-management-stats">
@@ -3368,8 +3320,88 @@ function renderUserManagement() {
                 </div>
             ` : ''}
         </div>
+        
+        ${isFounder ? `</div>` : ''}
     `;
 }
+
+// ==================== TAB SWITCHING & FILTER FUNCTIONS ====================
+
+// Switch between User Management tabs
+function switchUserMgmtTab(tab) {
+    window.userMgmtActiveTab = tab;
+    
+    const usersTab = document.getElementById('addUsersTab');
+    const controlTab = document.getElementById('userControlTab');
+    const tabUsers = document.getElementById('tabUsers');
+    const tabControl = document.getElementById('tabControl');
+    
+    if (tab === 'users') {
+        if (usersTab) usersTab.style.display = 'block';
+        if (controlTab) controlTab.style.display = 'none';
+        if (tabUsers) {
+            tabUsers.style.background = '#6366f1';
+            tabUsers.style.color = 'white';
+        }
+        if (tabControl) {
+            tabControl.style.background = 'transparent';
+            tabControl.style.color = '#64748b';
+        }
+    } else {
+        if (usersTab) usersTab.style.display = 'none';
+        if (controlTab) controlTab.style.display = 'block';
+        if (tabUsers) {
+            tabUsers.style.background = 'transparent';
+            tabUsers.style.color = '#64748b';
+        }
+        if (tabControl) {
+            tabControl.style.background = '#6366f1';
+            tabControl.style.color = 'white';
+        }
+    }
+}
+
+// Toggle filter dropdown visibility
+function toggleFilterDropdown() {
+    const dropdown = document.getElementById('filterDropdown');
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+// Clear all filters
+function clearFilters() {
+    const roleFilter = document.getElementById('founderRoleFilter');
+    const statusFilter = document.getElementById('founderStatusFilter');
+    const searchInput = document.getElementById('founderUserSearch');
+    
+    if (roleFilter) roleFilter.value = '';
+    if (statusFilter) statusFilter.value = '';
+    if (searchInput) searchInput.value = '';
+    
+    // Re-apply filter (which will show all)
+    filterFounderUserList('');
+    
+    // Close dropdown
+    const dropdown = document.getElementById('filterDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+// Close filter dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('filterDropdown');
+    const filterBtn = e.target.closest('button');
+    if (dropdown && dropdown.style.display === 'block') {
+        if (!e.target.closest('#filterDropdown') && (!filterBtn || !filterBtn.onclick?.toString().includes('toggleFilterDropdown'))) {
+            dropdown.style.display = 'none';
+        }
+    }
+});
+
+// Expose tab functions
+window.switchUserMgmtTab = switchUserMgmtTab;
+window.toggleFilterDropdown = toggleFilterDropdown;
+window.clearFilters = clearFilters;
 
 // ==================== ADD/EDIT USER MODAL ====================
 
@@ -5206,12 +5238,28 @@ function toggleUserStatus(userId, newStatus) {
         return;
     }
     
+    // Update status
     user.status = newStatus;
-    saveUsers();
+    user.updatedAt = new Date().toISOString();
     
+    // Close modal first to prevent UI hang
     closeModal('userDetailModal');
+    
+    // Save locally first (skip cloud sync to prevent lag)
+    localStorage.setItem('ezcubic_users', JSON.stringify(users));
+    
+    // Show feedback immediately
     showToast(`User ${user.name || user.email} has been ${newStatus === 'active' ? 'activated' : 'deactivated'}`, 'success');
+    
+    // Re-render UI
     renderUserManagement();
+    
+    // Schedule cloud sync in background (delayed)
+    setTimeout(() => {
+        if (typeof window.fullCloudSync === 'function') {
+            window.fullCloudSync().catch(err => console.warn('Background sync failed:', err));
+        }
+    }, 1000);
 }
 
 // Confirm delete user - Founder only
