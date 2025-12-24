@@ -398,7 +398,8 @@ async function cloudSyncNow() {
     const result = await window.CloudSync.syncBidirectional();
     
     if (result.success) {
-        showNotification('✅ Cloud sync complete!', 'success');
+        // Silent sync - no notification
+        // showNotification('✅ Cloud sync complete!', 'success');
         updateLastSyncTime();
     } else {
         showNotification('❌ Sync failed: ' + (result.error || result.reason), 'error');

@@ -286,6 +286,13 @@ function quickAddExpense() {
 
 // ==================== SETTINGS FUNCTIONS ====================
 function saveSettings() {
+    // Block staff/manager from saving company settings
+    const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    if (currentUser.role === 'staff' || currentUser.role === 'manager') {
+        showNotification('Only Business Admin can change company settings', 'error');
+        return;
+    }
+    
     businessData.settings.businessName = document.getElementById('businessName').value;
     businessData.settings.ssmNumber = document.getElementById('ssmNumber').value;
     businessData.settings.tinNumber = document.getElementById('tinNumber').value;

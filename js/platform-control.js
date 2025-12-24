@@ -2097,6 +2097,14 @@ function syncUserToNewPlan(tenantId, newPlanId) {
             }
         }
     }
+    
+    // Sync to cloud so the user's device gets the update
+    if (typeof window.fullCloudSync === 'function') {
+        console.log('☁️ Syncing plan change to cloud...');
+        window.fullCloudSync().catch(err => console.warn('Cloud sync failed:', err));
+    } else if (typeof scheduleAutoCloudSync === 'function') {
+        scheduleAutoCloudSync();
+    }
 }
 
 function extendSubscription(tenantId) {

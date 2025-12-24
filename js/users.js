@@ -3612,11 +3612,11 @@ function showAddUserModal(roleId = 'staff') {
                         </div>
                         <div class="form-group">
                             <label class="form-label">Password *</label>
-                            <input type="password" id="newUserPassword" class="form-control" required placeholder="Enter password" minlength="6">
+                            <input type="password" id="newUserPassword" class="form-control" required placeholder="Enter password" minlength="6" autocomplete="new-password">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Confirm Password *</label>
-                            <input type="password" id="newUserPasswordConfirm" class="form-control" required placeholder="Confirm password">
+                            <input type="password" id="newUserPasswordConfirm" class="form-control" required placeholder="Confirm password" autocomplete="new-password">
                         </div>
                     </div>
                     
@@ -5333,6 +5333,33 @@ function executeDeleteUser(userId) {
     const user = users[userIndex];
     const userName = user.name || user.email;
     
+    // If user is business_admin, also delete their tenant and subscription
+    if (user.role === 'business_admin' && user.tenantId) {
+        // Delete tenant
+        const tenants = typeof getTenants === 'function' ? getTenants() : JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+        if (tenants[user.tenantId]) {
+            delete tenants[user.tenantId];
+            if (typeof saveTenants === 'function') {
+                saveTenants(tenants);
+            } else {
+                localStorage.setItem('ezcubic_tenants', JSON.stringify(tenants));
+            }
+        }
+        
+        // Delete subscription
+        const subs = typeof getSubscriptions === 'function' ? getSubscriptions() : JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+        if (subs[user.tenantId]) {
+            delete subs[user.tenantId];
+            if (typeof saveSubscriptions === 'function') {
+                saveSubscriptions(subs);
+            } else {
+                localStorage.setItem('ezcubic_subscriptions', JSON.stringify(subs));
+            }
+        }
+        
+        console.log(`Deleted tenant and subscription for: ${user.tenantId}`);
+    }
+    
     // Remove user from array
     users.splice(userIndex, 1);
     saveUsers();
@@ -5797,7 +5824,8 @@ window.syncAllTenantDataToCloud = async function() {
         }
         
         console.log('☁️ Sync complete! Synced:', synced, 'Failed:', failed);
-        alert('☁️ Tenant Data Sync Complete!\n\nSynced: ' + synced + '\nFailed: ' + failed);
+        // Silent sync - no popup
+        // alert('☁️ Tenant Data Sync Complete!\n\nSynced: ' + synced + '\nFailed: ' + failed);
         
     } catch (err) {
         console.error('❌ Sync error:', err);
@@ -6322,8 +6350,66 @@ window.showSection = function(sectionId) {
     }
     if (sectionId === 'settings') {
         setTimeout(initCompanyCodeUI, 100);
+        // Lock settings for staff/manager
+        setTimeout(lockSettingsForStaffManager, 150);
     }
 };
+
+// Lock Company Settings for Staff/Manager - they can view but not edit
+function lockSettingsForStaffManager() {
+    const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    if (currentUser.role !== 'staff' && currentUser.role !== 'manager') return;
+    
+    // Get the settings section
+    const settingsSection = document.getElementById('settings');
+    if (!settingsSection) return;
+    
+    // Add warning banner
+    const existingBanner = document.getElementById('settingsLockBanner');
+    if (!existingBanner) {
+        const cardHeader = settingsSection.querySelector('.card-header');
+        if (cardHeader) {
+            const banner = document.createElement('div');
+            banner.id = 'settingsLockBanner';
+            banner.style.cssText = 'background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin: 15px 0; display: flex; align-items: center; gap: 10px;';
+            banner.innerHTML = `
+                <i class="fas fa-lock" style="color: #d97706; font-size: 18px;"></i>
+                <div>
+                    <strong style="color: #92400e;">View Only Mode</strong>
+                    <p style="margin: 0; font-size: 12px; color: #78350f;">Only the Business Admin can modify company settings.</p>
+                </div>
+            `;
+            cardHeader.after(banner);
+        }
+    }
+    
+    // Disable all input fields
+    const inputs = settingsSection.querySelectorAll('input, select, textarea');
+    inputs.forEach(input => {
+        input.disabled = true;
+        input.style.cursor = 'not-allowed';
+        input.style.opacity = '0.7';
+    });
+    
+    // Disable save button
+    const saveBtn = settingsSection.querySelector('button[onclick="saveSettings()"]');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.style.cursor = 'not-allowed';
+        saveBtn.style.opacity = '0.5';
+        saveBtn.title = 'Only Business Admin can save settings';
+    }
+    
+    // Disable logo upload buttons
+    const uploadBtns = settingsSection.querySelectorAll('button');
+    uploadBtns.forEach(btn => {
+        if (btn.textContent.includes('Upload') || btn.querySelector('.fa-upload') || btn.querySelector('.fa-trash')) {
+            btn.disabled = true;
+            btn.style.cursor = 'not-allowed';
+            btn.style.opacity = '0.5';
+        }
+    });
+}
 
 // ==================== FACTORY RESET FUNCTIONS ====================
 
