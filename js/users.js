@@ -693,6 +693,125 @@ function ensureFounderExists() {
 }
 window.ensureFounderExists = ensureFounderExists;
 
+// ==================== AUTO CLOUD LOOKUP ====================
+// Find a specific user by email in cloud storage
+async function findUserInCloud(email) {
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    // Wait for Supabase to be ready
+    let retries = 0;
+    while (!window.supabase?.createClient && retries < 10) {
+        await new Promise(r => setTimeout(r, 200));
+        retries++;
+    }
+    
+    if (!window.supabase?.createClient) {
+        console.warn('⚠️ Supabase not ready for cloud lookup');
+        return null;
+    }
+    
+    try {
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        const { data, error } = await client
+            .from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global')
+            .eq('data_key', 'ezcubic_users')
+            .single();
+        
+        if (error) {
+            console.warn('⚠️ Cloud lookup error:', error.message);
+            return null;
+        }
+        
+        const cloudUsers = data?.data?.value || [];
+        const foundUser = cloudUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+        
+        if (foundUser) {
+            console.log('☁️ Found user in cloud:', foundUser.email, '- Role:', foundUser.role);
+            
+            // Also download their tenant info if available
+            if (foundUser.tenantId) {
+                await downloadTenantInfoFromCloud(foundUser.tenantId);
+            }
+        }
+        
+        return foundUser || null;
+        
+    } catch (err) {
+        console.error('❌ Cloud lookup failed:', err);
+        return null;
+    }
+}
+
+// Download tenant info (not full data) from cloud
+async function downloadTenantInfoFromCloud(tenantId) {
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) return;
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        const { data, error } = await client
+            .from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global')
+            .eq('data_key', 'ezcubic_tenants')
+            .single();
+        
+        if (error || !data?.data?.value) return;
+        
+        const cloudTenants = data.data.value;
+        const tenantInfo = cloudTenants[tenantId];
+        
+        if (tenantInfo) {
+            // Merge into local tenants
+            const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+            localTenants[tenantId] = tenantInfo;
+            localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+            console.log('☁️ Downloaded tenant info:', tenantInfo.businessName);
+        }
+        
+    } catch (err) {
+        console.warn('⚠️ Could not download tenant info:', err);
+    }
+}
+
+// Download full tenant data from cloud (transactions, products, etc.)
+async function downloadTenantFromCloud(tenantId) {
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) return;
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // First download tenant info
+        await downloadTenantInfoFromCloud(tenantId);
+        
+        // Then try to download full tenant data
+        const { data, error } = await client
+            .from('tenant_data')
+            .select('*')
+            .eq('tenant_id', tenantId)
+            .eq('data_key', 'tenant_full_data')
+            .single();
+        
+        if (!error && data?.data?.value) {
+            localStorage.setItem('ezcubic_tenant_' + tenantId, JSON.stringify(data.data.value));
+            console.log('☁️ Downloaded full tenant data:', tenantId);
+        }
+        
+    } catch (err) {
+        console.warn('⚠️ Could not download tenant data:', err);
+    }
+}
+
 // ==================== AUTHENTICATION ====================
 // Session timeout in hours (24 hours by default)
 const SESSION_TIMEOUT_HOURS = 24;
@@ -884,6 +1003,24 @@ async function tryLoginWithCloudSync(email, password) {
         }
     }
     
+    // Helper to show loading state
+    function showLoginLoading(show) {
+        const btn = document.querySelector('#loginPageForm button[type="submit"]') || 
+                    document.querySelector('#loginForm button[type="submit"]');
+        if (btn) {
+            if (show) {
+                btn.dataset.originalText = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+                btn.disabled = true;
+            } else {
+                btn.innerHTML = btn.dataset.originalText || 'Login';
+                btn.disabled = false;
+            }
+        }
+    }
+    
+    showLoginLoading(true);
+    
     // First try to sync users from cloud (for multi-device login)
     try {
         console.log('☁️ Checking cloud for user updates before login...');
@@ -898,16 +1035,46 @@ async function tryLoginWithCloudSync(email, password) {
     console.log('Login attempt:', email);
     console.log('Users in system:', users.map(u => ({ email: u.email, status: u.status })));
     
-    // First check if email exists
-    const userByEmail = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    // First check if email exists locally
+    let userByEmail = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+    
+    // ========== AUTO CLOUD LOOKUP ==========
+    // If user not found locally, try direct cloud lookup
+    if (!userByEmail) {
+        console.log('👤 User not found locally, checking cloud directly...');
+        
+        try {
+            const cloudUser = await findUserInCloud(email);
+            
+            if (cloudUser) {
+                console.log('☁️ Found user in cloud:', cloudUser.email);
+                
+                // Add user to local storage
+                users.push(cloudUser);
+                localStorage.setItem(USERS_KEY, JSON.stringify(users));
+                
+                // Also download their tenant if they have one
+                if (cloudUser.tenantId) {
+                    await downloadTenantFromCloud(cloudUser.tenantId);
+                }
+                
+                userByEmail = cloudUser;
+                console.log('✅ User synced from cloud to local');
+            }
+        } catch (err) {
+            console.warn('⚠️ Cloud lookup failed:', err);
+        }
+    }
     
     if (!userByEmail) {
+        showLoginLoading(false);
         showLoginError('Email not found. Please check your email or register.');
         return false;
     }
     
     // Check if account is active
     if (userByEmail.status !== 'active') {
+        showLoginLoading(false);
         showLoginError('Your account is inactive. Please contact support.');
         return false;
     }
@@ -915,9 +1082,12 @@ async function tryLoginWithCloudSync(email, password) {
     // Check password (supports both hashed and legacy plain text)
     const passwordValid = await verifyPassword(password, userByEmail.password);
     if (!passwordValid) {
+        showLoginLoading(false);
         showLoginError('Incorrect password. Please try again.');
         return false;
     }
+    
+    showLoginLoading(false);
     
     // Auto-upgrade: If password is plain text, hash it now
     if (!isPasswordHashed(userByEmail.password)) {
@@ -5913,6 +6083,250 @@ window.showSection = function(sectionId) {
     }
     if (sectionId === 'settings') {
         setTimeout(initCompanyCodeUI, 100);
+    }
+};
+
+// ==================== FACTORY RESET FUNCTIONS ====================
+
+/**
+ * FACTORY RESET - Clears everything and starts fresh with only Founder
+ * Run in console: factoryReset()
+ * 
+ * This will:
+ * 1. Clear ALL users except founder from local storage
+ * 2. Clear ALL tenants except founder's tenant
+ * 3. Clear ALL cloud data (users, tenants)
+ * 4. Reset to fresh founder-only state
+ */
+window.factoryReset = async function() {
+    console.log('');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('  🔴 FACTORY RESET - DANGER ZONE');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('');
+    console.log('  This will DELETE:');
+    console.log('  • All user accounts (except founder)');
+    console.log('  • All tenants/businesses (except founder)');
+    console.log('  • All cloud data');
+    console.log('');
+    console.log('  To confirm, run: confirmFactoryReset()');
+    console.log('');
+    console.log('═══════════════════════════════════════════════════');
+};
+
+window.confirmFactoryReset = async function() {
+    if (!confirm('⚠️ FACTORY RESET ⚠️\n\nThis will DELETE all accounts and data!\n\nOnly the Founder account will remain.\n\nAre you ABSOLUTELY sure?')) {
+        console.log('❌ Factory reset cancelled');
+        return;
+    }
+    
+    if (!confirm('🔴 FINAL WARNING 🔴\n\nThis action CANNOT be undone!\n\nType "RESET" in the next prompt to confirm...')) {
+        console.log('❌ Factory reset cancelled');
+        return;
+    }
+    
+    const confirmation = prompt('Type RESET to confirm factory reset:');
+    if (confirmation !== 'RESET') {
+        console.log('❌ Factory reset cancelled - confirmation not matched');
+        alert('Factory reset cancelled');
+        return;
+    }
+    
+    console.log('🔄 Starting factory reset...');
+    
+    try {
+        // Step 1: Create fresh founder account
+        const freshFounder = {
+            id: 'founder_001',
+            email: 'founder@ezcubic.com',
+            password: 'founder123',
+            name: 'Founder',
+            role: 'founder',
+            status: 'active',
+            permissions: ['all'],
+            tenantId: 'tenant_founder',
+            createdAt: new Date().toISOString(),
+            createdBy: 'system'
+        };
+        
+        // Step 2: Create fresh founder tenant
+        const freshTenants = {
+            'tenant_founder': {
+                id: 'tenant_founder',
+                ownerId: 'founder_001',
+                businessName: "Founder's Business",
+                companyCode: generateCompanyCode(),
+                createdAt: new Date().toISOString(),
+                status: 'active'
+            }
+        };
+        
+        // Step 3: Clear local storage
+        console.log('  📦 Clearing local storage...');
+        localStorage.setItem('ezcubic_users', JSON.stringify([freshFounder]));
+        localStorage.setItem('ezcubic_tenants', JSON.stringify(freshTenants));
+        localStorage.removeItem('ezcubic_current_user');
+        localStorage.removeItem('ezcubic_session_token');
+        localStorage.removeItem('ezcubic_sessions');
+        
+        // Clear all tenant data except founder's
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('ezcubic_tenant_') && key !== 'ezcubic_tenant_tenant_founder') {
+                keysToRemove.push(key);
+            }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+        console.log('  ✅ Local storage cleared');
+        
+        // Step 4: Clear cloud data
+        console.log('  ☁️ Clearing cloud data...');
+        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+        
+        if (window.supabase?.createClient) {
+            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            
+            // Upload fresh users to cloud
+            await client.from('tenant_data').upsert({
+                tenant_id: 'global',
+                data_key: 'ezcubic_users',
+                data: { key: 'ezcubic_users', value: [freshFounder], synced_at: new Date().toISOString() },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+            
+            // Upload fresh tenants to cloud
+            await client.from('tenant_data').upsert({
+                tenant_id: 'global',
+                data_key: 'ezcubic_tenants',
+                data: { key: 'ezcubic_tenants', value: freshTenants, synced_at: new Date().toISOString() },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+            
+            console.log('  ✅ Cloud data reset');
+        } else {
+            console.warn('  ⚠️ Supabase not available - cloud not cleared');
+        }
+        
+        // Step 5: Update local variables
+        users = [freshFounder];
+        currentUser = null;
+        
+        console.log('');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('  ✅ FACTORY RESET COMPLETE');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('');
+        console.log('  Founder Account:');
+        console.log('  📧 Email: founder@ezcubic.com');
+        console.log('  🔑 Password: founder123');
+        console.log('');
+        console.log('  Company Code: ' + freshTenants['tenant_founder'].companyCode);
+        console.log('');
+        console.log('  Page will reload in 3 seconds...');
+        console.log('═══════════════════════════════════════════════════');
+        
+        alert('✅ FACTORY RESET COMPLETE!\n\n📧 Email: founder@ezcubic.com\n🔑 Password: founder123\n\nPage will reload...');
+        
+        setTimeout(() => location.reload(), 3000);
+        
+    } catch (err) {
+        console.error('❌ Factory reset failed:', err);
+        alert('❌ Factory reset failed: ' + err.message);
+    }
+};
+
+/**
+ * View current state - for debugging
+ * Run in console: viewCurrentState()
+ */
+window.viewCurrentState = function() {
+    const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    
+    console.log('');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('  📊 CURRENT STATE');
+    console.log('═══════════════════════════════════════════════════');
+    console.log('');
+    console.log('  👤 Current User:', currentUser.email || 'Not logged in');
+    console.log('  📋 Role:', currentUser.role || 'N/A');
+    console.log('  🏢 Tenant:', currentUser.tenantId || 'N/A');
+    console.log('');
+    console.log('  👥 Total Users:', users.length);
+    users.forEach((u, i) => {
+        console.log(`     ${i+1}. ${u.email} (${u.role}) - Tenant: ${u.tenantId || 'none'}`);
+    });
+    console.log('');
+    console.log('  🏢 Total Tenants:', Object.keys(tenants).length);
+    Object.values(tenants).forEach((t, i) => {
+        console.log(`     ${i+1}. ${t.businessName} - Code: ${t.companyCode || 'N/A'}`);
+    });
+    console.log('');
+    console.log('═══════════════════════════════════════════════════');
+    
+    return { users, tenants, currentUser };
+};
+
+/**
+ * View cloud state - check what's in the cloud
+ * Run in console: viewCloudState()
+ */
+window.viewCloudState = async function() {
+    console.log('☁️ Fetching cloud state...');
+    
+    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
+    
+    try {
+        if (!window.supabase?.createClient) {
+            console.log('❌ Supabase not loaded');
+            return;
+        }
+        
+        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        const { data, error } = await client.from('tenant_data')
+            .select('*')
+            .eq('tenant_id', 'global');
+        
+        if (error) {
+            console.error('❌ Error:', error.message);
+            return;
+        }
+        
+        console.log('');
+        console.log('═══════════════════════════════════════════════════');
+        console.log('  ☁️ CLOUD STATE');
+        console.log('═══════════════════════════════════════════════════');
+        
+        for (const record of data || []) {
+            if (record.data_key === 'ezcubic_users') {
+                const cloudUsers = record.data?.value || [];
+                console.log('');
+                console.log('  👥 Cloud Users:', cloudUsers.length);
+                cloudUsers.forEach((u, i) => {
+                    console.log(`     ${i+1}. ${u.email} (${u.role})`);
+                });
+            }
+            if (record.data_key === 'ezcubic_tenants') {
+                const cloudTenants = record.data?.value || {};
+                console.log('');
+                console.log('  🏢 Cloud Tenants:', Object.keys(cloudTenants).length);
+                Object.values(cloudTenants).forEach((t, i) => {
+                    console.log(`     ${i+1}. ${t.businessName} - Code: ${t.companyCode || 'N/A'}`);
+                });
+            }
+        }
+        
+        console.log('');
+        console.log('  📅 Last sync:', data?.[0]?.data?.synced_at || 'Unknown');
+        console.log('═══════════════════════════════════════════════════');
+        
+    } catch (err) {
+        console.error('❌ Error:', err);
     }
 };
 
