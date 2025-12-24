@@ -803,8 +803,60 @@ async function downloadTenantFromCloud(tenantId) {
             .single();
         
         if (!error && data?.data?.value) {
-            localStorage.setItem('ezcubic_tenant_' + tenantId, JSON.stringify(data.data.value));
+            const tenantData = data.data.value;
+            localStorage.setItem('ezcubic_tenant_' + tenantId, JSON.stringify(tenantData));
             console.log('☁️ Downloaded full tenant data:', tenantId);
+            
+            // Also extract to individual localStorage keys for immediate availability
+            // This ensures customers, products, etc. are ready when modules initialize
+            if (tenantData.customers?.length) {
+                localStorage.setItem('ezcubic_customers', JSON.stringify(tenantData.customers));
+                console.log('  ↳ Extracted', tenantData.customers.length, 'customers');
+            }
+            if (tenantData.products?.length) {
+                localStorage.setItem('ezcubic_products', JSON.stringify(tenantData.products));
+                console.log('  ↳ Extracted', tenantData.products.length, 'products');
+            }
+            if (tenantData.crmCustomers?.length) {
+                localStorage.setItem('ezcubic_crm_customers', JSON.stringify(tenantData.crmCustomers));
+                console.log('  ↳ Extracted', tenantData.crmCustomers.length, 'CRM customers');
+            }
+            if (tenantData.suppliers?.length) {
+                localStorage.setItem('ezcubic_suppliers', JSON.stringify(tenantData.suppliers));
+                console.log('  ↳ Extracted', tenantData.suppliers.length, 'suppliers');
+            }
+            if (tenantData.quotations?.length) {
+                localStorage.setItem('ezcubic_quotations', JSON.stringify(tenantData.quotations));
+                console.log('  ↳ Extracted', tenantData.quotations.length, 'quotations');
+            }
+            if (tenantData.projects?.length) {
+                localStorage.setItem('ezcubic_projects', JSON.stringify(tenantData.projects));
+                console.log('  ↳ Extracted', tenantData.projects.length, 'projects');
+            }
+            if (tenantData.transactions?.length) {
+                localStorage.setItem('ezcubic_transactions', JSON.stringify(tenantData.transactions));
+                console.log('  ↳ Extracted', tenantData.transactions.length, 'transactions');
+            }
+            if (tenantData.sales?.length) {
+                localStorage.setItem('ezcubic_sales', JSON.stringify(tenantData.sales));
+                console.log('  ↳ Extracted', tenantData.sales.length, 'sales');
+            }
+            if (tenantData.orders?.length) {
+                localStorage.setItem('ezcubic_orders', JSON.stringify(tenantData.orders));
+                console.log('  ↳ Extracted', tenantData.orders.length, 'orders');
+            }
+            if (tenantData.stockMovements?.length) {
+                localStorage.setItem('ezcubic_stock_movements', JSON.stringify(tenantData.stockMovements));
+                console.log('  ↳ Extracted', tenantData.stockMovements.length, 'stock movements');
+            }
+            if (tenantData.employees?.length) {
+                localStorage.setItem('ezcubic_employees', JSON.stringify(tenantData.employees));
+                console.log('  ↳ Extracted', tenantData.employees.length, 'employees');
+            }
+            if (tenantData.branches?.length) {
+                localStorage.setItem('ezcubic_branches', JSON.stringify(tenantData.branches));
+                console.log('  ↳ Extracted', tenantData.branches.length, 'branches');
+            }
         }
         
     } catch (err) {
