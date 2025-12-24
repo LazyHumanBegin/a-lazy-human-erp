@@ -42,9 +42,8 @@ const CloudSync = {
     async init() {
         console.log('☁️ Initializing Cloud Sync...');
         
-        // Wait for Supabase to be ready
+        // Wait for Supabase to be ready (silent retry)
         if (!window.SupabaseConfig) {
-            console.warn('⚠️ Supabase not loaded, retrying in 1s...');
             setTimeout(() => this.init(), 1000);
             return;
         }

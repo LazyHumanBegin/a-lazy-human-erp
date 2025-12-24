@@ -3088,21 +3088,20 @@ function renderUserManagement() {
                             <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Name</th>
                             <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Email</th>
                             <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Role</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Plan</th>
                             <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Status</th>
-                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Created</th>
+                            <th style="padding: 12px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0;">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="founderUsersTableBody">
                         ${allSystemUsers.map(user => {
                             const role = ROLES[user.role] || {};
                             const plan = platformSettings?.plans?.[user.plan];
+                            const isActive = user.status === 'active' || !user.status;
                             return `
                                 <tr class="founder-user-row" data-uid="${user.id}" data-name="${(user.name || '').toLowerCase()}" data-email="${(user.email || '').toLowerCase()}" data-role="${user.role}" data-plan="${user.plan || ''}" data-status="${user.status}"
-                                    style="cursor: pointer; transition: background 0.15s;" 
+                                    style="transition: background 0.15s;" 
                                     onmouseover="this.style.background='#f1f5f9'" 
-                                    onmouseout="this.style.background=''"
-                                    onclick="showUserDetailModal('${user.id}')">
+                                    onmouseout="this.style.background=''">
                                     <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
                                         <code style="background: #e0e7ff; color: #4338ca; padding: 2px 6px; border-radius: 4px; font-size: 11px;">${user.id}</code>
                                     </td>
@@ -3114,15 +3113,28 @@ function renderUserManagement() {
                                         </span>
                                     </td>
                                     <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                                        ${plan ? `<span style="background: ${plan.color}; color: white; padding: 3px 8px; border-radius: 12px; font-size: 11px;">${plan.name}</span>` : '<span style="color: #94a3b8;">-</span>'}
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
-                                        <span style="background: ${user.status === 'active' ? '#dcfce7' : '#fee2e2'}; color: ${user.status === 'active' ? '#16a34a' : '#dc2626'}; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">
-                                            ${user.status || 'active'}
+                                        <span style="background: ${isActive ? '#dcfce7' : '#fee2e2'}; color: ${isActive ? '#16a34a' : '#dc2626'}; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">
+                                            ${isActive ? 'Active' : 'Inactive'}
                                         </span>
                                     </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9; color: #64748b; font-size: 12px;">
-                                        ${user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
+                                    <td style="padding: 12px; border-bottom: 1px solid #f1f5f9;">
+                                        <div style="display: flex; gap: 6px;">
+                                            <button onclick="showUserDetailModal('${user.id}')" style="padding: 5px 10px; border: none; background: #e0e7ff; color: #4338ca; border-radius: 6px; cursor: pointer; font-size: 11px;" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                            ${isActive ? `
+                                                <button onclick="event.stopPropagation(); toggleUserStatus('${user.id}', 'inactive')" style="padding: 5px 10px; border: none; background: #fef3c7; color: #d97706; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Deactivate">
+                                                    <i class="fas fa-ban"></i>
+                                                </button>
+                                            ` : `
+                                                <button onclick="event.stopPropagation(); toggleUserStatus('${user.id}', 'active')" style="padding: 5px 10px; border: none; background: #dcfce7; color: #16a34a; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Activate">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            `}
+                                            <button onclick="event.stopPropagation(); confirmDeleteUser('${user.id}')" style="padding: 5px 10px; border: none; background: #fee2e2; color: #dc2626; border-radius: 6px; cursor: pointer; font-size: 11px;" title="Delete">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             `;

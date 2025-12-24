@@ -717,10 +717,12 @@ function scheduleAutoCloudSync() {
     // Schedule new sync
     autoSyncTimer = setTimeout(async () => {
         try {
-            if (typeof fullCloudSync === 'function') {
+            if (typeof window.fullCloudSync === 'function') {
                 console.log('☁️ Auto-syncing to cloud...');
-                await fullCloudSync();
+                await window.fullCloudSync();
                 console.log('☁️ Auto-sync complete!');
+            } else {
+                console.warn('⚠️ fullCloudSync not available');
             }
         } catch (err) {
             console.warn('⚠️ Auto-sync failed:', err);
