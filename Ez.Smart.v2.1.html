@@ -356,15 +356,15 @@
                     <!-- Populated dynamically -->
                 </select>
                 
-                <!-- Quick Actions -->
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <!-- Global Search -->
+                <!-- Quick Actions - Single line -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <!-- Global Search (opens modal on mobile) -->
                     <button onclick="openGlobalSearch()" class="btn-icon" title="Search (Ctrl+/)" style="background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; cursor: pointer;">
                         <i class="fas fa-search" style="color: #64748b;"></i>
                     </button>
                     <!-- Dark Mode Toggle -->
                     <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode" style="background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; cursor: pointer;">
-                        <i class="fas fa-moon" style="color: #64748b;"></i>
+                        <i class="fas fa-moon" id="darkModeIcon" style="color: #64748b;"></i>
                     </button>
                 </div>
                 
@@ -6489,78 +6489,78 @@
     </div>
 
     <!-- Modular JavaScript Files - v2.1.5 -->
-    <script src="js/core.js?v=1766648221"></script>
-    <script src="js/data.js?v=1766648221"></script>
-    <script src="js/ui.js?v=1766648221"></script>
-    <script src="js/transactions.js?v=1766648221"></script>
-    <script src="js/dashboard.js?v=1766648221"></script>
-    <script src="js/bills.js?v=1766648221"></script>
-    <script src="js/charts.js?v=1766648221"></script>
-    <script src="js/reports.js?v=1766648221"></script>
-    <script src="js/taxes.js?v=1766648221"></script>
-    <script src="js/chatbot.js?v=1766648221"></script>
-    <script src="js/balance-sheet.js?v=1766648221"></script>
-    <script src="js/pdf-export.js?v=1766648221"></script>
-    <script src="js/ai-assistant.js?v=1766648221"></script>
+    <script src="js/core.js?v=1766650000"></script>
+    <script src="js/data.js?v=1766650000"></script>
+    <script src="js/ui.js?v=1766650000"></script>
+    <script src="js/transactions.js?v=1766650000"></script>
+    <script src="js/dashboard.js?v=1766650000"></script>
+    <script src="js/bills.js?v=1766650000"></script>
+    <script src="js/charts.js?v=1766650000"></script>
+    <script src="js/reports.js?v=1766650000"></script>
+    <script src="js/taxes.js?v=1766650000"></script>
+    <script src="js/chatbot.js?v=1766650000"></script>
+    <script src="js/balance-sheet.js?v=1766650000"></script>
+    <script src="js/pdf-export.js?v=1766650000"></script>
+    <script src="js/ai-assistant.js?v=1766650000"></script>
     
     <!-- Chart of Accounts & Double-Entry -->
-    <script src="js/chart-of-accounts.js?v=1766648221"></script>
-    <script src="js/journal-entries.js?v=1766648221"></script>
-    <script src="js/aging-reports.js?v=1766648221"></script>
+    <script src="js/chart-of-accounts.js?v=1766650000"></script>
+    <script src="js/journal-entries.js?v=1766650000"></script>
+    <script src="js/aging-reports.js?v=1766650000"></script>
     
     <!-- Phase 2: Operational Core -->
-    <script src="js/inventory-new.js?v=1766648221"></script>
-    <script src="js/stock.js?v=1766648221"></script>
-    <script src="js/pos.js?v=1766648221"></script>
-    <script src="js/orders.js?v=1766648221"></script>
-    <script src="js/customers.js?v=1766648221"></script>
-    <script src="js/crm.js?v=1766648221"></script>
-    <script src="js/suppliers.js?v=1766648221"></script>
-    <script src="js/quotations.js?v=1766648221"></script>
-    <script src="js/invoices.js?v=1766648221"></script>
-    <script src="js/projects.js?v=1766648221"></script>
+    <script src="js/inventory-new.js?v=1766650000"></script>
+    <script src="js/stock.js?v=1766650000"></script>
+    <script src="js/pos.js?v=1766650000"></script>
+    <script src="js/orders.js?v=1766650000"></script>
+    <script src="js/customers.js?v=1766650000"></script>
+    <script src="js/crm.js?v=1766650000"></script>
+    <script src="js/suppliers.js?v=1766650000"></script>
+    <script src="js/quotations.js?v=1766650000"></script>
+    <script src="js/invoices.js?v=1766650000"></script>
+    <script src="js/projects.js?v=1766650000"></script>
     <!-- Phase 3: HR & Payroll -->
-    <script src="js/payroll.js?v=1766648221"></script>
-    <script src="js/kpi.js?v=1766648221"></script>
-    <script src="js/leave-attendance.js?v=1766648221"></script>
-    <script src="js/hr-modules.js?v=1766648221"></script>
+    <script src="js/payroll.js?v=1766650000"></script>
+    <script src="js/kpi.js?v=1766650000"></script>
+    <script src="js/leave-attendance.js?v=1766650000"></script>
+    <script src="js/hr-modules.js?v=1766650000"></script>
     
     <!-- Phase 4: Procurement & e-Invoice -->
-    <script src="js/purchase-orders.js?v=1766648221"></script>
-    <script src="js/delivery-orders.js?v=1766648221"></script>
-    <script src="js/e-invoice.js?v=1766648221"></script>
+    <script src="js/purchase-orders.js?v=1766650000"></script>
+    <script src="js/delivery-orders.js?v=1766650000"></script>
+    <script src="js/e-invoice.js?v=1766650000"></script>
     
     <!-- Backup & Restore -->
-    <script src="js/backup.js?v=1766648221"></script>
+    <script src="js/backup.js?v=1766650000"></script>
     
     <!-- Excel Export -->
-    <script src="js/excel-export.js?v=1766648221"></script>
+    <script src="js/excel-export.js?v=1766650000"></script>
     
     <!-- Add-ons (Safe Features) -->
-    <script src="js/addons.js?v=1766648221"></script>
+    <script src="js/addons.js?v=1766650000"></script>
     
     <!-- Bank Reconciliation -->
-    <script src="js/bank-reconciliation.js?v=1766648221"></script>
+    <script src="js/bank-reconciliation.js?v=1766650000"></script>
     
     <!-- LHDN & Audit Export -->
-    <script src="js/lhdn-export.js?v=1766648221"></script>
+    <script src="js/lhdn-export.js?v=1766650000"></script>
     
     <!-- Phase 5: Multi-Branch -->
-    <script src="js/branches.js?v=1766648221"></script>
+    <script src="js/branches.js?v=1766650000"></script>
     
     <!-- Phase 6: Multi-Tenant & User Management -->
-    <script src="js/multi-tenant.js?v=1766648221"></script>
-    <script src="js/users.js?v=1766648221"></script>
-    <script src="js/platform-control.js?v=1766648221"></script>
+    <script src="js/multi-tenant.js?v=1766650000"></script>
+    <script src="js/users.js?v=1766650000"></script>
+    <script src="js/platform-control.js?v=1766650000"></script>
     
     <!-- Cloud Database (Supabase) -->
-    <script src="js/supabase.js?v=1766648221"></script>
-    <script src="js/cloud-sync.js?v=1766648221"></script>
+    <script src="js/supabase.js?v=1766650000"></script>
+    <script src="js/cloud-sync.js?v=1766650000"></script>
     
     <!-- Audit Log (System Tracking) -->
-    <script src="js/audit-log.js?v=1766648221"></script>
+    <script src="js/audit-log.js?v=1766650000"></script>
     
-    <script src="js/app.js?v=1766648221"></script>
+    <script src="js/app.js?v=1766650000"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>

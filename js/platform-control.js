@@ -2065,8 +2065,12 @@ function executeChangePlan(tenantId) {
     syncUserToNewPlan(tenantId, newPlan);
     
     closeModal('changePlanModal');
-    renderPlatformControl();
-    showToast('Plan changed and synced successfully! Affected users should refresh to see changes.', 'success');
+    
+    // Force a slight delay to ensure localStorage is written before re-reading
+    setTimeout(() => {
+        renderPlatformControl();
+        showToast('Plan changed and synced successfully! Affected users should refresh to see changes.', 'success');
+    }, 100);
 }
 
 /**

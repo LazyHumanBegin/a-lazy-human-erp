@@ -11044,12 +11044,52 @@ td.negative {
 @media (max-width: 768px) {
     .top-auth-bar {
         flex-direction: row; /* Keep horizontal on mobile */
-        flex-wrap: wrap;
-        gap: 8px;
-        padding: 10px 12px;
+        flex-wrap: nowrap; /* Don't wrap - single line */
+        gap: 6px;
+        padding: 8px 10px;
         /* Not sticky on mobile - only nav button is fixed */
         margin-left: 50px; /* Space for mobile menu button */
         border-radius: 0 12px 12px 12px;
+        justify-content: flex-end;
+    }
+    
+    /* Hide quick actions text, show only icons */
+    .top-auth-bar .btn-icon {
+        padding: 6px 8px !important;
+        min-width: auto;
+    }
+    
+    /* Mobile search bar - hidden by default */
+    .mobile-search-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9998;
+    }
+    
+    .mobile-search-overlay.active {
+        display: block;
+    }
+    
+    .mobile-search-container {
+        position: fixed;
+        top: 60px;
+        left: 10px;
+        right: 10px;
+        background: white;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        z-index: 9999;
+        display: none;
+    }
+    
+    .mobile-search-container.active {
+        display: block;
     }
     
     .user-menu-btn {
@@ -11089,6 +11129,14 @@ td.negative {
     
     .permissions-modules {
         grid-template-columns: 1fr;
+    }
+    
+    /* Tenant selector on mobile */
+    #tenantSelector {
+        min-width: 120px !important;
+        max-width: 150px !important;
+        font-size: 11px !important;
+        padding: 6px 8px !important;
     }
 }
 
