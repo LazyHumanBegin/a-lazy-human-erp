@@ -783,7 +783,7 @@ function showPaymentModal() {
     document.getElementById('paymentTotalAmount').textContent = `RM ${total.toFixed(2)}`;
     document.getElementById('amountReceived').value = '';
     document.getElementById('changeDisplay').style.display = 'none';
-    document.getElementById('paymentReference').value = '';
+    document.getElementById('posPaymentReference').value = '';
     
     // Reset to cash
     document.querySelector('input[name="paymentMethod"][value="cash"]').checked = true;
@@ -1011,10 +1011,11 @@ function processPayment(event) {
         return;
     }
     
+    // Set processing flag AFTER validations pass
     isProcessingPayment = true;
     
     const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked').value;
-    const reference = document.getElementById('paymentReference').value.trim();
+    const reference = document.getElementById('posPaymentReference').value.trim();
     
     const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = parseFloat(document.getElementById('cartDiscount')?.value) || 0;
@@ -1026,6 +1027,7 @@ function processPayment(event) {
         const received = parseFloat(document.getElementById('amountReceived').value) || 0;
         if (received < total) {
             showToast('Insufficient amount received!', 'error');
+            isProcessingPayment = false;
             return;
         }
     }
@@ -1035,12 +1037,14 @@ function processPayment(event) {
         const customerId = document.getElementById('posCustomer')?.value || '';
         if (!customerId) {
             showToast('Please select a customer for credit payment!', 'error');
+            isProcessingPayment = false;
             return;
         }
         
         const crmCustomer = getCRMCustomerById(customerId);
         if (!crmCustomer || !crmCustomer.creditTerms || crmCustomer.creditTerms === 'cod') {
             showToast('This customer does not have credit terms!', 'error');
+            isProcessingPayment = false;
             return;
         }
         
@@ -1050,6 +1054,7 @@ function processPayment(event) {
         
         if (total > available) {
             showToast(`Credit limit exceeded! Available: RM ${available.toFixed(2)}`, 'error');
+            isProcessingPayment = false;
             return;
         }
     }
@@ -1305,7 +1310,7 @@ function processPayment(event) {
     if (paymentForm) paymentForm.reset();
     document.getElementById('amountReceived').value = '';
     document.getElementById('changeAmount').textContent = 'RM 0.00';
-    document.getElementById('paymentReference').value = '';
+    document.getElementById('posPaymentReference').value = '';
     
     // Show receipt
     showReceipt(sale);

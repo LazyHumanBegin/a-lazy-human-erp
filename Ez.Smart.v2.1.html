@@ -38,7 +38,7 @@
     <!-- Supabase Cloud Database SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <link rel="stylesheet" href="style.css?v=1766330000">
+    <link rel="stylesheet" href="style.css?v=1766330009">
     
     <!-- Prevent zoom issues on orientation change -->
     <script>
@@ -174,7 +174,7 @@
             <div class="logo">
                 <h1><img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 32px; height: 32px; vertical-align: middle; margin-right: 8px;"> A Lazy Human</h1>
                 <div class="tagline">Malaysian Business Accounting & Tax</div>
-                <div class="version" id="appVersion">v2.1.15</div>
+                <div class="version" id="appVersion">v2.2.1</div>
             </div>
             
             <div class="nav-menu">
@@ -352,32 +352,36 @@
         <div class="main-content">
             <!-- Auth Bar -->
             <div class="top-auth-bar">
-                <select id="tenantSelector" class="form-control" style="display: none;" onchange="switchTenant(this.value)">
+                <!-- Tenant selector (hidden - access via Platform Control instead) -->
+                <select id="tenantSelector" class="form-control" style="display: none !important;" onchange="switchTenant(this.value)">
                     <!-- Populated dynamically -->
                 </select>
                 
-                <!-- Quick Actions - Single line -->
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <!-- Global Search (opens modal on mobile) -->
-                    <button onclick="openGlobalSearch()" class="btn-icon" title="Search (Ctrl+/)" style="background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; cursor: pointer;">
-                        <i class="fas fa-search" style="color: #64748b;"></i>
+                <!-- Quick Actions - ALL IN ONE LINE -->
+                <div class="top-bar-actions">
+                    <!-- Global Search Icon -->
+                    <button onclick="openGlobalSearch()" class="btn-icon" title="Search (Ctrl+/)">
+                        <i class="fas fa-search"></i>
                     </button>
                     <!-- Dark Mode Toggle -->
-                    <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode" style="background: none; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 12px; cursor: pointer;">
-                        <i class="fas fa-moon" id="darkModeIcon" style="color: #64748b;"></i>
+                    <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode">
+                        <i class="fas fa-moon" id="darkModeIcon"></i>
                     </button>
-                </div>
-                
-                <div id="authContainer">
-                    <button class="btn-primary" onclick="showLoginPage()">
-                        <i class="fas fa-sign-in-alt"></i> Login
-                    </button>
-                    <button class="btn-outline" onclick="showFreeRegistrationModal()">
-                        <i class="fas fa-user-plus"></i> Sign Up Free
-                    </button>
-                </div>
-                <div id="userMenuContainer" style="display: none;">
-                    <!-- User menu rendered by users.js -->
+                    
+                    <!-- Auth buttons (when logged out) -->
+                    <div id="authContainer">
+                        <button class="btn-primary" onclick="showLoginPage()" title="Login">
+                            <i class="fas fa-sign-in-alt"></i> <span class="hide-mobile">Login</span>
+                        </button>
+                        <button class="btn-outline hide-mobile" onclick="showFreeRegistrationModal()">
+                            <i class="fas fa-user-plus"></i> Sign Up
+                        </button>
+                    </div>
+                    
+                    <!-- User menu (when logged in) -->
+                    <div id="userMenuContainer" style="display: none;">
+                        <!-- User menu rendered by users.js -->
+                    </div>
                 </div>
             </div>
             
@@ -5642,9 +5646,9 @@
                 </div>
                 <div class="form-group" id="cashAmountGroup">
                     <label class="form-label">Amount Received (RM)</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="number" id="amountReceived" class="form-control" step="0.01" min="0" oninput="calculateChange()">
-                        <button type="button" class="btn-outline" onclick="fillExactAmount()" title="Exact Amount">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <input type="number" id="amountReceived" class="form-control" step="0.01" min="0" oninput="calculateChange()" style="flex: 1;">
+                        <button type="button" class="btn-primary" onclick="fillExactAmount()" title="Fill Exact Amount" style="white-space: nowrap; padding: 10px 16px;">
                             <i class="fas fa-equals"></i> Exact
                         </button>
                     </div>
@@ -5654,8 +5658,8 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Reference No. (Optional)</label>
-                    <input type="text" id="paymentReference" class="form-control" placeholder="Receipt/Transaction reference">
+                    <label class="form-label">Transaction ID <small style="color: #94a3b8;">(Auto-generated if empty)</small></label>
+                    <input type="text" id="posPaymentReference" class="form-control" placeholder="Auto-generated on payment">
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('paymentModal')">Cancel</button>
@@ -6489,78 +6493,78 @@
     </div>
 
     <!-- Modular JavaScript Files - v2.1.5 -->
-    <script src="js/core.js?v=1766650000"></script>
-    <script src="js/data.js?v=1766650000"></script>
-    <script src="js/ui.js?v=1766650000"></script>
-    <script src="js/transactions.js?v=1766650000"></script>
-    <script src="js/dashboard.js?v=1766650000"></script>
-    <script src="js/bills.js?v=1766650000"></script>
-    <script src="js/charts.js?v=1766650000"></script>
-    <script src="js/reports.js?v=1766650000"></script>
-    <script src="js/taxes.js?v=1766650000"></script>
-    <script src="js/chatbot.js?v=1766650000"></script>
-    <script src="js/balance-sheet.js?v=1766650000"></script>
-    <script src="js/pdf-export.js?v=1766650000"></script>
-    <script src="js/ai-assistant.js?v=1766650000"></script>
+    <script src="js/core.js?v=9999999999"></script>
+    <script src="js/data.js?v=9999999999"></script>
+    <script src="js/ui.js?v=9999999999"></script>
+    <script src="js/transactions.js?v=9999999999"></script>
+    <script src="js/dashboard.js?v=9999999999"></script>
+    <script src="js/bills.js?v=9999999999"></script>
+    <script src="js/charts.js?v=9999999999"></script>
+    <script src="js/reports.js?v=9999999999"></script>
+    <script src="js/taxes.js?v=9999999999"></script>
+    <script src="js/chatbot.js?v=9999999999"></script>
+    <script src="js/balance-sheet.js?v=9999999999"></script>
+    <script src="js/pdf-export.js?v=9999999999"></script>
+    <script src="js/ai-assistant.js?v=9999999999"></script>
     
     <!-- Chart of Accounts & Double-Entry -->
-    <script src="js/chart-of-accounts.js?v=1766650000"></script>
-    <script src="js/journal-entries.js?v=1766650000"></script>
-    <script src="js/aging-reports.js?v=1766650000"></script>
+    <script src="js/chart-of-accounts.js?v=9999999999"></script>
+    <script src="js/journal-entries.js?v=9999999999"></script>
+    <script src="js/aging-reports.js?v=9999999999"></script>
     
     <!-- Phase 2: Operational Core -->
-    <script src="js/inventory-new.js?v=1766650000"></script>
-    <script src="js/stock.js?v=1766650000"></script>
-    <script src="js/pos.js?v=1766650000"></script>
-    <script src="js/orders.js?v=1766650000"></script>
-    <script src="js/customers.js?v=1766650000"></script>
-    <script src="js/crm.js?v=1766650000"></script>
-    <script src="js/suppliers.js?v=1766650000"></script>
-    <script src="js/quotations.js?v=1766650000"></script>
-    <script src="js/invoices.js?v=1766650000"></script>
-    <script src="js/projects.js?v=1766650000"></script>
+    <script src="js/inventory-new.js?v=9999999999"></script>
+    <script src="js/stock.js?v=9999999999"></script>
+    <script src="js/pos.js?v=1766660003"></script>
+    <script src="js/orders.js?v=9999999999"></script>
+    <script src="js/customers.js?v=9999999999"></script>
+    <script src="js/crm.js?v=9999999999"></script>
+    <script src="js/suppliers.js?v=9999999999"></script>
+    <script src="js/quotations.js?v=9999999999"></script>
+    <script src="js/invoices.js?v=9999999999"></script>
+    <script src="js/projects.js?v=9999999999"></script>
     <!-- Phase 3: HR & Payroll -->
-    <script src="js/payroll.js?v=1766650000"></script>
-    <script src="js/kpi.js?v=1766650000"></script>
-    <script src="js/leave-attendance.js?v=1766650000"></script>
-    <script src="js/hr-modules.js?v=1766650000"></script>
+    <script src="js/payroll.js?v=9999999999"></script>
+    <script src="js/kpi.js?v=9999999999"></script>
+    <script src="js/leave-attendance.js?v=9999999999"></script>
+    <script src="js/hr-modules.js?v=9999999999"></script>
     
     <!-- Phase 4: Procurement & e-Invoice -->
-    <script src="js/purchase-orders.js?v=1766650000"></script>
-    <script src="js/delivery-orders.js?v=1766650000"></script>
-    <script src="js/e-invoice.js?v=1766650000"></script>
+    <script src="js/purchase-orders.js?v=9999999999"></script>
+    <script src="js/delivery-orders.js?v=9999999999"></script>
+    <script src="js/e-invoice.js?v=9999999999"></script>
     
     <!-- Backup & Restore -->
-    <script src="js/backup.js?v=1766650000"></script>
+    <script src="js/backup.js?v=9999999999"></script>
     
     <!-- Excel Export -->
-    <script src="js/excel-export.js?v=1766650000"></script>
+    <script src="js/excel-export.js?v=9999999999"></script>
     
     <!-- Add-ons (Safe Features) -->
-    <script src="js/addons.js?v=1766650000"></script>
+    <script src="js/addons.js?v=9999999999"></script>
     
     <!-- Bank Reconciliation -->
-    <script src="js/bank-reconciliation.js?v=1766650000"></script>
+    <script src="js/bank-reconciliation.js?v=9999999999"></script>
     
     <!-- LHDN & Audit Export -->
-    <script src="js/lhdn-export.js?v=1766650000"></script>
+    <script src="js/lhdn-export.js?v=9999999999"></script>
     
     <!-- Phase 5: Multi-Branch -->
-    <script src="js/branches.js?v=1766650000"></script>
+    <script src="js/branches.js?v=9999999999"></script>
     
     <!-- Phase 6: Multi-Tenant & User Management -->
-    <script src="js/multi-tenant.js?v=1766650000"></script>
-    <script src="js/users.js?v=1766650000"></script>
-    <script src="js/platform-control.js?v=1766650000"></script>
+    <script src="js/multi-tenant.js?v=9999999999"></script>
+    <script src="js/users.js?v=9999999999"></script>
+    <script src="js/platform-control.js?v=9999999999"></script>
     
     <!-- Cloud Database (Supabase) -->
-    <script src="js/supabase.js?v=1766650000"></script>
-    <script src="js/cloud-sync.js?v=1766650000"></script>
+    <script src="js/supabase.js?v=9999999999"></script>
+    <script src="js/cloud-sync.js?v=9999999999"></script>
     
     <!-- Audit Log (System Tracking) -->
-    <script src="js/audit-log.js?v=1766650000"></script>
+    <script src="js/audit-log.js?v=9999999999"></script>
     
-    <script src="js/app.js?v=1766650000"></script>
+    <script src="js/app.js?v=9999999999"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>

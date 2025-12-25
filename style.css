@@ -149,10 +149,11 @@ body {
         font-size: 14px;
     }
     
-    /* Top auth bar compact */
+    /* Top auth bar compact - HORIZONTAL ROW */
     .top-auth-bar {
-        padding: 8px 12px;
+        padding: 0 !important;
         font-size: 12px;
+        flex-direction: row !important;
     }
     
     /* Dashboard grid adjustments */
@@ -10412,18 +10413,67 @@ td.negative {
 
 /* ==================== USER MANAGEMENT STYLES ==================== */
 
-/* Top Auth Bar */
+/* Top Auth Bar - Desktop */
 .top-auth-bar {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
-    padding: 12px 20px;
+    padding: 10px 16px;
     background: white;
     border-radius: 12px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.05);
     border: 1px solid rgba(37, 99, 235, 0.1);
     flex-shrink: 0;
-    /* Not sticky - scrolls with content */
+    gap: 8px;
+}
+
+/* Top bar actions container - horizontal alignment */
+.top-bar-actions {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+}
+
+/* Icon buttons in top bar */
+.top-bar-actions .btn-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.top-bar-actions .btn-icon:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.top-bar-actions .btn-icon i {
+    font-size: 14px;
+    color: #64748b;
+}
+
+/* Auth container base styles */
+#authContainer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#authContainer .btn-primary,
+#authContainer .btn-outline {
+    padding: 8px 16px;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .top-auth-left {
@@ -11042,73 +11092,162 @@ td.negative {
 
 /* Responsive */
 @media (max-width: 768px) {
+    /* Hide elements on mobile */
+    .hide-mobile,
+    .desktop-only {
+        display: none !important;
+    }
+    
+    /* ===== MOBILE TOP BAR - SINGLE ROW ===== */
     .top-auth-bar {
-        flex-direction: row; /* Keep horizontal on mobile */
-        flex-wrap: nowrap; /* Don't wrap - single line */
-        gap: 6px;
-        padding: 8px 10px;
-        /* Not sticky on mobile - only nav button is fixed */
-        margin-left: 50px; /* Space for mobile menu button */
-        border-radius: 0 12px 12px 12px;
-        justify-content: flex-end;
+        position: absolute !important;
+        top: 12px !important;
+        right: 12px !important;
+        left: auto !important;
+        width: auto !important;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 6px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        min-height: auto !important;
+        z-index: 100 !important;
     }
     
-    /* Hide quick actions text, show only icons */
-    .top-auth-bar .btn-icon {
-        padding: 6px 8px !important;
-        min-width: auto;
+    /* Actions container - single row */
+    .top-bar-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 6px !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     
-    /* Mobile search bar - hidden by default */
-    .mobile-search-overlay {
-        display: none;
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0,0,0,0.5);
-        z-index: 9998;
+    /* ALL ICONS - smaller uniform size */
+    .top-auth-bar .btn-icon,
+    .top-bar-actions .btn-icon {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+        flex-shrink: 0 !important;
     }
     
-    .mobile-search-overlay.active {
-        display: block;
+    .top-auth-bar .btn-icon i,
+    .top-bar-actions .btn-icon i {
+        font-size: 13px !important;
+        color: #64748b !important;
+        margin: 0 !important;
     }
     
-    .mobile-search-container {
-        position: fixed;
-        top: 60px;
-        left: 10px;
-        right: 10px;
-        background: white;
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-        z-index: 9999;
-        display: none;
+    .top-auth-bar .btn-icon:active {
+        background: #f1f5f9 !important;
+        transform: scale(0.95);
     }
     
-    .mobile-search-container.active {
-        display: block;
+    /* Auth container */
+    #authContainer {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 6px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    #authContainer .btn-primary {
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: #2563eb !important;
+        border: none !important;
+        box-shadow: 0 1px 4px rgba(37,99,235,0.25) !important;
+    }
+    
+    #authContainer .btn-primary i {
+        margin: 0 !important;
+        font-size: 13px !important;
+        color: white !important;
+    }
+    
+    #authContainer .btn-primary span {
+        display: none !important;
+    }
+    
+    /* User menu - same size as icons */
+    .user-menu {
+        display: flex !important;
+        align-items: center !important;
+        margin: 0 !important;
+        padding: 0 !important;
     }
     
     .user-menu-btn {
-        padding: 6px 10px;
-        gap: 6px;
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        max-width: 32px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        gap: 0 !important;
+        border-radius: 8px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: white !important;
+        border: 1px solid #e2e8f0 !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
     }
     
     .user-avatar {
-        width: 32px;
-        height: 32px;
-        font-size: 12px;
+        width: 26px !important;
+        height: 26px !important;
+        font-size: 11px !important;
     }
     
     .user-info {
-        display: none;
+        display: none !important;
     }
     
     .user-menu-btn .fa-chevron-down {
-        display: none;
+        display: none !important;
+    }
+    
+    /* Hide tenant selector completely on mobile */
+    #tenantSelector,
+    .top-auth-bar select,
+    .top-auth-bar > select {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        opacity: 0 !important;
+        position: absolute !important;
+        pointer-events: none !important;
     }
     
     .user-management-stats {
@@ -13386,15 +13525,15 @@ body.logged-out {
         height: 28px;
     }
     
-    /* Auth Bar */
+    /* Auth Bar - keep horizontal on mobile */
     .top-auth-bar {
-        flex-direction: column;
-        gap: 10px;
-        padding: 10px 15px;
+        flex-direction: row !important;
+        gap: 8px !important;
+        padding: 0 !important;
     }
     
     #tenantSelector {
-        width: 100%;
+        display: none !important;
     }
     
     /* Upgrade Modal Plans */

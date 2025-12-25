@@ -1769,8 +1769,10 @@ function updateAuthUI() {
         if (platformControlNav) {
             platformControlNav.classList.toggle('visible', isFounder);
         }
-        // Only Founder can switch between tenants
-        if (tenantSelector) tenantSelector.style.display = isFounder ? '' : 'none';
+        // Tenant selector hidden - use Platform Control instead
+        if (tenantSelector) {
+            tenantSelector.style.display = 'none';
+        }
         
         // Show/hide LHDN Export nav based on role AND plan
         const lhdnExportNav = document.getElementById('lhdnExportNav');

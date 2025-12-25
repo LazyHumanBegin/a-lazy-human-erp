@@ -124,6 +124,7 @@ function saveSubscriptions(subs) {
 }
 
 function createSubscription(tenantId, plan = 'starter', isTrialVal = true) {
+    console.log('📝 createSubscription called:', tenantId, plan, isTrialVal);
     const settings = getPlatformSettings();
     const subs = getSubscriptions();
     
@@ -193,6 +194,10 @@ function getSubscription(tenantId) {
 
 function updateSubscription(tenantId, updates) {
     const subs = getSubscriptions();
+    console.log('📝 updateSubscription called for:', tenantId, 'updates:', updates);
+    console.log('📝 All subscription keys:', Object.keys(subs));
+    console.log('📝 Current sub before update:', subs[tenantId]);
+    
     if (subs[tenantId]) {
         subs[tenantId] = { ...subs[tenantId], ...updates };
         subs[tenantId].history = subs[tenantId].history || [];
@@ -202,6 +207,14 @@ function updateSubscription(tenantId, updates) {
             timestamp: new Date().toISOString()
         });
         saveSubscriptions(subs);
+        console.log('📝 Sub after update:', subs[tenantId]);
+        
+        // Verify it was saved
+        const verify = JSON.parse(localStorage.getItem(SUBSCRIPTIONS_KEY) || '{}');
+        console.log('📝 Verified from localStorage:', verify[tenantId]?.plan);
+    } else {
+        console.warn('⚠️ No subscription found for tenant:', tenantId);
+        console.warn('⚠️ Available tenants:', Object.keys(subs));
     }
     return subs[tenantId];
 }
@@ -1533,10 +1546,32 @@ function renderPlatformControl() {
     const container = document.getElementById('platformControlContent');
     if (!container) return;
     
+    console.log('🎨 renderPlatformControl called');
+    
     const settings = getPlatformSettings();
     const tenants = getTenants();
-    const tenantList = Object.values(tenants);
     const subs = getSubscriptions();
+    
+    // Build tenant list from both tenants storage AND users with tenantIds
+    // This ensures we show all business admins even if their tenant wasn't properly registered
+    const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const businessAdmins = allUsers.filter(u => u.role === 'business_admin' && u.tenantId);
+    
+    // Add any missing tenants from business admins
+    businessAdmins.forEach(admin => {
+        if (!tenants[admin.tenantId]) {
+            tenants[admin.tenantId] = {
+                id: admin.tenantId,
+                businessName: admin.businessName || admin.companyName || `${admin.name}'s Business`,
+                ownerEmail: admin.email,
+                createdAt: admin.createdAt || new Date().toISOString()
+            };
+        }
+    });
+    
+    const tenantList = Object.values(tenants);
+    
+    console.log('🎨 Tenants:', tenantList.length, 'Subscriptions:', Object.keys(subs).length);
     
     // Calculate platform stats
     let totalRevenue = 0;
@@ -2055,22 +2090,55 @@ function executeChangePlan(tenantId) {
     const resetTrial = document.getElementById('resetTrialCheck').checked;
     const settings = getPlatformSettings();
     
-    if (resetTrial) {
-        createSubscription(tenantId, newPlan, true);
+    console.log('🔄 Changing plan for tenant:', tenantId, 'to:', newPlan);
+    
+    // Check if subscription exists
+    const existingSubs = getSubscriptions();
+    
+    if (resetTrial || !existingSubs[tenantId]) {
+        // Create new subscription (or reset as trial)
+        console.log('📝 Creating new subscription for tenant:', tenantId);
+        createSubscription(tenantId, newPlan, resetTrial);
     } else {
+        // Update existing subscription
         updateSubscription(tenantId, { plan: newPlan });
     }
+    
+    // Verify the change was saved
+    const verifyData = getSubscriptions();
+    console.log('✅ Verified subscription after save:', verifyData[tenantId]?.plan);
     
     // Sync the new plan features to the user
     syncUserToNewPlan(tenantId, newPlan);
     
     closeModal('changePlanModal');
     
-    // Force a slight delay to ensure localStorage is written before re-reading
-    setTimeout(() => {
-        renderPlatformControl();
-        showToast('Plan changed and synced successfully! Affected users should refresh to see changes.', 'success');
-    }, 100);
+    // Show loading indicator
+    showToast('⏳ Updating plan...', 'info');
+    
+    // Force clear the container completely
+    const container = document.getElementById('platformControlContent');
+    if (container) {
+        // Hide container first
+        container.style.opacity = '0';
+        container.innerHTML = '';
+    }
+    
+    // Use requestAnimationFrame to ensure DOM updates
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            console.log('🔄 Re-rendering Platform Control...');
+            renderPlatformControl();
+            
+            // Force reflow and show
+            if (container) {
+                void container.offsetHeight; // Force reflow
+                container.style.opacity = '1';
+            }
+            
+            showToast('✅ Plan changed to ' + newPlan.toUpperCase() + '!', 'success');
+        }, 150);
+    });
 }
 
 /**
