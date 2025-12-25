@@ -3598,7 +3598,7 @@ function showAddUserModal(roleId = 'staff') {
                     </h3>
                     <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
                 </div>
-                <form id="addUserForm" onsubmit="saveNewUser(event)">
+                <form id="addUserForm" onsubmit="saveNewUser(event)" autocomplete="off">
                     <input type="hidden" id="newUserRole" value="${roleId}">
                     
                     <div class="form-grid">
@@ -5064,6 +5064,12 @@ function showUserDetailModal(userId) {
         return;
     }
     
+    // Remove existing modal if any
+    const existingModal = document.getElementById('userDetailModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     const platformSettings = typeof getPlatformSettings === 'function' ? getPlatformSettings() : null;
     const role = ROLES[user.role] || {};
     const plan = platformSettings?.plans?.[user.plan];
@@ -5368,8 +5374,11 @@ function executeDeleteUser(userId) {
     showToast(`User "${userName}" has been deleted`, 'success');
     renderUserManagement();
     
-    // Schedule cloud sync to remove from cloud
-    if (typeof scheduleAutoCloudSync === 'function') {
+    // Immediate cloud sync to remove from cloud
+    if (typeof window.fullCloudSync === 'function') {
+        console.log('☁️ Syncing delete to cloud...');
+        window.fullCloudSync().catch(err => console.warn('Cloud sync failed:', err));
+    } else if (typeof scheduleAutoCloudSync === 'function') {
         scheduleAutoCloudSync();
     }
 }
@@ -5633,7 +5642,8 @@ window.forceSyncUsersToCloud = async function() {
         console.log('✅ Synced to cloud!');
         console.log('  Users:', localUsers.length);
         console.log('  Tenants:', Object.keys(localTenants).length);
-        alert('✅ Synced ' + localUsers.length + ' users and ' + Object.keys(localTenants).length + ' tenants to cloud!');
+        // Silent sync - no alert
+        // alert('✅ Synced ' + localUsers.length + ' users and ' + Object.keys(localTenants).length + ' tenants to cloud!');
         
     } catch (err) {
         console.error('❌ Sync error:', err);
@@ -5977,7 +5987,17 @@ window.mobileDownloadFromCloud = async function() {
                     if (existingIdx === -1) {
                         localUsers.push(cu);
                     } else {
-                        localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+                        // Preserve staff/manager plan - don't overwrite with cloud data
+                        const existingUser = localUsers[existingIdx];
+                        const isStaffOrManager = existingUser.role === 'staff' || existingUser.role === 'manager';
+                        
+                        if (isStaffOrManager) {
+                            // Keep local plan for staff/manager, merge other fields
+                            localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu, plan: existingUser.plan };
+                        } else {
+                            // For other roles, fully merge
+                            localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+                        }
                     }
                 });
                 
@@ -6013,11 +6033,13 @@ window.mobileDownloadFromCloud = async function() {
             const roleInfo = isLoggedIn 
                 ? (isFounder ? '👑 Full Access' : '🔒 Tenant Only') 
                 : '🔑 Login Credentials';
-            alert('✅ Synced from cloud!\n\n' + roleInfo + '\n' + usersFound + ' users synced.\n\nPage will refresh...');
+            // Silent reload - no alert
+            // alert('✅ Synced from cloud!\n\n' + roleInfo + '\n' + usersFound + ' users synced.\n\nPage will refresh...');
             location.reload();
         } else {
             // Even if no cloud users, ensure founder exists
-            alert('ℹ️ No cloud data found.\n\nUsing default Founder account.\n\nPage will refresh...');
+            // Silent reload - no alert
+            // alert('ℹ️ No cloud data found.\n\nUsing default Founder account.\n\nPage will refresh...');
             location.reload();
         }
         

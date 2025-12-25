@@ -2050,7 +2050,7 @@ function executeChangePlan(tenantId) {
     
     closeModal('changePlanModal');
     renderPlatformControl();
-    showToast('Plan changed and synced successfully!', 'success');
+    showToast('Plan changed and synced successfully! Affected users should refresh to see changes.', 'success');
 }
 
 /**

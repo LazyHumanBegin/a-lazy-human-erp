@@ -52,22 +52,13 @@
                 if (viewport) {
                     viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
                 }
-                // Scroll to top to reset position
+                // Only scroll to top on actual orientation change, not on resize
                 window.scrollTo(0, 0);
             }, 100);
         });
         
-        // Also handle resize for desktop simulation
-        var resizeTimer;
-        window.addEventListener('resize', function() {
-            clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function() {
-                // Only on mobile-sized screens
-                if (window.innerWidth < 992) {
-                    window.scrollTo(0, 0);
-                }
-            }, 250);
-        });
+        // Removed resize scroll-to-top - was causing scroll issues on mobile
+        // when keyboard opens/closes or address bar shows/hides
     })();
     </script>
 </head>
