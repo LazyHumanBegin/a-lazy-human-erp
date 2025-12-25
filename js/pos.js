@@ -768,22 +768,37 @@ function formatHeldDate(dateStr) {
 }
 
 // ==================== PAYMENT PROCESSING ====================
+
+// Auto-generate transaction reference
+function generateTransactionRef() {
+    const now = new Date();
+    const prefix = 'TXN';
+    const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+    const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    return `${prefix}${date}${time}${random}`;
+}
+
 function showPaymentModal() {
     if (currentCart.length === 0) {
         showToast('Cart is empty!', 'warning');
         return;
     }
     
-    const modal = document.getElementById('paymentModal');
+    // Reset processing flag when opening modal
+    isProcessingPayment = false;
+    
+    const modal = document.getElementById('posPaymentModal');
     const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const discount = parseFloat(document.getElementById('cartDiscount')?.value) || 0;
-    const tax = (subtotal - discount) * 0.06;
-    const total = subtotal - discount + tax;
+    const tax = calculateCartTax();
+    const total = Math.max(0, subtotal - discount) + tax;
     
     document.getElementById('paymentTotalAmount').textContent = `RM ${total.toFixed(2)}`;
     document.getElementById('amountReceived').value = '';
     document.getElementById('changeDisplay').style.display = 'none';
-    document.getElementById('posPaymentReference').value = '';
+    // Auto-generate Transaction ID
+    document.getElementById('posPaymentReference').value = generateTransactionRef();;
     
     // Reset to cash
     document.querySelector('input[name="paymentMethod"][value="cash"]').checked = true;
@@ -853,6 +868,15 @@ function showPaymentModal() {
     
     modal.style.display = '';
     modal.classList.add('show');
+}
+
+function closePosPaymentModal() {
+    const modal = document.getElementById('posPaymentModal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+    }
+    isProcessingPayment = false;
 }
 
 function handlePaymentMethodChange() {
@@ -1298,7 +1322,7 @@ function processPayment(event) {
         renderOrders();
     }
     
-    closeModal('paymentModal');
+    closePosPaymentModal();
     
     // Clear the cart BEFORE showing receipt to prevent double submission
     currentCart = [];
@@ -1695,6 +1719,7 @@ window.resumeHeldSale = resumeHeldSale;
 window.deleteHeldSale = deleteHeldSale;
 window.showCheckout = showPaymentModal;
 window.showPaymentModal = showPaymentModal;
+window.closePosPaymentModal = closePosPaymentModal;
 window.processPayment = processPayment;
 window.selectPOSCustomer = selectPOSCustomer;
 window.showItemMemo = showItemMemo;
@@ -1711,5 +1736,6 @@ window.getSalesSummaryByBranch = getSalesSummaryByBranch;
 window.searchPOSProducts = searchPOSProducts;
 window.calculateChange = calculateChange;
 window.fillExactAmount = fillExactAmount;
+window.generateTransactionRef = generateTransactionRef;
 
 // Note: POS module is initialized by app.js via initializePhase2Modules()
