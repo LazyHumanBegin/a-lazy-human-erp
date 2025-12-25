@@ -88,6 +88,11 @@ function showCustomerModal(customerId = null) {
         console.error('Customer modal or form not found');
         return;
     }
+
+// Alias for showCustomerDetail - shows customer in view/edit mode
+function showCustomerDetail(customerId) {
+    showCustomerModal(customerId);
+}
     
     form.reset();
     document.getElementById('customerId').value = '';

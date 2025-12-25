@@ -863,4 +863,4 @@ window.updateCRMCustomerCredit = updateCRMCustomerCredit;
 window.receiveCRMPayment = receiveCRMPayment;
 window.showReceivePaymentModal = showReceivePaymentModal;
 window.submitReceivePayment = submitReceivePayment;
-window.exportCRMCustomers = exportCRMCustomers;
+window.exportCRMCustomers = exportCustomersCRM; // Alias

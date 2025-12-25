@@ -625,6 +625,11 @@ function filterProducts() {
     renderProducts();
 }
 
+// Alias for filterByCategory
+function filterByCategory() {
+    filterProducts();
+}
+
 // ==================== CATEGORIES ====================
 function loadCategories() {
     const categoryFilter = document.getElementById('categoryFilter');

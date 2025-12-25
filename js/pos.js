@@ -288,6 +288,11 @@ function searchPOSProducts(term) {
     renderPOSProducts(term);
 }
 
+// Alias for filterPOSProducts
+function filterPOSProducts(term) {
+    renderPOSProducts(term);
+}
+
 function filterPOSByOutlet(outlet) {
     renderPOSProducts();
 }

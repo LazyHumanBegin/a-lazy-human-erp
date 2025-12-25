@@ -6,11 +6,11 @@
 const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
 
-// Initialize Supabase client
-let supabase = null;
+// Initialize Supabase client (renamed to avoid conflict with CDN's window.supabase)
+let _supabaseClient = null;
 
 function initSupabase() {
-    if (supabase) return true; // Already initialized
+    if (_supabaseClient) return true; // Already initialized
     
     // The CDN version exposes supabase.createClient directly
     // Try all possible ways the SDK might be exposed
@@ -33,7 +33,7 @@ function initSupabase() {
     }
     
     try {
-        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('🐱 Supabase initialized successfully');
         return true;
     } catch (err) {
@@ -44,10 +44,10 @@ function initSupabase() {
 
 // Get Supabase client instance
 function getSupabase() {
-    if (!supabase) {
+    if (!_supabaseClient) {
         initSupabase();
     }
-    return supabase;
+    return _supabaseClient;
 }
 
 // Auto-initialize on load
