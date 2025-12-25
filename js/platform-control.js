@@ -2075,12 +2075,14 @@ function syncUserToNewPlan(tenantId, newPlanId) {
         }
         
         // Update Staff/Manager permissions - remove features no longer in plan
+        // Also update their plan to match admin's plan
         if (user.tenantId === tenantId && ['staff', 'manager'].includes(user.role)) {
+            user.plan = newPlanId; // Staff/Manager plan follows their admin's plan
             if (!newFeatures.includes('all') && user.permissions && !user.permissions.includes('all')) {
                 user.permissions = user.permissions.filter(p => newFeatures.includes(p));
-                user.updatedAt = new Date().toISOString();
-                console.log(`Updated staff ${user.email} permissions:`, user.permissions);
             }
+            user.updatedAt = new Date().toISOString();
+            console.log(`Updated staff ${user.email} to ${newPlanId} plan, permissions:`, user.permissions);
         }
     });
     

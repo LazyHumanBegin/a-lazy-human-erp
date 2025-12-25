@@ -10454,23 +10454,24 @@ td.negative {
     gap: 15px;
 }
 
-/* User UID Display */
+/* User UID Display - Hidden, now shown in dropdown */
 .user-uid-display {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
-    border: 1px solid #a5b4fc;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #4338ca;
-    white-space: nowrap;
+    display: none; /* Moved to dropdown */
 }
 
-.user-uid-display i {
-    font-size: 11px;
+/* UID Badge inside dropdown */
+.user-uid-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 8px;
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    border: 1px solid #a5b4fc;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #4338ca;
+    font-family: 'Monaco', 'Consolas', monospace;
+    letter-spacing: 0.5px;
 }
 
 /* User Menu */
@@ -10558,6 +10559,43 @@ td.negative {
     padding: 15px;
     background: linear-gradient(135deg, #f8fafc, #f1f5f9);
     border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.dropdown-user-avatar {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.dropdown-user-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.dropdown-user-info strong {
+    display: block;
+    color: #1e293b;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.dropdown-user-info small {
+    display: block;
+    color: #64748b;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .dropdown-header strong {
@@ -11005,18 +11043,31 @@ td.negative {
 /* Responsive */
 @media (max-width: 768px) {
     .top-auth-bar {
-        flex-direction: column;
-        gap: 12px;
+        flex-direction: row; /* Keep horizontal on mobile */
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px;
         /* Not sticky on mobile - only nav button is fixed */
-        margin-left: 60px; /* Space for mobile menu button */
+        margin-left: 50px; /* Space for mobile menu button */
         border-radius: 0 12px 12px 12px;
     }
     
     .user-menu-btn {
-        padding: 6px 12px;
+        padding: 6px 10px;
+        gap: 6px;
+    }
+    
+    .user-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 12px;
     }
     
     .user-info {
+        display: none;
+    }
+    
+    .user-menu-btn .fa-chevron-down {
         display: none;
     }
     

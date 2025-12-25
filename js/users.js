@@ -619,7 +619,14 @@ async function loadUsersFromCloud() {
                         const localTime = new Date(localUser.updatedAt || localUser.createdAt || 0);
                         const cloudTime = new Date(cloudUser.updatedAt || cloudUser.createdAt || 0);
                         if (cloudTime > localTime) {
-                            userMap.set(cloudUser.id, cloudUser);
+                            // For staff/manager: preserve local permissions (custom access set by admin)
+                            // But take plan and other data from cloud
+                            const isStaffOrManager = localUser.role === 'staff' || localUser.role === 'manager';
+                            if (isStaffOrManager && localUser.permissions && localUser.permissions.length > 0) {
+                                userMap.set(cloudUser.id, { ...cloudUser, permissions: localUser.permissions });
+                            } else {
+                                userMap.set(cloudUser.id, cloudUser);
+                            }
                         }
                     }
                 }
@@ -1778,9 +1785,6 @@ function updateAuthUI() {
         if (userMenuContainer) {
             userMenuContainer.style.display = 'flex';
             userMenuContainer.innerHTML = `
-                <div class="user-uid-display">
-                    <i class="fas fa-id-badge"></i> UID: ${escapeHtml(currentUser.id || 'N/A')}
-                </div>
                 <div class="user-menu">
                     <button class="user-menu-btn" onclick="toggleUserMenu()">
                         <div class="user-avatar" style="background: ${ROLES[currentUser.role]?.color || '#64748b'}">
@@ -1794,8 +1798,14 @@ function updateAuthUI() {
                     </button>
                     <div class="user-dropdown" id="userDropdown">
                         <div class="dropdown-header">
-                            <strong>${escapeHtml(currentUser.name)}</strong>
-                            <small>${currentUser.email}</small>
+                            <div class="dropdown-user-avatar" style="background: ${ROLES[currentUser.role]?.color || '#64748b'}">
+                                <i class="fas ${ROLES[currentUser.role]?.icon || 'fa-user'}"></i>
+                            </div>
+                            <div class="dropdown-user-info">
+                                <strong>${escapeHtml(currentUser.name)}</strong>
+                                <small>${currentUser.email}</small>
+                                <code class="user-uid-badge">${currentUser.id || 'N/A'}</code>
+                            </div>
                         </div>
                         <div class="dropdown-divider"></div>
                         ${currentUser.role !== 'erp_assistant' ? `
@@ -2179,7 +2189,7 @@ function showLoginPage() {
                 <div class="login-page-container">
                     <div class="login-page-brand">
                         <div class="brand-logo">
-                            <i class="fas fa-cat"></i>
+                            <img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 80px; height: 80px;">
                         </div>
                         <h1>A Lazy Human</h1>
                         <div class="tagline">Malaysian Business Accounting & Tax Platform</div>
@@ -2640,9 +2650,9 @@ function showLoginModal() {
                 <div class="modal-content" style="max-width: 400px;">
                     <div class="login-header">
                         <div class="login-logo">
-                            <i class="fas fa-cat"></i>
+                            <img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 60px; height: 60px;">
                         </div>
-                        <h2><i class="fas fa-cat"></i> A Lazy Human</h2>
+                        <h2>A Lazy Human</h2>
                         <p>Sign in to continue</p>
                     </div>
                     <form id="loginForm" onsubmit="handleLogin(event)">
@@ -5281,6 +5291,12 @@ function confirmDeleteUser(userId) {
         return;
     }
     
+    // Remove existing modal if any to prevent hanging
+    const existingModal = document.getElementById('confirmDeleteUserModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
     const confirmHTML = `
         <div class="modal show" id="confirmDeleteUserModal" style="z-index: 10006;">
             <div class="modal-content" style="max-width: 420px;">
@@ -5987,15 +6003,16 @@ window.mobileDownloadFromCloud = async function() {
                     if (existingIdx === -1) {
                         localUsers.push(cu);
                     } else {
-                        // Preserve staff/manager plan - don't overwrite with cloud data
+                        // For staff/manager: preserve their PERMISSIONS (custom access set by admin)
+                        // But PLAN should come from cloud (reflects owner's current plan)
                         const existingUser = localUsers[existingIdx];
                         const isStaffOrManager = existingUser.role === 'staff' || existingUser.role === 'manager';
                         
-                        if (isStaffOrManager) {
-                            // Keep local plan for staff/manager, merge other fields
-                            localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu, plan: existingUser.plan };
+                        if (isStaffOrManager && existingUser.permissions && existingUser.permissions.length > 0) {
+                            // Preserve local permissions (custom access), take plan from cloud
+                            localUsers[existingIdx] = { ...existingUser, ...cu, permissions: existingUser.permissions };
                         } else {
-                            // For other roles, fully merge
+                            // For other roles or staff without custom permissions, fully merge from cloud
                             localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
                         }
                     }
