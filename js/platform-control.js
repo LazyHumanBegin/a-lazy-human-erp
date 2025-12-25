@@ -1558,6 +1558,22 @@ function renderPlatformControl() {
     });
     
     container.innerHTML = `
+        <!-- Header with Refresh -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px 20px; background: linear-gradient(135deg, #f8fafc, #f1f5f9); border-radius: 12px; border: 1px solid #e2e8f0;">
+            <div>
+                <h3 style="margin: 0; color: #1e293b; font-size: 16px;">
+                    <i class="fas fa-satellite-dish" style="color: #6366f1; margin-right: 8px;"></i>
+                    Platform Control Center
+                </h3>
+                <p style="margin: 4px 0 0 0; color: #64748b; font-size: 12px;">
+                    Last updated: <span id="platformLastSync">${new Date().toLocaleTimeString()}</span>
+                </p>
+            </div>
+            <button id="platformRefreshBtn" onclick="refreshPlatformFromCloud()" class="btn-primary" style="padding: 10px 18px; font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                <i class="fas fa-sync-alt"></i> Sync from Cloud
+            </button>
+        </div>
+        
         <!-- Platform Stats -->
         <div class="platform-stats-grid">
             <div class="platform-stat primary">
@@ -2103,7 +2119,13 @@ function syncUserToNewPlan(tenantId, newPlanId) {
     // Sync to cloud so the user's device gets the update
     if (typeof window.fullCloudSync === 'function') {
         console.log('☁️ Syncing plan change to cloud...');
-        window.fullCloudSync().catch(err => console.warn('Cloud sync failed:', err));
+        window.fullCloudSync().then(() => {
+            console.log('✅ Plan change synced to cloud successfully');
+            showToast('Plan synced to cloud! User will see changes on next login/refresh.', 'success');
+        }).catch(err => {
+            console.warn('Cloud sync failed:', err);
+            showToast('Plan changed locally. Cloud sync pending.', 'warning');
+        });
     } else if (typeof scheduleAutoCloudSync === 'function') {
         scheduleAutoCloudSync();
     }
@@ -3099,5 +3121,156 @@ window.copyTenantCompanyCode = function(code) {
     });
 };
 
+/**
+ * Refresh Platform Control data from cloud
+ * Downloads latest users and tenants data, then re-renders
+ */
+window.refreshPlatformFromCloud = async function() {
+    const btn = document.getElementById('platformRefreshBtn');
+    const originalHTML = btn ? btn.innerHTML : '';
+    
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+    }
+    
+    try {
+        // Download from cloud using mobileDownloadFromCloud
+        if (typeof window.mobileDownloadFromCloud === 'function') {
+            // Create a fake event to prevent alert behavior
+            const fakeEvent = { target: null };
+            window.event = fakeEvent;
+            
+            await window.downloadUsersFromCloud();
+            console.log('☁️ Users downloaded from cloud');
+        }
+        
+        // Re-render the platform control
+        renderPlatformControl();
+        
+        // Update last sync time
+        const syncTimeEl = document.getElementById('platformLastSync');
+        if (syncTimeEl) {
+            syncTimeEl.textContent = new Date().toLocaleTimeString();
+        }
+        
+        showToast('✅ Platform data refreshed from cloud!', 'success');
+    } catch (err) {
+        console.error('Platform sync error:', err);
+        showToast('⚠️ Sync failed: ' + err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHTML || '<i class="fas fa-sync-alt"></i> Sync from Cloud';
+            btn.disabled = false;
+        }
+    }
+};
+
+/**
+ * Download users data from cloud (silent, no UI)
+ */
+window.downloadUsersFromCloud = async function() {
+    // Wait for Supabase SDK
+    let retries = 0;
+    while (!window.supabase?.createClient && retries < 10) {
+        await new Promise(r => setTimeout(r, 300));
+        retries++;
+    }
+    
+    if (!window.supabase?.createClient) {
+        throw new Error('Cloud service not ready');
+    }
+    
+    const client = typeof getUsersSupabaseClient === 'function' ? 
+        getUsersSupabaseClient() : 
+        window.supabase.createClient(
+            'https://txjfdxnpasxtwfajhpla.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR4amZkeG5wYXN4dHdmYWpocGxhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY2MDM1MjcsImV4cCI6MjA2MjE3OTUyN30.wIYDhXETCPgN__J1bJ36cJmBHYr22F1f44K3VTVEgnY'
+        );
+    
+    // Get users from cloud
+    const { data, error } = await client.from('tenant_data')
+        .select('*')
+        .eq('tenant_id', 'global');
+    
+    if (error) throw error;
+    
+    for (const record of data || []) {
+        if (record.data_key === 'ezcubic_users' && record.data?.value) {
+            const cloudUsers = record.data.value;
+            const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+            
+            // Merge: Cloud wins for newer data
+            const mergedUsers = [...localUsers];
+            cloudUsers.forEach(cloudUser => {
+                const localIdx = mergedUsers.findIndex(u => u.id === cloudUser.id);
+                if (localIdx >= 0) {
+                    // Compare timestamps, prefer newer
+                    const localUpdated = new Date(mergedUsers[localIdx].updatedAt || 0);
+                    const cloudUpdated = new Date(cloudUser.updatedAt || 0);
+                    if (cloudUpdated >= localUpdated) {
+                        mergedUsers[localIdx] = cloudUser;
+                    }
+                } else {
+                    mergedUsers.push(cloudUser);
+                }
+            });
+            
+            localStorage.setItem('ezcubic_users', JSON.stringify(mergedUsers));
+            console.log('👥 Users merged from cloud:', mergedUsers.length);
+        }
+        
+        if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
+            const cloudTenants = record.data.value;
+            const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+            
+            // Merge tenants
+            const mergedTenants = { ...localTenants, ...cloudTenants };
+            localStorage.setItem('ezcubic_tenants', JSON.stringify(mergedTenants));
+            console.log('🏢 Tenants merged from cloud');
+        }
+    }
+};
+
 // Export helper
 window.generateCompanyCodeForTenant = generateCompanyCodeForTenant;
+
+// ==================== CLOUD SYNC FOR PLATFORM CONTROL ====================
+// Refresh Platform Control data from cloud
+window.refreshPlatformFromCloud = async function() {
+    const btn = document.getElementById('platformRefreshBtn');
+    const originalHTML = btn ? btn.innerHTML : '';
+    
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+        btn.disabled = true;
+    }
+    
+    try {
+        // Use the mobileDownloadFromCloud function to get latest data
+        if (typeof window.mobileDownloadFromCloud === 'function') {
+            await window.mobileDownloadFromCloud();
+        } else if (typeof window.downloadUsersFromCloud === 'function') {
+            await window.downloadUsersFromCloud();
+        }
+        
+        // Re-render Platform Control with fresh data
+        renderPlatformControl();
+        
+        // Update timestamp
+        const timestampEl = document.getElementById('platformLastSync');
+        if (timestampEl) {
+            timestampEl.textContent = new Date().toLocaleTimeString();
+        }
+        
+        showToast('✅ Platform data synced from cloud!', 'success');
+    } catch (err) {
+        console.error('Platform sync failed:', err);
+        showToast('❌ Sync failed: ' + err.message, 'error');
+    } finally {
+        if (btn) {
+            btn.innerHTML = originalHTML;
+            btn.disabled = false;
+        }
+    }
+};
