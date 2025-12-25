@@ -10,6 +10,25 @@ const CURRENT_USER_KEY = 'ezcubic_current_user';
 const USER_SESSIONS_KEY = 'ezcubic_sessions';
 const SESSION_TOKEN_KEY = 'ezcubic_session_token';
 
+// ==================== SHARED SUPABASE CLIENT ====================
+// Singleton pattern to prevent "Multiple GoTrueClient instances" warning
+let _usersModuleSupabaseClient = null;
+const SUPABASE_CONFIG = {
+    url: 'https://tctpmizdcksdxngtozwe.supabase.co',
+    key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300'
+};
+
+function getUsersSupabaseClient() {
+    if (!_usersModuleSupabaseClient) {
+        if (window.supabase && window.supabase.createClient) {
+            _usersModuleSupabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
+        }
+    }
+    return _usersModuleSupabaseClient;
+}
+// Expose globally for other modules
+window.getUsersSupabaseClient = getUsersSupabaseClient;
+
 // Generate unique session token
 function generateSessionToken() {
     return 'sess_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
@@ -538,11 +557,9 @@ function saveUsers(skipCloudSync = false) {
     setTimeout(async () => {
         try {
             // Direct Supabase upload (skip CloudSync - it has issues)
-            const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-            const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
             
             if (window.supabase && window.supabase.createClient) {
-                const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+                const client = getUsersSupabaseClient();
                 
                 // Sync users
                 const { error: userError } = await client
@@ -581,12 +598,10 @@ function saveUsers(skipCloudSync = false) {
 async function loadUsersFromCloud() {
     // Direct Supabase download (skip CloudSync - it has issues)
     try {
-        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
         
         if (window.supabase && window.supabase.createClient) {
             console.log('☁️ Downloading users from cloud...');
-            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            const client = getUsersSupabaseClient();
             
             const { data, error } = await client
                 .from('tenant_data')
@@ -678,8 +693,6 @@ window.ensureFounderExists = ensureFounderExists;
 // ==================== AUTO CLOUD LOOKUP ====================
 // Find a specific user by email in cloud storage
 async function findUserInCloud(email) {
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     // Wait for Supabase to be ready
     let retries = 0;
@@ -694,7 +707,7 @@ async function findUserInCloud(email) {
     }
     
     try {
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         const { data, error } = await client
             .from('tenant_data')
@@ -730,13 +743,11 @@ async function findUserInCloud(email) {
 
 // Download tenant info (not full data) from cloud
 async function downloadTenantInfoFromCloud(tenantId) {
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) return;
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         const { data, error } = await client
             .from('tenant_data')
@@ -765,13 +776,11 @@ async function downloadTenantInfoFromCloud(tenantId) {
 
 // Download full tenant data from cloud (transactions, products, etc.)
 async function downloadTenantFromCloud(tenantId) {
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) return;
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         // First download tenant info
         await downloadTenantInfoFromCloud(tenantId);
@@ -918,12 +927,10 @@ async function validateSessionToken(user) {
 // Get session token from cloud
 async function getCloudSessionToken(userId) {
     try {
-        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
         
         let client = null;
         if (window.supabase && window.supabase.createClient) {
-            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            client = getUsersSupabaseClient();
         }
         if (!client) return null;
         
@@ -944,12 +951,10 @@ async function getCloudSessionToken(userId) {
 // Save session token to cloud
 async function saveCloudSessionToken(userId, token, deviceInfo) {
     try {
-        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
         
         let client = null;
         if (window.supabase && window.supabase.createClient) {
-            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            client = getUsersSupabaseClient();
         }
         if (!client) return false;
         
@@ -4718,8 +4723,6 @@ function initializeEmptyTenantData(tenantId, userName) {
 
 // Sync tenant data to Supabase cloud
 async function syncTenantDataToCloud(tenantId, tenantData) {
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -4727,7 +4730,7 @@ async function syncTenantDataToCloud(tenantId, tenantData) {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         const { error } = await client.from('tenant_data').upsert({
             tenant_id: tenantId,
@@ -5476,12 +5479,10 @@ window.executePagePasswordReset = executePagePasswordReset;
 async function debugSyncFromLoginPage() {
     try {
         const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
-        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
         
         let client = null;
         if (window.supabase && window.supabase.createClient) {
-            client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            client = getUsersSupabaseClient();
         }
         
         if (!client) {
@@ -5549,8 +5550,6 @@ window.debugSyncFromLoginPage = debugSyncFromLoginPage;
 // Test Supabase connection - run in console: testCloudConnection()
 window.testCloudConnection = async function() {
     console.log('🧪 Testing Supabase connection...');
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -5558,7 +5557,7 @@ window.testCloudConnection = async function() {
             return { success: false, error: 'Supabase SDK not loaded' };
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         // Test SELECT
         console.log('  Testing SELECT...');
@@ -5613,8 +5612,6 @@ window.testCloudConnection = async function() {
 // Force sync all users to cloud NOW - run: forceSyncUsersToCloud()
 window.forceSyncUsersToCloud = async function() {
     console.log('☁️ Force syncing users to cloud...');
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -5622,7 +5619,7 @@ window.forceSyncUsersToCloud = async function() {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
         const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
         
@@ -5671,8 +5668,6 @@ window.forceSyncUsersToCloud = async function() {
 // ROLE-AWARE: Founder gets all, Admin gets only their tenant's users
 window.downloadUsersFromCloud = async function() {
     console.log('📥 Downloading users from cloud...');
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -5680,7 +5675,7 @@ window.downloadUsersFromCloud = async function() {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         // Check current user's role to determine access level
         const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
@@ -5801,8 +5796,6 @@ window.cloudSyncStatus = function() {
 // Sync ALL tenant data to cloud (for Founder to upload everything)
 window.syncAllTenantDataToCloud = async function() {
     console.log('☁️ Syncing ALL tenant data to cloud...');
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -5810,7 +5803,7 @@ window.syncAllTenantDataToCloud = async function() {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         // Find all tenant data in localStorage
         const tenantKeys = [];
@@ -5872,8 +5865,6 @@ window.downloadTenantDataFromCloud = async function(tenantId) {
     }
     
     console.log('📥 Downloading tenant data:', tenantId);
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -5881,7 +5872,7 @@ window.downloadTenantDataFromCloud = async function(tenantId) {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         const { data, error } = await client.from('tenant_data')
             .select('*')
@@ -5935,8 +5926,6 @@ window.mobileDownloadFromCloud = async function() {
         btn.style.pointerEvents = 'none';
     }
     
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         // Wait for Supabase SDK
@@ -5955,7 +5944,7 @@ window.mobileDownloadFromCloud = async function() {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         // Check if already logged in (role-based sync)
         const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
@@ -6098,8 +6087,6 @@ window.syncByCompanyCode = async function() {
         btn.disabled = true;
     }
     
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         // Wait for Supabase SDK
@@ -6115,7 +6102,7 @@ window.syncByCompanyCode = async function() {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         // Get tenants and users from cloud
         const { data, error } = await client.from('tenant_data')
@@ -6546,11 +6533,9 @@ window.confirmFactoryReset = async function() {
         
         // Step 4: Clear cloud data
         console.log('  ☁️ Clearing cloud data...');
-        const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
         
         if (window.supabase?.createClient) {
-            const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            const client = getUsersSupabaseClient();
             
             // Upload fresh users to cloud
             await client.from('tenant_data').upsert({
@@ -6641,8 +6626,6 @@ window.viewCurrentState = function() {
 window.viewCloudState = async function() {
     console.log('☁️ Fetching cloud state...');
     
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
     
     try {
         if (!window.supabase?.createClient) {
@@ -6650,7 +6633,7 @@ window.viewCloudState = async function() {
             return;
         }
         
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const client = getUsersSupabaseClient();
         
         const { data, error } = await client.from('tenant_data')
             .select('*')

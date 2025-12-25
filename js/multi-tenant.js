@@ -92,16 +92,13 @@ function createTenant(userId, businessName) {
 
 // Auto-sync users and tenants to cloud
 async function autoSyncToCloud() {
-    const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
-    
     try {
-        if (!window.supabase?.createClient) {
+        // Use shared client from users.js if available
+        const client = typeof getUsersSupabaseClient === 'function' ? getUsersSupabaseClient() : null;
+        if (!client) {
             console.warn('⚠️ Supabase not ready, will sync later');
             return;
         }
-        
-        const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         
         // Sync users
         const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
