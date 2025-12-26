@@ -6,11 +6,15 @@
 const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
 
-// Initialize Supabase client (renamed to avoid conflict with CDN's window.supabase)
-let _supabaseClient = null;
+// Initialize Supabase client - SINGLETON (use window to ensure only one instance)
+// This prevents "Multiple GoTrueClient instances" warning
+if (!window._supabaseClientInstance) {
+    window._supabaseClientInstance = null;
+}
 
 function initSupabase() {
-    if (_supabaseClient) return true; // Already initialized
+    // Check window-level singleton first
+    if (window._supabaseClientInstance) return true;
     
     // The CDN version exposes supabase.createClient directly
     // Try all possible ways the SDK might be exposed
@@ -33,7 +37,7 @@ function initSupabase() {
     }
     
     try {
-        _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        window._supabaseClientInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('🐱 Supabase initialized successfully');
         return true;
     } catch (err) {
@@ -44,19 +48,22 @@ function initSupabase() {
 
 // Get Supabase client instance
 function getSupabase() {
-    if (!_supabaseClient) {
+    if (!window._supabaseClientInstance) {
         initSupabase();
     }
-    return _supabaseClient;
+    return window._supabaseClientInstance;
 }
 
-// Auto-initialize on load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+// Auto-initialize on load (only once)
+if (!window._supabaseInitialized) {
+    window._supabaseInitialized = true;
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(initSupabase, 100);
+        });
+    } else {
         setTimeout(initSupabase, 100);
-    });
-} else {
-    setTimeout(initSupabase, 100);
+    }
 }
 
 // ============================================
