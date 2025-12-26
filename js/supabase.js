@@ -172,15 +172,26 @@ async function supabaseResetPassword(email) {
 // Create or update tenant data
 async function saveTenantData(tenantId, tableName, data) {
     try {
-        // Extract data_key from data object for proper upsert
-        const dataKey = data.key || 'default';
+        // Handle different call signatures
+        // Can be called as saveTenantData(tenantId, tableName, data) or saveTenantData(tenantId, data)
+        let actualData = data;
+        let actualTableName = tableName;
+        
+        // If tableName is an object, it means we received (tenantId, data) format
+        if (typeof tableName === 'object' && tableName !== null) {
+            actualData = tableName;
+            actualTableName = 'tenant_data'; // default table
+        }
+        
+        // Extract data_key from data object for proper upsert, with safe fallback
+        const dataKey = (actualData && actualData.key) ? actualData.key : 'default';
         
         const { data: result, error } = await getSupabase()
-            .from(tableName)
+            .from(actualTableName)
             .upsert({
                 tenant_id: tenantId,
                 data_key: dataKey,
-                data: data,
+                data: actualData,
                 updated_at: new Date().toISOString()
             }, {
                 onConflict: 'tenant_id,data_key'
@@ -188,10 +199,10 @@ async function saveTenantData(tenantId, tableName, data) {
         
         if (error) throw error;
         
-        console.log(`✅ Saved ${tableName}/${dataKey} for tenant ${tenantId}`);
+        console.log(`✅ Saved ${actualTableName}/${dataKey} for tenant ${tenantId}`);
         return { success: true, data: result };
     } catch (error) {
-        console.error(`❌ Save ${tableName} error:`, error.message);
+        console.error(`❌ Save ${actualTableName || tableName} error:`, error.message);
         return { success: false, error: error.message };
     }
 }
