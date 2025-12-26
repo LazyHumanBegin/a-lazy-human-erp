@@ -1,169 +1,8 @@
-// ==================== LEAVE-ATTENDANCE.JS ====================
-// Leave Management & Attendance Tracking System
+// ==================== LEAVE-ATTENDANCE UI.JS ====================
+// Leave Management & Attendance Tracking - UI & Rendering
 // Malaysian Employment Act Compliant
 
-// ==================== GLOBAL VARIABLES ====================
-let leaveRequests = [];
-let leaveBalances = [];
-let attendanceRecords = [];
-
-const LEAVE_REQUESTS_KEY = 'ezcubic_leave_requests';
-const LEAVE_BALANCES_KEY = 'ezcubic_leave_balances';
-const ATTENDANCE_KEY = 'ezcubic_attendance';
-
-// ==================== MALAYSIAN LEAVE ENTITLEMENTS ====================
-const LEAVE_ENTITLEMENTS = {
-    annual: {
-        name: 'Annual Leave',
-        // Employment Act 1955: 8 days (< 2 years), 12 days (2-5 years), 16 days (> 5 years)
-        entitlement: [
-            { yearsService: 0, days: 8 },
-            { yearsService: 2, days: 12 },
-            { yearsService: 5, days: 16 }
-        ],
-        paid: true,
-        carryForward: true,
-        maxCarryForward: 5
-    },
-    medical: {
-        name: 'Medical Leave (MC)',
-        // Employment Act 1955: 14 days (< 2 years), 18 days (2-5 years), 22 days (> 5 years)
-        entitlement: [
-            { yearsService: 0, days: 14 },
-            { yearsService: 2, days: 18 },
-            { yearsService: 5, days: 22 }
-        ],
-        paid: true,
-        carryForward: false
-    },
-    maternity: {
-        name: 'Maternity Leave',
-        // Employment Act: 98 consecutive days
-        entitlement: [{ yearsService: 0, days: 98 }],
-        paid: true,
-        carryForward: false,
-        genderRestricted: 'female'
-    },
-    paternity: {
-        name: 'Paternity Leave',
-        // Employment Act (amended 2022): 7 consecutive days
-        entitlement: [{ yearsService: 0, days: 7 }],
-        paid: true,
-        carryForward: false,
-        genderRestricted: 'male'
-    },
-    compassionate: {
-        name: 'Compassionate Leave',
-        entitlement: [{ yearsService: 0, days: 3 }],
-        paid: true,
-        carryForward: false
-    },
-    emergency: {
-        name: 'Emergency Leave',
-        entitlement: [{ yearsService: 0, days: 2 }],
-        paid: true,
-        carryForward: false
-    },
-    unpaid: {
-        name: 'Unpaid Leave',
-        entitlement: [{ yearsService: 0, days: 30 }], // Configurable
-        paid: false,
-        carryForward: false
-    },
-    replacement: {
-        name: 'Replacement Leave',
-        entitlement: [{ yearsService: 0, days: 0 }], // Earned, not fixed
-        paid: true,
-        carryForward: true
-    },
-    study: {
-        name: 'Study Leave',
-        entitlement: [{ yearsService: 0, days: 5 }],
-        paid: true,
-        carryForward: false
-    },
-    other: {
-        name: 'Other Leave',
-        entitlement: [{ yearsService: 0, days: 5 }],
-        paid: false,
-        carryForward: false
-    }
-};
-
-// ==================== WORK SCHEDULE SETTINGS ====================
-const WORK_SCHEDULE = {
-    startTime: '09:00',
-    endTime: '18:00',
-    lunchStart: '13:00',
-    lunchEnd: '14:00',
-    lateThreshold: 15,  // minutes grace period
-    workDays: [1, 2, 3, 4, 5], // Monday to Friday
-    hoursPerDay: 8
-};
-
-// ==================== EXPORT FUNCTIONS ====================
-window.initializeLeaveAttendance = initializeLeaveAttendance;
-window.showLeaveRequestModal = showLeaveRequestModal;
-window.closeLeaveRequestModal = closeLeaveRequestModal;
-window.saveLeaveRequest = saveLeaveRequest;
-window.loadLeaveRequests = loadLeaveRequests;
-window.approveLeave = approveLeave;
-window.rejectLeave = rejectLeave;
-window.deleteLeaveRequest = deleteLeaveRequest;
-window.showLeaveBalanceModal = showLeaveBalanceModal;
-window.closeLeaveBalanceModal = closeLeaveBalanceModal;
-window.loadLeaveBalance = loadLeaveBalance;
-window.calculateLeaveDays = calculateLeaveDays;
-window.clockIn = clockIn;
-window.clockOut = clockOut;
-window.loadAttendanceRecords = loadAttendanceRecords;
-window.clearAttendanceFilters = clearAttendanceFilters;
-window.exportAttendanceReport = exportAttendanceReport;
-window.showAttendanceEditModal = showAttendanceEditModal;
-window.closeAttendanceEditModal = closeAttendanceEditModal;
-window.saveAttendanceEdit = saveAttendanceEdit;
-window.deleteAttendanceRecord = deleteAttendanceRecord;
-window.updateAttendanceDateTime = updateAttendanceDateTime;
-
-// ==================== INITIALIZATION ====================
-function initializeLeaveAttendance() {
-    loadLeaveData();
-    loadAttendanceData();
-    updateLeaveStats();
-    updateAttendanceStats();
-    populateLeaveEmployeeFilters();
-    startClockUpdate();
-}
-
-function loadLeaveData() {
-    const storedRequests = localStorage.getItem(LEAVE_REQUESTS_KEY);
-    if (storedRequests) {
-        leaveRequests = JSON.parse(storedRequests);
-    }
-    
-    const storedBalances = localStorage.getItem(LEAVE_BALANCES_KEY);
-    if (storedBalances) {
-        leaveBalances = JSON.parse(storedBalances);
-    }
-}
-
-function loadAttendanceData() {
-    const storedAttendance = localStorage.getItem(ATTENDANCE_KEY);
-    if (storedAttendance) {
-        attendanceRecords = JSON.parse(storedAttendance);
-    }
-}
-
-function saveLeaveData() {
-    localStorage.setItem(LEAVE_REQUESTS_KEY, JSON.stringify(leaveRequests));
-    localStorage.setItem(LEAVE_BALANCES_KEY, JSON.stringify(leaveBalances));
-}
-
-function saveAttendanceData() {
-    localStorage.setItem(ATTENDANCE_KEY, JSON.stringify(attendanceRecords));
-}
-
-// ==================== LEAVE MANAGEMENT ====================
+// ==================== LEAVE REQUEST MODAL ====================
 function showLeaveRequestModal(requestId = null) {
     const modal = document.getElementById('leaveRequestModal');
     const title = document.getElementById('leaveRequestModalTitle');
@@ -177,7 +16,7 @@ function showLeaveRequestModal(requestId = null) {
             .map(e => `<option value="${e.id}">${escapeHTML(e.name)}</option>`).join('');
     
     if (requestId) {
-        const request = leaveRequests.find(r => r.id === requestId);
+        const request = getLeaveRequestById(requestId);
         if (request) {
             title.innerHTML = '<i class="fas fa-edit"></i> Edit Leave Request';
             document.getElementById('leaveRequestId').value = request.id;
@@ -207,45 +46,6 @@ function closeLeaveRequestModal() {
     document.getElementById('leaveRequestModal').style.display = 'none';
 }
 
-function calculateLeaveDays() {
-    const fromDate = document.getElementById('leaveFromDate').value;
-    const toDate = document.getElementById('leaveToDate').value;
-    const duration = document.querySelector('input[name="leaveDuration"]:checked')?.value || 'full';
-    
-    if (!fromDate || !toDate) {
-        document.getElementById('leaveDaysCount').textContent = '0 days';
-        return 0;
-    }
-    
-    const start = new Date(fromDate);
-    const end = new Date(toDate);
-    
-    if (end < start) {
-        document.getElementById('leaveDaysCount').textContent = 'Invalid dates';
-        return 0;
-    }
-    
-    // Calculate working days (excluding weekends)
-    let workingDays = 0;
-    let currentDate = new Date(start);
-    
-    while (currentDate <= end) {
-        const dayOfWeek = currentDate.getDay();
-        if (WORK_SCHEDULE.workDays.includes(dayOfWeek)) {
-            workingDays++;
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-    }
-    
-    // Adjust for half day
-    if (duration.startsWith('half') && workingDays > 0) {
-        workingDays = workingDays - 0.5;
-    }
-    
-    document.getElementById('leaveDaysCount').textContent = `${workingDays} day${workingDays !== 1 ? 's' : ''}`;
-    return workingDays;
-}
-
 function saveLeaveRequest() {
     const id = document.getElementById('leaveRequestId').value;
     const employeeId = document.getElementById('leaveEmployee').value;
@@ -272,6 +72,8 @@ function saveLeaveRequest() {
         return;
     }
     
+    const existingRequest = id ? getLeaveRequestById(id) : null;
+    
     const requestData = {
         id: id || generateUniqueId('LV'),
         employeeId: employeeId,
@@ -283,31 +85,24 @@ function saveLeaveRequest() {
         days: days,
         duration: duration,
         reason: reason,
-        status: id ? leaveRequests.find(r => r.id === id)?.status || 'pending' : 'pending',
-        createdAt: id ? leaveRequests.find(r => r.id === id)?.createdAt : new Date().toISOString(),
+        status: existingRequest?.status || 'pending',
+        createdAt: existingRequest?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
     };
     
-    if (id) {
-        const index = leaveRequests.findIndex(r => r.id === id);
-        if (index !== -1) {
-            leaveRequests[index] = requestData;
-        }
-    } else {
-        leaveRequests.push(requestData);
-    }
-    
-    saveLeaveData();
+    saveLeaveRequestData(requestData);
     closeLeaveRequestModal();
     loadLeaveRequests();
     updateLeaveStats();
     showNotification(id ? 'Leave request updated!' : 'Leave request submitted!', 'success');
 }
 
+// ==================== LEAVE REQUESTS LIST ====================
 function loadLeaveRequests() {
     const tbody = document.getElementById('leaveRequestsBody');
     if (!tbody) return;
     
+    const leaveRequests = getLeaveRequestsArray();
     const statusFilter = document.getElementById('leaveStatusFilter')?.value || '';
     const employeeFilter = document.getElementById('leaveEmployeeFilter')?.value || '';
     const monthFilter = document.getElementById('leaveMonthFilter')?.value || '';
@@ -354,8 +149,8 @@ function loadLeaveRequests() {
                         ${escapeHTML(request.leaveTypeName)}
                     </span>
                 </td>
-                <td>${formatDate(request.fromDate)}</td>
-                <td>${formatDate(request.toDate)}</td>
+                <td>${formatDateLA(request.fromDate)}</td>
+                <td>${formatDateLA(request.toDate)}</td>
                 <td><strong>${request.days}</strong></td>
                 <td style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(request.reason || '-')}">
                     ${escapeHTML(request.reason || '-')}
@@ -382,58 +177,6 @@ function loadLeaveRequests() {
     }).join('');
 }
 
-function approveLeave(requestId) {
-    const request = leaveRequests.find(r => r.id === requestId);
-    if (!request) return;
-    
-    if (confirm(`Approve leave request for ${request.employeeName}?\n${request.leaveTypeName}: ${request.fromDate} to ${request.toDate}`)) {
-        request.status = 'approved';
-        request.approvedAt = new Date().toISOString();
-        
-        // Deduct from balance
-        updateLeaveBalance(request.employeeId, request.leaveType, -request.days);
-        
-        saveLeaveData();
-        loadLeaveRequests();
-        updateLeaveStats();
-        showNotification('Leave request approved!', 'success');
-    }
-}
-
-function rejectLeave(requestId) {
-    const request = leaveRequests.find(r => r.id === requestId);
-    if (!request) return;
-    
-    const reason = prompt('Reason for rejection (optional):');
-    
-    request.status = 'rejected';
-    request.rejectedAt = new Date().toISOString();
-    request.rejectionReason = reason || '';
-    
-    saveLeaveData();
-    loadLeaveRequests();
-    updateLeaveStats();
-    showNotification('Leave request rejected', 'warning');
-}
-
-function deleteLeaveRequest(requestId) {
-    const request = leaveRequests.find(r => r.id === requestId);
-    if (!request) return;
-    
-    if (confirm(`Delete leave request for ${request.employeeName}?`)) {
-        // If was approved, restore balance
-        if (request.status === 'approved') {
-            updateLeaveBalance(request.employeeId, request.leaveType, request.days);
-        }
-        
-        leaveRequests = leaveRequests.filter(r => r.id !== requestId);
-        saveLeaveData();
-        loadLeaveRequests();
-        updateLeaveStats();
-        showNotification('Leave request deleted', 'success');
-    }
-}
-
 function getLeaveStatusBadge(status) {
     const badges = {
         pending: '<span class="status-badge warning">Pending</span>',
@@ -458,7 +201,7 @@ function getLeaveTypeBadgeClass(type) {
     return classes[type] || 'outline';
 }
 
-// ==================== LEAVE BALANCE ====================
+// ==================== LEAVE BALANCE MODAL ====================
 function showLeaveBalanceModal() {
     const modal = document.getElementById('leaveBalanceModal');
     const employeeSelect = document.getElementById('leaveBalanceEmployee');
@@ -559,69 +302,9 @@ function loadLeaveBalance() {
     content.innerHTML = balanceHtml;
 }
 
-function getEmployeeLeaveBalance(employeeId, leaveType, yearsService = 0) {
-    const config = LEAVE_ENTITLEMENTS[leaveType];
-    if (!config) return { entitlement: 0, used: 0, pending: 0, remaining: 0 };
-    
-    // Get entitlement based on years of service
-    let entitlement = 0;
-    for (const tier of config.entitlement) {
-        if (yearsService >= tier.yearsService) {
-            entitlement = tier.days;
-        }
-    }
-    
-    // Count used and pending days
-    const currentYear = new Date().getFullYear();
-    const yearRequests = leaveRequests.filter(r => 
-        r.employeeId === employeeId && 
-        r.leaveType === leaveType &&
-        new Date(r.fromDate).getFullYear() === currentYear
-    );
-    
-    const used = yearRequests.filter(r => r.status === 'approved')
-        .reduce((sum, r) => sum + r.days, 0);
-    const pending = yearRequests.filter(r => r.status === 'pending')
-        .reduce((sum, r) => sum + r.days, 0);
-    
-    // Check for carry forward
-    let carryForward = 0;
-    const employeeBalance = leaveBalances.find(b => 
-        b.employeeId === employeeId && b.leaveType === leaveType
-    );
-    if (employeeBalance && config.carryForward) {
-        carryForward = Math.min(employeeBalance.carryForward || 0, config.maxCarryForward || 0);
-    }
-    
-    return {
-        entitlement: entitlement + carryForward,
-        used: used,
-        pending: pending,
-        remaining: Math.max(0, entitlement + carryForward - used)
-    };
-}
-
-function updateLeaveBalance(employeeId, leaveType, adjustment) {
-    let balance = leaveBalances.find(b => 
-        b.employeeId === employeeId && b.leaveType === leaveType
-    );
-    
-    if (!balance) {
-        balance = {
-            id: generateUniqueId('LB'),
-            employeeId: employeeId,
-            leaveType: leaveType,
-            adjustment: 0,
-            carryForward: 0
-        };
-        leaveBalances.push(balance);
-    }
-    
-    balance.adjustment = (balance.adjustment || 0) + adjustment;
-    saveLeaveData();
-}
-
+// ==================== LEAVE STATS ====================
 function updateLeaveStats() {
+    const leaveRequests = getLeaveRequestsArray();
     const today = new Date().toISOString().slice(0, 10);
     const currentMonth = new Date().toISOString().slice(0, 7);
     
@@ -668,7 +351,7 @@ function populateLeaveEmployeeFilters() {
     });
 }
 
-// ==================== ATTENDANCE MANAGEMENT ====================
+// ==================== ATTENDANCE UI ====================
 function startClockUpdate() {
     updateAttendanceDateTime();
     setInterval(updateAttendanceDateTime, 1000);
@@ -693,56 +376,14 @@ function clockIn() {
         return;
     }
     
-    const employees = window.getEmployees ? window.getEmployees() : [];
-    const employee = employees.find(e => e.id === employeeId);
-    if (!employee) return;
-    
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date();
-    const timeStr = now.toTimeString().slice(0, 5);
-    
-    // Check if already clocked in today
-    const existingRecord = attendanceRecords.find(r => 
-        r.employeeId === employeeId && r.date === today
-    );
-    
-    if (existingRecord && existingRecord.clockIn) {
-        showNotification(`${employee.name} already clocked in today at ${existingRecord.clockIn}`, 'warning');
-        return;
-    }
-    
-    // Determine status (late if after start time + threshold)
-    const startTime = WORK_SCHEDULE.startTime;
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const lateThreshold = new Date(now);
-    lateThreshold.setHours(startHour, startMin + WORK_SCHEDULE.lateThreshold, 0);
-    
-    const status = now > lateThreshold ? 'late' : 'present';
-    
-    if (existingRecord) {
-        existingRecord.clockIn = timeStr;
-        existingRecord.status = status;
+    const result = clockInEmployee(employeeId);
+    if (result.success) {
+        loadAttendanceRecords();
+        updateAttendanceStats();
+        showNotification(result.message, 'success');
     } else {
-        const record = {
-            id: generateUniqueId('ATT'),
-            employeeId: employeeId,
-            employeeName: employee.name,
-            date: today,
-            clockIn: timeStr,
-            clockOut: null,
-            status: status,
-            workHours: 0,
-            notes: ''
-        };
-        attendanceRecords.push(record);
+        showNotification(result.message, result.message.includes('already') ? 'warning' : 'error');
     }
-    
-    saveAttendanceData();
-    loadAttendanceRecords();
-    updateAttendanceStats();
-    
-    const statusMsg = status === 'late' ? ' (Late)' : '';
-    showNotification(`${employee.name} clocked in at ${timeStr}${statusMsg}`, 'success');
 }
 
 function clockOut() {
@@ -752,56 +393,22 @@ function clockOut() {
         return;
     }
     
-    const employees = window.getEmployees ? window.getEmployees() : [];
-    const employee = employees.find(e => e.id === employeeId);
-    if (!employee) return;
-    
-    const today = new Date().toISOString().slice(0, 10);
-    const now = new Date();
-    const timeStr = now.toTimeString().slice(0, 5);
-    
-    const record = attendanceRecords.find(r => 
-        r.employeeId === employeeId && r.date === today
-    );
-    
-    if (!record || !record.clockIn) {
-        showNotification(`${employee.name} hasn't clocked in today`, 'error');
-        return;
+    const result = clockOutEmployee(employeeId);
+    if (result.success) {
+        loadAttendanceRecords();
+        updateAttendanceStats();
+        showNotification(result.message, 'success');
+    } else {
+        showNotification(result.message, result.message.includes('already') ? 'warning' : 'error');
     }
-    
-    if (record.clockOut) {
-        showNotification(`${employee.name} already clocked out at ${record.clockOut}`, 'warning');
-        return;
-    }
-    
-    record.clockOut = timeStr;
-    record.workHours = calculateWorkHours(record.clockIn, record.clockOut);
-    
-    saveAttendanceData();
-    loadAttendanceRecords();
-    updateAttendanceStats();
-    showNotification(`${employee.name} clocked out at ${timeStr}. Work hours: ${record.workHours.toFixed(1)}h`, 'success');
 }
 
-function calculateWorkHours(clockIn, clockOut) {
-    if (!clockIn || !clockOut) return 0;
-    
-    const [inHour, inMin] = clockIn.split(':').map(Number);
-    const [outHour, outMin] = clockOut.split(':').map(Number);
-    
-    const inMinutes = inHour * 60 + inMin;
-    const outMinutes = outHour * 60 + outMin;
-    
-    // Subtract lunch hour (1 hour)
-    let workMinutes = outMinutes - inMinutes - 60;
-    
-    return Math.max(0, workMinutes / 60);
-}
-
+// ==================== ATTENDANCE RECORDS LIST ====================
 function loadAttendanceRecords() {
     const tbody = document.getElementById('attendanceRecordsBody');
     if (!tbody) return;
     
+    const attendanceRecords = getAttendanceRecordsArray();
     const employeeFilter = document.getElementById('attendanceFilterEmployee')?.value || '';
     const dateFilter = document.getElementById('attendanceDateFilter')?.value || '';
     const monthFilter = document.getElementById('attendanceMonthFilter')?.value || '';
@@ -842,7 +449,7 @@ function loadAttendanceRecords() {
         const statusBadge = getAttendanceStatusBadge(record.status);
         return `
             <tr>
-                <td>${formatDate(record.date)}</td>
+                <td>${formatDateLA(record.date)}</td>
                 <td><strong>${escapeHTML(record.employeeName)}</strong></td>
                 <td>${record.clockIn || '-'}</td>
                 <td>${record.clockOut || '-'}</td>
@@ -876,6 +483,8 @@ function getAttendanceStatusBadge(status) {
 }
 
 function updateAttendanceStats() {
+    const leaveRequests = getLeaveRequestsArray();
+    const attendanceRecords = getAttendanceRecordsArray();
     const today = new Date().toISOString().slice(0, 10);
     const todayRecords = attendanceRecords.filter(r => r.date === today);
     
@@ -884,10 +493,8 @@ function updateAttendanceStats() {
     
     const present = todayRecords.filter(r => r.status === 'present').length;
     const late = todayRecords.filter(r => r.status === 'late').length;
-    const onLeave = todayRecords.filter(r => r.status === 'on-leave').length;
     
     // Calculate absent (active employees without attendance record)
-    const presentIds = todayRecords.map(r => r.employeeId);
     const onLeaveToday = leaveRequests.filter(r => 
         r.status === 'approved' && r.fromDate <= today && r.toDate >= today
     ).map(r => r.employeeId);
@@ -907,8 +514,9 @@ function updateAttendanceStats() {
     });
 }
 
+// ==================== ATTENDANCE EDIT MODAL ====================
 function showAttendanceEditModal(recordId) {
-    const record = attendanceRecords.find(r => r.id === recordId);
+    const record = getAttendanceRecordById(recordId);
     if (!record) return;
     
     const modal = document.getElementById('attendanceEditModal');
@@ -929,36 +537,22 @@ function closeAttendanceEditModal() {
 
 function saveAttendanceEdit() {
     const id = document.getElementById('attendanceEditId').value;
-    const record = attendanceRecords.find(r => r.id === id);
+    const record = getAttendanceRecordById(id);
     if (!record) return;
     
-    record.clockIn = document.getElementById('attendanceEditClockIn').value || null;
-    record.clockOut = document.getElementById('attendanceEditClockOut').value || null;
-    record.status = document.getElementById('attendanceEditStatus').value;
-    record.notes = document.getElementById('attendanceEditNotes').value.trim();
+    const recordData = {
+        id: id,
+        clockIn: document.getElementById('attendanceEditClockIn').value || null,
+        clockOut: document.getElementById('attendanceEditClockOut').value || null,
+        status: document.getElementById('attendanceEditStatus').value,
+        notes: document.getElementById('attendanceEditNotes').value.trim()
+    };
     
-    if (record.clockIn && record.clockOut) {
-        record.workHours = calculateWorkHours(record.clockIn, record.clockOut);
-    }
-    
-    saveAttendanceData();
+    saveAttendanceRecord(recordData);
     closeAttendanceEditModal();
     loadAttendanceRecords();
     updateAttendanceStats();
     showNotification('Attendance record updated!', 'success');
-}
-
-function deleteAttendanceRecord(recordId) {
-    const record = attendanceRecords.find(r => r.id === recordId);
-    if (!record) return;
-    
-    if (confirm(`Delete attendance record for ${record.employeeName} on ${record.date}?`)) {
-        attendanceRecords = attendanceRecords.filter(r => r.id !== recordId);
-        saveAttendanceData();
-        loadAttendanceRecords();
-        updateAttendanceStats();
-        showNotification('Attendance record deleted', 'success');
-    }
 }
 
 function clearAttendanceFilters() {
@@ -968,7 +562,9 @@ function clearAttendanceFilters() {
     loadAttendanceRecords();
 }
 
+// ==================== EXPORT ====================
 function exportAttendanceReport() {
+    const attendanceRecords = getAttendanceRecordsArray();
     const monthFilter = document.getElementById('attendanceMonthFilter')?.value || '';
     let filtered = monthFilter ? 
         attendanceRecords.filter(r => r.date.startsWith(monthFilter)) :
@@ -1007,43 +603,24 @@ function exportAttendanceReport() {
     showNotification('Attendance report exported!', 'success');
 }
 
-// ==================== HELPER FUNCTIONS ====================
-function generateUniqueId(prefix = 'ID') {
-    return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
-
-function escapeHTML(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-MY', { 
-        day: '2-digit', 
-        month: 'short', 
-        year: 'numeric' 
-    });
-}
-
-function showNotification(message, type = 'info') {
-    if (typeof window.showNotification === 'function' && window.showNotification !== showNotification) {
-        window.showNotification(message, type);
-    } else {
-        console.log(`[${type.toUpperCase()}] ${message}`);
-        // Fallback notification
-        const notif = document.createElement('div');
-        notif.className = `notification ${type}`;
-        notif.style.cssText = 'position: fixed; top: 20px; right: 20px; padding: 15px 25px; border-radius: 8px; z-index: 10001; animation: slideIn 0.3s;';
-        notif.style.background = type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6';
-        notif.style.color = 'white';
-        notif.textContent = message;
-        document.body.appendChild(notif);
-        setTimeout(() => notif.remove(), 3000);
-    }
-}
+// ==================== WINDOW EXPORTS ====================
+window.showLeaveRequestModal = showLeaveRequestModal;
+window.closeLeaveRequestModal = closeLeaveRequestModal;
+window.saveLeaveRequest = saveLeaveRequest;
+window.loadLeaveRequests = loadLeaveRequests;
+window.showLeaveBalanceModal = showLeaveBalanceModal;
+window.closeLeaveBalanceModal = closeLeaveBalanceModal;
+window.loadLeaveBalance = loadLeaveBalance;
+window.updateLeaveStats = updateLeaveStats;
+window.populateLeaveEmployeeFilters = populateLeaveEmployeeFilters;
+window.startClockUpdate = startClockUpdate;
+window.updateAttendanceDateTime = updateAttendanceDateTime;
+window.clockIn = clockIn;
+window.clockOut = clockOut;
+window.loadAttendanceRecords = loadAttendanceRecords;
+window.updateAttendanceStats = updateAttendanceStats;
+window.showAttendanceEditModal = showAttendanceEditModal;
+window.closeAttendanceEditModal = closeAttendanceEditModal;
+window.saveAttendanceEdit = saveAttendanceEdit;
+window.clearAttendanceFilters = clearAttendanceFilters;
+window.exportAttendanceReport = exportAttendanceReport;

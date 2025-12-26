@@ -1,7 +1,7 @@
-// ==================== HR-MODULES.JS ====================
-// Standalone HR sections: Employees Directory, Leave & Attendance, KPI & Performance
+// ==================== HR-MODULES UI.JS ====================
+// HR sections: Rendering, modals, UI interactions
 
-// ==================== EMPLOYEE DIRECTORY ====================
+// ==================== EMPLOYEE DIRECTORY UI ====================
 function initializeEmployeeDirectory() {
     loadEmployeeDirectoryStats();
     loadEmployeeDirectoryGrid();
@@ -9,15 +9,12 @@ function initializeEmployeeDirectory() {
 }
 
 function loadEmployeeDirectoryStats() {
-    const employees = getEmployees();
-    const active = employees.filter(e => e.status === 'active').length;
-    const inactive = employees.filter(e => e.status === 'inactive').length;
-    const onLeave = employees.filter(e => e.status === 'on-leave').length;
+    const stats = getEmployeeDirectoryStats();
     
-    document.getElementById('empTotalCount').textContent = employees.length;
-    document.getElementById('empActiveCount').textContent = active;
-    document.getElementById('empInactiveCount').textContent = inactive;
-    document.getElementById('empOnLeaveCount').textContent = onLeave;
+    document.getElementById('empTotalCount').textContent = stats.total;
+    document.getElementById('empActiveCount').textContent = stats.active;
+    document.getElementById('empInactiveCount').textContent = stats.inactive;
+    document.getElementById('empOnLeaveCount').textContent = stats.onLeave;
 }
 
 function loadEmployeeDirectoryGrid() {
@@ -57,8 +54,7 @@ function loadEmployeeDirectoryGrid() {
 }
 
 function populateEmployeeDirectoryFilters() {
-    const employees = getEmployees();
-    const departments = [...new Set(employees.map(e => e.department).filter(Boolean))];
+    const departments = getEmployeeDepartments();
     
     const deptFilter = document.getElementById('empDirectoryDept');
     if (deptFilter) {
@@ -74,25 +70,9 @@ function filterEmployeeDirectory() {
     const status = document.getElementById('empDirectoryStatus')?.value || 'all';
     const dept = document.getElementById('empDirectoryDept')?.value || 'all';
     
-    let employees = getEmployees();
-    
-    if (search) {
-        employees = employees.filter(e => 
-            e.name?.toLowerCase().includes(search) ||
-            e.email?.toLowerCase().includes(search) ||
-            e.phone?.includes(search)
-        );
-    }
-    
-    if (status !== 'all') {
-        employees = employees.filter(e => e.status === status);
-    }
-    
-    if (dept !== 'all') {
-        employees = employees.filter(e => e.department === dept);
-    }
-    
+    const employees = filterEmployeesData(search, status, dept);
     const grid = document.getElementById('employeeDirectoryGrid');
+    
     if (employees.length === 0) {
         grid.innerHTML = `
             <div class="empty-state">
@@ -145,8 +125,8 @@ function exportEmployeesToExcel() {
     showNotification('Employees exported successfully', 'success');
 }
 
-// ==================== LEAVE & ATTENDANCE SECTION ====================
-function initializeLeaveAttendance() {
+// ==================== LEAVE & ATTENDANCE UI ====================
+function initializeLeaveAttendanceHR() {
     loadLAStats();
     loadLALeaveRequests();
     populateLAFilters();
@@ -188,23 +168,15 @@ function showLATab(tabName) {
 }
 
 function loadLAStats() {
-    const leaveRequests = getLeaveRequests();
-    const today = new Date().toISOString().split('T')[0];
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const stats = getLAStats();
     
-    const pending = leaveRequests.filter(l => l.status === 'pending').length;
-    const approved = leaveRequests.filter(l => l.status === 'approved' && l.createdDate?.startsWith(currentMonth)).length;
-    const onToday = leaveRequests.filter(l => l.status === 'approved' && l.fromDate <= today && l.toDate >= today).length;
-    const rejected = leaveRequests.filter(l => l.status === 'rejected').length;
-    
-    document.getElementById('laPendingCount').textContent = pending;
-    document.getElementById('laApprovedCount').textContent = approved;
-    document.getElementById('laOnTodayCount').textContent = onToday;
-    document.getElementById('laRejectedCount').textContent = rejected;
+    document.getElementById('laPendingCount').textContent = stats.pending;
+    document.getElementById('laApprovedCount').textContent = stats.approved;
+    document.getElementById('laOnTodayCount').textContent = stats.onToday;
+    document.getElementById('laRejectedCount').textContent = stats.rejected;
 }
 
 function loadLALeaveRequests() {
-    const leaveRequests = getLeaveRequests();
     const employees = getEmployees();
     const tbody = document.getElementById('laLeaveRequestsBody');
     
@@ -212,17 +184,7 @@ function loadLALeaveRequests() {
     const employeeFilter = document.getElementById('laLeaveEmployeeFilter')?.value || '';
     const monthFilter = document.getElementById('laLeaveMonthFilter')?.value || '';
     
-    let filtered = leaveRequests;
-    
-    if (statusFilter) {
-        filtered = filtered.filter(l => l.status === statusFilter);
-    }
-    if (employeeFilter) {
-        filtered = filtered.filter(l => l.employeeId == employeeFilter);
-    }
-    if (monthFilter) {
-        filtered = filtered.filter(l => l.fromDate?.startsWith(monthFilter) || l.toDate?.startsWith(monthFilter));
-    }
+    const filtered = getFilteredLeaveRequests(statusFilter, employeeFilter, monthFilter);
     
     if (filtered.length === 0) {
         tbody.innerHTML = `
@@ -238,14 +200,14 @@ function loadLALeaveRequests() {
     
     tbody.innerHTML = filtered.map(leave => {
         const employee = employees.find(e => e.id == leave.employeeId);
-        const days = calculateLeaveDays(leave.fromDate, leave.toDate);
+        const days = calculateLeaveDaysHR(leave.fromDate, leave.toDate);
         
         return `
             <tr>
                 <td>${employee?.name || 'Unknown'}</td>
                 <td>${leave.leaveType || '-'}</td>
-                <td>${formatDate(leave.fromDate)}</td>
-                <td>${formatDate(leave.toDate)}</td>
+                <td>${formatDateHR(leave.fromDate)}</td>
+                <td>${formatDateHR(leave.toDate)}</td>
                 <td>${days}</td>
                 <td>${leave.reason || '-'}</td>
                 <td><span class="status-badge ${leave.status}">${leave.status}</span></td>
@@ -297,17 +259,11 @@ function populateLAFilters() {
 function loadLAAttendance() {
     const attendance = getAttendanceRecords();
     const employees = getEmployees();
-    const today = new Date().toISOString().split('T')[0];
+    const stats = getAttendanceStats();
     
-    // Calculate stats
-    const todayRecords = attendance.filter(a => a.date === today);
-    const present = todayRecords.filter(a => a.status === 'present' || a.clockIn).length;
-    const late = todayRecords.filter(a => a.status === 'late').length;
-    const absent = employees.length - todayRecords.length;
-    
-    document.getElementById('laPresentCount').textContent = present;
-    document.getElementById('laLateCount').textContent = late;
-    document.getElementById('laAbsentCount').textContent = Math.max(0, absent);
+    document.getElementById('laPresentCount').textContent = stats.present;
+    document.getElementById('laLateCount').textContent = stats.late;
+    document.getElementById('laAbsentCount').textContent = stats.absent;
     
     const tbody = document.getElementById('laAttendanceBody');
     
@@ -326,12 +282,12 @@ function loadLAAttendance() {
     const recent = attendance.slice(-50).reverse();
     tbody.innerHTML = recent.map(record => {
         const employee = employees.find(e => e.id == record.employeeId);
-        const hours = calculateWorkHours(record.clockIn, record.clockOut);
+        const hours = calculateWorkHoursHR(record.clockIn, record.clockOut);
         
         return `
             <tr>
                 <td>${employee?.name || 'Unknown'}</td>
-                <td>${formatDate(record.date)}</td>
+                <td>${formatDateHR(record.date)}</td>
                 <td>${record.clockIn || '-'}</td>
                 <td>${record.clockOut || '-'}</td>
                 <td>${hours}</td>
@@ -399,30 +355,9 @@ function clockInLA() {
         return;
     }
     
-    const now = new Date();
-    const attendance = getAttendanceRecords();
-    const today = now.toISOString().split('T')[0];
-    
-    // Check if already clocked in
-    const existing = attendance.find(a => a.employeeId == employeeId && a.date === today);
-    if (existing && existing.clockIn) {
-        showNotification('Employee already clocked in today', 'warning');
-        return;
-    }
-    
-    const record = {
-        id: Date.now(),
-        employeeId: parseInt(employeeId),
-        date: today,
-        clockIn: now.toTimeString().slice(0, 5),
-        status: now.getHours() > 9 ? 'late' : 'present'
-    };
-    
-    attendance.push(record);
-    saveAttendanceRecords(attendance);
-    
-    showNotification('Clock in recorded', 'success');
-    loadLAAttendance();
+    const result = processClockIn(employeeId);
+    showNotification(result.message, result.success ? 'success' : 'warning');
+    if (result.success) loadLAAttendance();
 }
 
 function clockOutLA() {
@@ -432,35 +367,13 @@ function clockOutLA() {
         return;
     }
     
-    const now = new Date();
-    const attendance = getAttendanceRecords();
-    const today = now.toISOString().split('T')[0];
-    
-    const existing = attendance.find(a => a.employeeId == employeeId && a.date === today);
-    if (!existing) {
-        showNotification('No clock in record found for today', 'warning');
-        return;
-    }
-    
-    if (existing.clockOut) {
-        showNotification('Employee already clocked out today', 'warning');
-        return;
-    }
-    
-    existing.clockOut = now.toTimeString().slice(0, 5);
-    saveAttendanceRecords(attendance);
-    
-    showNotification('Clock out recorded', 'success');
-    loadLAAttendance();
+    const result = processClockOut(employeeId);
+    showNotification(result.message, result.success ? 'success' : 'warning');
+    if (result.success) loadLAAttendance();
 }
 
 function approveLeaveLA(leaveId) {
-    const leaveRequests = getLeaveRequests();
-    const leave = leaveRequests.find(l => l.id == leaveId);
-    if (leave) {
-        leave.status = 'approved';
-        leave.approvedDate = new Date().toISOString();
-        saveLeaveRequests(leaveRequests);
+    if (approveLeaveRequest(leaveId)) {
         showNotification('Leave request approved', 'success');
         loadLALeaveRequests();
         loadLAStats();
@@ -468,12 +381,7 @@ function approveLeaveLA(leaveId) {
 }
 
 function rejectLeaveLA(leaveId) {
-    const leaveRequests = getLeaveRequests();
-    const leave = leaveRequests.find(l => l.id == leaveId);
-    if (leave) {
-        leave.status = 'rejected';
-        leave.rejectedDate = new Date().toISOString();
-        saveLeaveRequests(leaveRequests);
+    if (rejectLeaveRequest(leaveId)) {
         showNotification('Leave request rejected', 'info');
         loadLALeaveRequests();
         loadLAStats();
@@ -492,16 +400,16 @@ function viewLeaveLA(leaveId) {
         <div style="padding: 20px;">
             <p><strong>Employee:</strong> ${employee?.name || 'Unknown'}</p>
             <p><strong>Leave Type:</strong> ${leave.leaveType || '-'}</p>
-            <p><strong>From:</strong> ${formatDate(leave.fromDate)}</p>
-            <p><strong>To:</strong> ${formatDate(leave.toDate)}</p>
-            <p><strong>Days:</strong> ${calculateLeaveDays(leave.fromDate, leave.toDate)}</p>
+            <p><strong>From:</strong> ${formatDateHR(leave.fromDate)}</p>
+            <p><strong>To:</strong> ${formatDateHR(leave.toDate)}</p>
+            <p><strong>Days:</strong> ${calculateLeaveDaysHR(leave.fromDate, leave.toDate)}</p>
             <p><strong>Reason:</strong> ${leave.reason || '-'}</p>
             <p><strong>Status:</strong> <span class="status-badge ${leave.status}">${leave.status}</span></p>
         </div>
     `);
 }
 
-// ==================== KPI & PERFORMANCE SECTION ====================
+// ==================== KPI & PERFORMANCE UI ====================
 function initializeKPISection() {
     const employees = getEmployees();
     
@@ -552,76 +460,8 @@ function showKPISetupGuide() {
 }
 
 function loadKPISampleData() {
-    // Create sample employees
-    const sampleEmployees = [
-        { id: 1, name: 'Ahmad Razak', email: 'ahmad@company.com', phone: '012-3456789', position: 'Sales Manager', department: 'Sales', status: 'active', salary: 5000, salesTarget: 50000, joinDate: '2023-01-15' },
-        { id: 2, name: 'Siti Aminah', email: 'siti@company.com', phone: '013-4567890', position: 'Senior Sales', department: 'Sales', status: 'active', salary: 3500, salesTarget: 30000, joinDate: '2023-03-20' },
-        { id: 3, name: 'Raj Kumar', email: 'raj@company.com', phone: '014-5678901', position: 'Sales Executive', department: 'Sales', status: 'active', salary: 2800, salesTarget: 20000, joinDate: '2023-06-01' },
-        { id: 4, name: 'Lim Wei Ming', email: 'weiming@company.com', phone: '015-6789012', position: 'Sales Executive', department: 'Sales', status: 'active', salary: 2800, salesTarget: 20000, joinDate: '2023-08-15' },
-        { id: 5, name: 'Nurul Izzah', email: 'nurul@company.com', phone: '016-7890123', position: 'Junior Sales', department: 'Sales', status: 'active', salary: 2200, salesTarget: 15000, joinDate: '2024-01-10' }
-    ];
-    
-    // Save sample employees - use same key as payroll.js
-    localStorage.setItem('ezcubic_employees', JSON.stringify(sampleEmployees));
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
-    }
-
-    // Create sample transactions for current month
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    const existingTx = window.transactions || [];
-    
-    const sampleTransactions = [
-        { id: Date.now() + 1, type: 'income', amount: 15000, description: 'Product Sales - Enterprise Package', date: `${currentMonth}-05`, category: 'Sales', staffId: 1 },
-        { id: Date.now() + 2, type: 'income', amount: 12000, description: 'Service Contract', date: `${currentMonth}-08`, category: 'Sales', staffId: 1 },
-        { id: Date.now() + 3, type: 'income', amount: 8500, description: 'Product Sales - Standard Package', date: `${currentMonth}-10`, category: 'Sales', staffId: 2 },
-        { id: Date.now() + 4, type: 'income', amount: 9200, description: 'Consultation Services', date: `${currentMonth}-12`, category: 'Sales', staffId: 2 },
-        { id: Date.now() + 5, type: 'income', amount: 6500, description: 'Product Sales - Basic Package', date: `${currentMonth}-14`, category: 'Sales', staffId: 3 },
-        { id: Date.now() + 6, type: 'income', amount: 4800, description: 'Maintenance Contract', date: `${currentMonth}-15`, category: 'Sales', staffId: 3 },
-        { id: Date.now() + 7, type: 'income', amount: 7200, description: 'Product Sales - Pro Package', date: `${currentMonth}-16`, category: 'Sales', staffId: 4 },
-        { id: Date.now() + 8, type: 'income', amount: 3500, description: 'Support Package', date: `${currentMonth}-17`, category: 'Sales', staffId: 4 },
-        { id: Date.now() + 9, type: 'income', amount: 5500, description: 'Product Sales - Starter Package', date: `${currentMonth}-10`, category: 'Sales', staffId: 5 },
-        { id: Date.now() + 10, type: 'income', amount: 2800, description: 'Training Services', date: `${currentMonth}-13`, category: 'Sales', staffId: 5 }
-    ];
-    
-    // Add sample transactions
-    window.transactions = [...existingTx, ...sampleTransactions];
-    if (typeof saveTransactions === 'function') {
-        saveTransactions();
-    }
-    
-    // Create sample KPI templates
-    const sampleTemplates = [
-        {
-            id: 1,
-            name: 'Sales Performance',
-            description: 'Standard sales KPI template for sales team',
-            metrics: [
-                { name: 'Monthly Sales', weight: 40 },
-                { name: 'New Customers', weight: 30 },
-                { name: 'Customer Retention', weight: 30 }
-            ]
-        },
-        {
-            id: 2,
-            name: 'Customer Service',
-            description: 'KPI template for customer service team',
-            metrics: [
-                { name: 'Response Time', weight: 35 },
-                { name: 'Customer Satisfaction', weight: 40 },
-                { name: 'Issue Resolution', weight: 25 }
-            ]
-        }
-    ];
-    localStorage.setItem('ezcubic_kpi_templates', JSON.stringify(sampleTemplates));
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
-    }
+    loadKPISampleDataCore();
     showNotification('Sample KPI data loaded successfully!', 'success');
-    
-    // Reinitialize the section
     initializeKPISection();
 }
 
@@ -661,26 +501,17 @@ function showKPITab(tabName) {
     if (tabName === 'overview') {
         if (typeof loadKPIOverview === 'function') loadKPIOverview();
     } else if (tabName === 'report') {
-        // Initialize KPI report filters and dropdowns
         if (typeof initializeKPIReport === 'function') initializeKPIReport();
     } else if (tabName === 'templates') {
-        if (typeof loadKPISectionTemplates === 'function') loadKPISectionTemplates();
+        loadKPISectionTemplates();
     }
 }
 
 function loadKPISectionStats() {
-    const transactions = window.transactions || [];
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const stats = getKPISectionStats();
     
-    const monthlyTx = transactions.filter(t => 
-        t.type === 'income' && t.date?.startsWith(currentMonth)
-    );
-    
-    const totalSales = monthlyTx.reduce((sum, t) => sum + (t.amount || 0), 0);
-    const txCount = monthlyTx.length;
-    
-    document.getElementById('kpiSectionTotalSales').textContent = `RM ${totalSales.toLocaleString()}`;
-    document.getElementById('kpiSectionTransactions').textContent = txCount;
+    document.getElementById('kpiSectionTotalSales').textContent = `RM ${stats.totalSales.toLocaleString()}`;
+    document.getElementById('kpiSectionTransactions').textContent = stats.txCount;
 }
 
 function loadKPISectionFilters() {
@@ -750,18 +581,14 @@ function loadKPISectionTemplates() {
 
 function generateKPISectionReport() {
     const employees = getEmployees();
-    const transactions = window.transactions || [];
     const month = document.getElementById('kpiSectionMonth')?.value || new Date().toISOString().slice(0, 7);
     const employeeFilter = document.getElementById('kpiSectionEmployee')?.value;
     
     const tbody = document.getElementById('kpiSectionReportBody');
     
-    let targetEmployees = employees;
-    if (employeeFilter) {
-        targetEmployees = employees.filter(e => e.id == employeeFilter);
-    }
+    const reports = generateKPIReports(employees, month, employeeFilter);
     
-    if (targetEmployees.length === 0) {
+    if (reports.length === 0) {
         tbody.innerHTML = `
             <tr>
                 <td colspan="9" style="text-align: center; padding: 40px; color: #666;">
@@ -771,37 +598,6 @@ function generateKPISectionReport() {
         `;
         return;
     }
-    
-    // Calculate KPI for each employee
-    const reports = targetEmployees.map(emp => {
-        const empTx = transactions.filter(t => 
-            t.type === 'income' && 
-            t.date?.startsWith(month) &&
-            (t.staffId == emp.id || t.assignedTo == emp.id)
-        );
-        
-        const totalSales = empTx.reduce((sum, t) => sum + (t.amount || 0), 0);
-        const txCount = empTx.length;
-        const avgSale = txCount > 0 ? totalSales / txCount : 0;
-        
-        // Calculate score (simplified)
-        const target = emp.salesTarget || 10000;
-        const score = Math.min(100, Math.round((totalSales / target) * 100));
-        
-        let rating = 'Needs Improvement';
-        if (score >= 90) rating = 'Excellent';
-        else if (score >= 70) rating = 'Good';
-        else if (score >= 50) rating = 'Average';
-        
-        return {
-            employee: emp,
-            totalSales,
-            txCount,
-            avgSale,
-            score,
-            rating
-        };
-    });
     
     // Update stats
     const totalSales = reports.reduce((sum, r) => sum + r.totalSales, 0);
@@ -840,27 +636,17 @@ function generateKPISectionReport() {
 
 function loadKPILeaderboard() {
     const employees = getEmployees();
-    const transactions = window.transactions || [];
     const currentMonth = new Date().toISOString().slice(0, 7);
     
     const tbody = document.getElementById('kpiLeaderboardBody');
     
     // Calculate scores for all employees
     const scores = employees.map(emp => {
-        const empTx = transactions.filter(t => 
-            t.type === 'income' && 
-            t.date?.startsWith(currentMonth) &&
-            (t.staffId == emp.id || t.assignedTo == emp.id)
-        );
-        
-        const totalSales = empTx.reduce((sum, t) => sum + (t.amount || 0), 0);
-        const target = emp.salesTarget || 10000;
-        const score = Math.min(100, Math.round((totalSales / target) * 100));
-        
+        const kpi = calculateEmployeeKPI(emp, currentMonth);
         return {
             employee: emp,
-            totalSales,
-            score
+            totalSales: kpi.totalSales,
+            score: kpi.score
         };
     }).sort((a, b) => b.score - a.score);
     
@@ -912,42 +698,32 @@ function viewEmployeeKPIDetail(employeeId) {
     const emp = employees.find(e => e.id == employeeId);
     if (!emp) return;
     
-    const transactions = window.transactions || [];
     const currentMonth = new Date().toISOString().slice(0, 7);
-    
-    const empTx = transactions.filter(t => 
-        t.type === 'income' && 
-        t.date?.startsWith(currentMonth) &&
-        (t.staffId == employeeId || t.assignedTo == employeeId)
-    );
-    
-    const totalSales = empTx.reduce((sum, t) => sum + (t.amount || 0), 0);
-    const target = emp.salesTarget || 10000;
-    const score = Math.min(100, Math.round((totalSales / target) * 100));
+    const kpi = calculateEmployeeKPI(emp, currentMonth);
     
     showModal(`KPI Details: ${emp.name}`, `
         <div style="padding: 20px;">
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px;">
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
                     <div style="color: #64748b; font-size: 12px;">Total Sales</div>
-                    <div style="font-size: 24px; font-weight: bold;">RM ${totalSales.toLocaleString()}</div>
+                    <div style="font-size: 24px; font-weight: bold;">RM ${kpi.totalSales.toLocaleString()}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
                     <div style="color: #64748b; font-size: 12px;">Target</div>
-                    <div style="font-size: 24px; font-weight: bold;">RM ${target.toLocaleString()}</div>
+                    <div style="font-size: 24px; font-weight: bold;">RM ${kpi.target.toLocaleString()}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
                     <div style="color: #64748b; font-size: 12px;">Transactions</div>
-                    <div style="font-size: 24px; font-weight: bold;">${empTx.length}</div>
+                    <div style="font-size: 24px; font-weight: bold;">${kpi.txCount}</div>
                 </div>
                 <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
                     <div style="color: #64748b; font-size: 12px;">Score</div>
-                    <div style="font-size: 24px; font-weight: bold; color: ${score >= 70 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444'};">${score}%</div>
+                    <div style="font-size: 24px; font-weight: bold; color: ${kpi.score >= 70 ? '#22c55e' : kpi.score >= 50 ? '#f59e0b' : '#ef4444'};">${kpi.score}%</div>
                 </div>
             </div>
             <h4>Recent Transactions</h4>
             <div style="max-height: 200px; overflow-y: auto;">
-                ${empTx.slice(-5).reverse().map(t => `
+                ${kpi.transactions.slice(-5).reverse().map(t => `
                     <div style="display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #e2e8f0;">
                         <span>${t.description || 'Sale'}</span>
                         <span style="font-weight: bold;">RM ${(t.amount || 0).toLocaleString()}</span>
@@ -958,73 +734,12 @@ function viewEmployeeKPIDetail(employeeId) {
     `);
 }
 
-// ==================== HELPER FUNCTIONS ====================
-function getEmployees() {
-    // Use same key as payroll.js for consistency
-    return JSON.parse(localStorage.getItem('ezcubic_employees')) || [];
-}
-
-function getLeaveRequests() {
-    // Use same key as leave-attendance.js
-    return JSON.parse(localStorage.getItem('ezcubic_leave_requests')) || [];
-}
-
-function saveLeaveRequests(requests) {
-    localStorage.setItem('ezcubic_leave_requests', JSON.stringify(requests));
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
-    }
-}
-
-function getAttendanceRecords() {
-    // Use same key as leave-attendance.js
-    return JSON.parse(localStorage.getItem('ezcubic_attendance')) || [];
-}
-
-function saveAttendanceRecords(records) {
-    localStorage.setItem('ezcubic_attendance', JSON.stringify(records));
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
-    }
-}
-
-function getKPITemplates() {
-    return JSON.parse(localStorage.getItem('ezcubic_kpi_templates')) || [];
-}
-
-function calculateLeaveDays(fromDate, toDate) {
-    if (!fromDate || !toDate) return 0;
-    const from = new Date(fromDate);
-    const to = new Date(toDate);
-    const diff = Math.abs(to - from);
-    return Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
-}
-
-function calculateWorkHours(clockIn, clockOut) {
-    if (!clockIn || !clockOut) return '-';
-    const [inH, inM] = clockIn.split(':').map(Number);
-    const [outH, outM] = clockOut.split(':').map(Number);
-    const hours = outH - inH + (outM - inM) / 60;
-    return `${hours.toFixed(1)}h`;
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-MY', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-    });
-}
-
-// ==================== EXPORT FUNCTIONS ====================
+// ==================== WINDOW EXPORTS ====================
 window.initializeEmployeeDirectory = initializeEmployeeDirectory;
 window.filterEmployeeDirectory = filterEmployeeDirectory;
 window.exportEmployeesToExcel = exportEmployeesToExcel;
 
-window.initializeLeaveAttendance = initializeLeaveAttendance;
+window.initializeLeaveAttendanceHR = initializeLeaveAttendanceHR;
 window.showLATab = showLATab;
 window.loadLALeaveRequests = loadLALeaveRequests;
 window.clockInLA = clockInLA;
@@ -1039,3 +754,4 @@ window.generateKPISectionReport = generateKPISectionReport;
 window.loadKPISectionReport = generateKPISectionReport;
 window.viewEmployeeKPIDetail = viewEmployeeKPIDetail;
 window.loadKPISampleData = loadKPISampleData;
+window.loadKPILeaderboard = loadKPILeaderboard;

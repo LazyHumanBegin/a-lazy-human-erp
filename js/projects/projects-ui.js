@@ -1,59 +1,8 @@
 /**
- * EZCubic Smart Accounting - Project Invoice Module
- * For large projects with milestone/installment payments
+ * EZCubic Smart Accounting - Projects UI Module
+ * Modals, rendering, search/filter, print
+ * Version: 2.3.0 - Split from projects.js
  */
-
-const PROJECTS_KEY = 'ezcubic_projects';
-let projects = [];
-
-// ==================== INITIALIZATION ====================
-function initializeProjects() {
-    loadProjects();
-    renderProjects();
-    updateProjectStats();
-}
-
-function loadProjects() {
-    try {
-        const stored = localStorage.getItem(PROJECTS_KEY);
-        const parsed = stored ? JSON.parse(stored) : [];
-        projects = Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-        console.error('Error loading projects:', e);
-        projects = [];
-    }
-}
-
-function saveProjects() {
-    localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
-    
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        window.projects = projects;
-        saveToUserTenant();
-    }
-}
-
-// ==================== PROJECT STATS ====================
-function updateProjectStats() {
-    const activeEl = document.getElementById('projectsActive');
-    const totalValueEl = document.getElementById('projectsTotalValue');
-    const receivedEl = document.getElementById('projectsReceived');
-    const pendingEl = document.getElementById('projectsPending');
-    
-    // Ensure projects is an array
-    if (!Array.isArray(projects)) projects = [];
-    
-    const activeProjects = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled');
-    const totalValue = projects.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
-    const totalReceived = projects.reduce((sum, p) => sum + (p.amountPaid || 0), 0);
-    const totalPending = totalValue - totalReceived;
-    
-    if (activeEl) activeEl.textContent = activeProjects.length;
-        if (totalValueEl) totalValueEl.textContent = formatRM(totalValue);
-        if (receivedEl) receivedEl.textContent = formatRM(totalReceived);
-        if (pendingEl) pendingEl.textContent = formatRM(totalPending);
-}
 
 // ==================== PROJECT MODAL ====================
 function showProjectModal(projectId = null) {
@@ -61,14 +10,10 @@ function showProjectModal(projectId = null) {
     const title = document.getElementById('projectModalTitle');
     const form = document.getElementById('projectForm');
     
-    // Reset form
     form.reset();
     document.getElementById('projectId').value = '';
     
-    // Load CRM customers
     loadProjectCustomers();
-    
-    // Load salesperson dropdown
     loadProjectSalespersons();
     
     if (projectId) {
@@ -85,14 +30,12 @@ function showProjectModal(projectId = null) {
             document.getElementById('projectEndDate').value = project.endDate || '';
             document.getElementById('projectStatus').value = project.status || 'quotation';
             
-            // Load milestones
             renderMilestoneInputs(project.milestones || []);
         }
     } else {
         title.textContent = 'New Project';
         document.getElementById('projectStartDate').value = new Date().toISOString().split('T')[0];
         
-        // Default milestones template
         renderMilestoneInputs([
             { name: 'Deposit', percentage: 30, dueDate: '', status: 'pending' },
             { name: 'Progress Payment', percentage: 40, dueDate: '', status: 'pending' },
@@ -108,7 +51,6 @@ function loadProjectCustomers() {
     const select = document.getElementById('projectCustomer');
     if (!select) return;
     
-    // Get CRM customers
     const crmList = typeof getCRMCustomersForSelect === 'function' ? getCRMCustomersForSelect() : [];
     
     select.innerHTML = `<option value="">-- Select Customer --</option>`;
@@ -126,19 +68,15 @@ function loadProjectSalespersons() {
     
     select.innerHTML = `<option value="">-- Select Salesperson --</option>`;
     
-    // Get current user and their tenant
     const currentUser = typeof getCurrentUser === 'function' ? getCurrentUser() : null;
     const currentTenantId = currentUser?.tenantId || null;
     
-    // Collect all salespersons for this tenant
     let salespersons = [];
     
-    // 1. Add current logged-in user
     if (currentUser && currentUser.name) {
         salespersons.push({ name: currentUser.name, role: currentUser.role });
     }
     
-    // 2. Add users from same tenant (manager, staff)
     if (currentTenantId && typeof getUsers === 'function') {
         const allUsers = getUsers();
         const tenantUsers = allUsers.filter(u => 
@@ -152,7 +90,6 @@ function loadProjectSalespersons() {
         });
     }
     
-    // 3. Add employees from payroll (tenant-filtered)
     if (typeof getEmployees === 'function') {
         const employeeList = getEmployees().filter(e => e.status === 'active');
         employeeList.forEach(e => {
@@ -169,6 +106,7 @@ function loadProjectSalespersons() {
     }
 }
 
+// ==================== MILESTONE INPUTS ====================
 function renderMilestoneInputs(milestones = []) {
     const container = document.getElementById('milestonesContainer');
     if (!container) return;
@@ -232,128 +170,11 @@ function updateMilestoneTotal() {
     }
 }
 
-// ==================== SAVE PROJECT ====================
-function saveProject(event) {
-    event.preventDefault();
-    
-    const id = document.getElementById('projectId').value;
-    const name = document.getElementById('projectName').value.trim();
-    const customerId = document.getElementById('projectCustomer').value;
-    const totalAmount = parseFloat(document.getElementById('projectTotalAmount').value) || 0;
-    
-    if (!name) {
-        showToast('Project name is required!', 'error');
-        return;
-    }
-    
-    if (totalAmount <= 0) {
-        showToast('Total amount must be greater than 0!', 'error');
-        return;
-    }
-    
-    // Collect milestones
-    const milestones = [];
-    const rows = document.querySelectorAll('.milestone-input-row');
-    let totalPercent = 0;
-    
-    rows.forEach((row, index) => {
-        const milestoneName = row.querySelector('.milestone-name').value.trim();
-        const percentage = parseFloat(row.querySelector('.milestone-percent').value) || 0;
-        const dueDate = row.querySelector('.milestone-date').value;
-        
-        if (milestoneName && percentage > 0) {
-            milestones.push({
-                id: `M${index + 1}`,
-                name: milestoneName,
-                percentage: percentage,
-                amount: (totalAmount * percentage / 100),
-                dueDate: dueDate,
-                status: 'pending',
-                paidAmount: 0,
-                paidDate: null
-            });
-            totalPercent += percentage;
-        }
-    });
-    
-    if (totalPercent !== 100) {
-        showToast(`Milestone percentages must total 100% (currently ${totalPercent}%)`, 'error');
-        return;
-    }
-    
-    // Get customer name
-    let customerName = '';
-    if (customerId && typeof getCRMCustomersForSelect === 'function') {
-        const customers = getCRMCustomersForSelect();
-        const customer = customers.find(c => c.id === customerId);
-        if (customer) customerName = customer.name;
-    }
-    
-    const projectData = {
-        name: name,
-        customerId: customerId,
-        customerName: customerName,
-        salesperson: document.getElementById('projectSalesperson')?.value || '',
-        description: document.getElementById('projectDescription').value.trim(),
-        totalAmount: totalAmount,
-        startDate: document.getElementById('projectStartDate').value,
-        endDate: document.getElementById('projectEndDate').value,
-        status: document.getElementById('projectStatus').value,
-        milestones: milestones,
-        amountPaid: 0,
-        payments: []
-    };
-    
-    if (id) {
-        // Update existing
-        const index = projects.findIndex(p => p.id === id);
-        if (index !== -1) {
-            // Preserve payment history
-            projectData.amountPaid = projects[index].amountPaid || 0;
-            projectData.payments = projects[index].payments || [];
-            projectData.milestones = projectData.milestones.map((m, i) => {
-                const existingMilestone = projects[index].milestones?.[i];
-                if (existingMilestone && existingMilestone.name === m.name) {
-                    m.paidAmount = existingMilestone.paidAmount || 0;
-                    m.paidDate = existingMilestone.paidDate;
-                    m.status = existingMilestone.status;
-                }
-                return m;
-            });
-            projectData.updatedAt = new Date().toISOString();
-            projects[index] = { ...projects[index], ...projectData };
-        }
-    } else {
-        // Create new
-        projectData.id = generateUUID();
-        projectData.projectNo = generateProjectNumber();
-        projectData.createdAt = new Date().toISOString();
-        projectData.updatedAt = new Date().toISOString();
-        projects.push(projectData);
-    }
-    
-    saveProjects();
-    renderProjects();
-    updateProjectStats();
-    closeModal('projectModal');
-    
-    showToast(id ? 'Project updated!' : 'Project created!', 'success');
-}
-
-function generateProjectNumber() {
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const sequence = (projects.length + 1).toString().padStart(3, '0');
-    return `PRJ-${year}${month}-${sequence}`;
-}
-
 // ==================== RENDER PROJECTS ====================
 function renderProjects() {
     const container = document.getElementById('projectsGrid');
     if (!container) return;
     
-    // Ensure projects is an array
     if (!Array.isArray(projects)) projects = [];
     
     const searchTerm = document.getElementById('projectSearch')?.value?.toLowerCase() || '';
@@ -378,7 +199,6 @@ function renderProjects() {
         return;
     }
     
-    // Sort by most recent
     filtered.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
     
     const statusLabels = {
@@ -411,15 +231,15 @@ function renderProjects() {
                 <div class="project-amounts">
                     <div class="project-amount-item">
                         <span class="amount-label">Total Value</span>
-                            <span class="amount-value">${formatRM(project.totalAmount || 0)}</span>
+                        <span class="amount-value">${formatRM(project.totalAmount || 0)}</span>
                     </div>
                     <div class="project-amount-item">
                         <span class="amount-label">Received</span>
-                            <span class="amount-value received">${formatRM(project.amountPaid || 0)}</span>
+                        <span class="amount-value received">${formatRM(project.amountPaid || 0)}</span>
                     </div>
                     <div class="project-amount-item">
                         <span class="amount-label">Remaining</span>
-                            <span class="amount-value pending">${formatRM(remaining)}</span>
+                        <span class="amount-value pending">${formatRM(remaining)}</span>
                     </div>
                 </div>
                 
@@ -456,7 +276,6 @@ function filterProjects() {
     renderProjects();
 }
 
-// Alias for viewProjectDetail (used by quotations module)
 function viewProjectDetail(projectId) {
     showProjectDetail(projectId);
 }
@@ -484,7 +303,6 @@ function showProjectDetail(projectId) {
     const progress = project.totalAmount > 0 ? ((project.amountPaid || 0) / project.totalAmount * 100) : 0;
     const remaining = project.totalAmount - (project.amountPaid || 0);
     
-    // Check if project has linked quotation
     let quotationBadge = '';
     if (project.quotationNo || project.quotationId) {
         quotationBadge = `
@@ -518,15 +336,15 @@ function showProjectDetail(projectId) {
         <div class="project-detail-summary">
             <div class="summary-card total">
                 <span class="summary-label">Total Value</span>
-                    <span class="summary-value">${formatRM(project.totalAmount || 0)}</span>
+                <span class="summary-value">${formatRM(project.totalAmount || 0)}</span>
             </div>
             <div class="summary-card received">
                 <span class="summary-label">Received</span>
-                    <span class="summary-value">${formatRM(project.amountPaid || 0)}</span>
+                <span class="summary-value">${formatRM(project.amountPaid || 0)}</span>
             </div>
             <div class="summary-card remaining">
                 <span class="summary-label">Remaining</span>
-                    <span class="summary-value">${formatRM(remaining)}</span>
+                <span class="summary-value">${formatRM(remaining)}</span>
             </div>
         </div>
         
@@ -613,7 +431,7 @@ function showProjectDetail(projectId) {
     modal.classList.add('show');
 }
 
-// ==================== RECORD PAYMENT ====================
+// ==================== RECORD PAYMENT MODAL ====================
 function showRecordPaymentModal(projectId, milestoneIndex = null) {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
@@ -627,9 +445,7 @@ function showRecordPaymentModal(projectId, milestoneIndex = null) {
         selectedMilestone = project.milestones[milestoneIndex];
     }
     
-    // Build milestone options - ensure amount is calculated
     project.milestones.forEach((m, index) => {
-        // Calculate amount if not set (for backward compatibility)
         if (!m.amount && m.percentage) {
             m.amount = (project.totalAmount * m.percentage / 100);
         }
@@ -645,7 +461,6 @@ function showRecordPaymentModal(projectId, milestoneIndex = null) {
     
     const defaultAmount = selectedMilestone ? ((selectedMilestone.amount || 0) - (selectedMilestone.paidAmount || 0)) : remaining;
     
-    // Remove existing modal if any
     const existingModal = document.getElementById('recordPaymentModal');
     if (existingModal) existingModal.remove();
     
@@ -725,132 +540,6 @@ function showRecordPaymentModal(projectId, milestoneIndex = null) {
         </div>
     `;
     document.body.appendChild(modal);
-}
-
-function updatePaymentAmount(projectId) {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    const milestoneIndex = document.getElementById('paymentMilestone').value;
-    if (milestoneIndex !== '') {
-        const milestone = project.milestones[parseInt(milestoneIndex)];
-        // Calculate amount if not set (for backward compatibility)
-        if (!milestone.amount && milestone.percentage) {
-            milestone.amount = (project.totalAmount * milestone.percentage / 100);
-        }
-        const remaining = (milestone.amount || 0) - (milestone.paidAmount || 0);
-        document.getElementById('paymentAmount').value = remaining.toFixed(2);
-    }
-}
-
-function submitProjectPayment(event, projectId) {
-    event.preventDefault();
-    
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    const milestoneIndex = parseInt(document.getElementById('paymentMilestone').value);
-    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
-    const method = document.getElementById('paymentMethod').value;
-    const reference = document.getElementById('paymentReference').value.trim();
-    const date = document.getElementById('paymentDate').value || new Date().toISOString().split('T')[0];
-    
-    if (isNaN(milestoneIndex)) {
-        showToast('Please select a milestone!', 'error');
-        return;
-    }
-    
-    if (amount <= 0) {
-        showToast('Payment amount must be greater than 0!', 'error');
-        return;
-    }
-    
-    const milestone = project.milestones[milestoneIndex];
-    
-    // Calculate amount if not set (for backward compatibility)
-    if (!milestone.amount && milestone.percentage) {
-        milestone.amount = (project.totalAmount * milestone.percentage / 100);
-    }
-    
-    const milestoneAmount = milestone.amount || 0;
-    const remainingOnMilestone = milestoneAmount - (milestone.paidAmount || 0);
-    
-    if (amount > remainingOnMilestone + 0.01) { // Allow small rounding tolerance
-        showToast(`Amount exceeds remaining balance for this milestone (RM ${remainingOnMilestone.toFixed(2)})!`, 'error');
-        return;
-    }
-    
-    // Update milestone
-    milestone.paidAmount = (milestone.paidAmount || 0) + amount;
-    milestone.paidDate = date;
-    
-    const milestoneFullAmount = milestone.amount || (project.totalAmount * milestone.percentage / 100) || 0;
-    if (milestone.paidAmount >= milestoneFullAmount - 0.01) {
-        milestone.status = 'paid';
-    } else if (milestone.paidAmount > 0) {
-        milestone.status = 'partial';
-    }
-    
-    // Update project totals
-    project.amountPaid = (project.amountPaid || 0) + amount;
-    
-    // Add to payment history
-    if (!project.payments) project.payments = [];
-    project.payments.unshift({
-        id: generateUUID(),
-        milestoneId: milestone.id,
-        milestoneName: milestone.name,
-        amount: amount,
-        method: method,
-        reference: reference,
-        date: date
-    });
-    
-    // Check if all milestones are paid
-    const allPaid = project.milestones.every(m => m.status === 'paid');
-    if (allPaid && project.status !== 'completed') {
-        project.status = 'completed';
-    }
-    
-    project.updatedAt = new Date().toISOString();
-    
-    // Record income transaction - push to businessData.transactions for proper sync
-    const incomeTransaction = {
-        id: generateUUID(),
-        date: date,
-        amount: amount,
-        category: 'Project Income',
-        description: `${project.name} - ${milestone.name}`,
-        type: 'income',
-        method: method,
-        reference: reference || project.projectNo,
-        timestamp: new Date().toISOString()
-    };
-    if (typeof businessData !== 'undefined' && businessData.transactions) {
-        businessData.transactions.push(incomeTransaction);
-    } else if (typeof transactions !== 'undefined') {
-        transactions.push(incomeTransaction);
-    }
-    if (typeof saveData === 'function') saveData();
-    
-    // Update CRM customer if linked
-    if (project.customerId && typeof linkSaleToCRMCustomer === 'function') {
-        linkSaleToCRMCustomer(project.customerId, {
-            saleId: project.id,
-            receiptNo: project.projectNo,
-            date: date,
-            total: amount,
-            items: [{ name: `${project.name} - ${milestone.name}`, quantity: 1, price: amount }],
-            paymentMethod: method
-        });
-    }
-    
-    saveProjects();
-    closeModal('recordPaymentModal');
-    showProjectDetail(projectId);
-    updateProjectStats();
-    
-    showToast(`Payment of RM ${amount.toFixed(2)} recorded successfully!`, 'success');
 }
 
 // ==================== PRINT INVOICE ====================
@@ -964,148 +653,18 @@ function printProjectInvoice(projectId) {
     printWindow.print();
 }
 
-// ==================== DELETE PROJECT ====================
-function deleteProject(projectId) {
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-    
-    const hasPayments = project.amountPaid > 0;
-    const confirmMsg = hasPayments 
-        ? `Are you sure you want to delete this project?\n\nThis project has RM ${project.amountPaid.toFixed(2)} in recorded payments.\nDeleting will also remove these income transactions from your reports.\n\nThis cannot be undone.`
-        : 'Are you sure you want to delete this project? This cannot be undone.';
-    
-    if (!confirm(confirmMsg)) return;
-    
-    const projectRef = project.projectNo;
-    const projectName = project.name;
-    
-    // Count how many transactions will be removed (for debugging)
-    let removedCount = 0;
-    
-    // Remove from businessData.transactions (the main source)
-    if (typeof businessData !== 'undefined' && businessData.transactions && Array.isArray(businessData.transactions)) {
-        for (let i = businessData.transactions.length - 1; i >= 0; i--) {
-            const t = businessData.transactions[i];
-            const isProjectTransaction = 
-                (t.reference && t.reference === projectRef) ||
-                (t.description && t.description.includes(projectName)) ||
-                (t.category === 'Project Income' && t.description && t.description.includes(projectName));
-            
-            if (isProjectTransaction) {
-                businessData.transactions.splice(i, 1);
-                removedCount++;
-            }
-        }
-    }
-    
-    // Also remove from global transactions array (in case it's a different reference)
-    if (typeof transactions !== 'undefined' && Array.isArray(transactions)) {
-        for (let i = transactions.length - 1; i >= 0; i--) {
-            const t = transactions[i];
-            const isProjectTransaction = 
-                (t.reference && t.reference === projectRef) ||
-                (t.description && t.description.includes(projectName)) ||
-                (t.category === 'Project Income' && t.description && t.description.includes(projectName));
-            
-            if (isProjectTransaction) {
-                transactions.splice(i, 1);
-            }
-        }
-    }
-    
-    console.log(`Deleted ${removedCount} transactions for project ${projectName}`);
-    
-    // Save to localStorage FIRST
-    if (typeof saveData === 'function') {
-        saveData();
-    }
-    
-    // Also directly save to localStorage as backup
-    try {
-        const dataToSave = {
-            transactions: businessData.transactions,
-            bills: businessData.bills || [],
-            settings: businessData.settings || {},
-            version: '2.0',
-            lastSaved: new Date().toISOString()
-        };
-        localStorage.setItem('ezcubicDataMY', JSON.stringify(dataToSave));
-    } catch (e) {
-        console.error('Error saving data:', e);
-    }
-    
-    // Update all UI components
-    setTimeout(() => {
-        // Update Dashboard
-        if (typeof updateDashboard === 'function') {
-            updateDashboard();
-        }
-        
-        // Update Transactions list
-        if (typeof renderTransactions === 'function') {
-            renderTransactions();
-        }
-        if (typeof filterTransactions === 'function') {
-            filterTransactions();
-        }
-        
-        // Update Reports
-        if (typeof updateReports === 'function') {
-            updateReports();
-        }
-        if (typeof updateMonthlyCharts === 'function') {
-            updateMonthlyCharts();
-        }
-        if (typeof populateYearSelector === 'function') {
-            populateYearSelector();
-        }
-        
-        // Update Balance Sheet
-        if (typeof updateBalanceSheet === 'function') {
-            updateBalanceSheet();
-        }
-        if (typeof updateSimpleBalanceSheet === 'function') {
-            updateSimpleBalanceSheet();
-        }
-        if (typeof displaySimpleBalanceSheet === 'function') {
-            displaySimpleBalanceSheet();
-        }
-        
-        // Update Taxes
-        if (typeof updateMalaysianTaxEstimator === 'function') {
-            updateMalaysianTaxEstimator();
-        }
-        if (typeof updateSSTSummary === 'function') {
-            updateSSTSummary();
-        }
-    }, 100);
-    
-    // Update CRM customer if linked
-    if (project.customerId && typeof crmCustomers !== 'undefined') {
-        const customer = crmCustomers.find(c => c.id === project.customerId);
-        if (customer) {
-            customer.totalSpent = Math.max(0, (customer.totalSpent || 0) - (project.amountPaid || 0));
-            
-            if (customer.salesHistory) {
-                customer.salesHistory = customer.salesHistory.filter(s => 
-                    s.saleId !== projectId && s.receiptNo !== project.projectNo
-                );
-            }
-            
-            if (typeof saveCRMCustomers === 'function') saveCRMCustomers();
-            if (typeof updateCRMStats === 'function') updateCRMStats();
-            if (typeof renderCRMCustomers === 'function') renderCRMCustomers();
-        }
-    }
-    
-    // Remove project
-    const index = projects.findIndex(p => p.id === projectId);
-    if (index !== -1) {
-        projects.splice(index, 1);
-        saveProjects();
-        renderProjects();
-        updateProjectStats();
-        closeModal('projectDetailModal');
-        showToast('Project and related transactions deleted!', 'success');
-    }
-}
+// ==================== WINDOW EXPORTS ====================
+window.showProjectModal = showProjectModal;
+window.loadProjectCustomers = loadProjectCustomers;
+window.loadProjectSalespersons = loadProjectSalespersons;
+window.renderMilestoneInputs = renderMilestoneInputs;
+window.addMilestoneInput = addMilestoneInput;
+window.removeMilestoneInput = removeMilestoneInput;
+window.updateMilestoneTotal = updateMilestoneTotal;
+window.renderProjects = renderProjects;
+window.searchProjects = searchProjects;
+window.filterProjects = filterProjects;
+window.viewProjectDetail = viewProjectDetail;
+window.showProjectDetail = showProjectDetail;
+window.showRecordPaymentModal = showRecordPaymentModal;
+window.printProjectInvoice = printProjectInvoice;
