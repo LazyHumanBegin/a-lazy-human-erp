@@ -70,16 +70,25 @@ function updateAuthUI() {
         
         if (platformAdminNav) {
             platformAdminNav.classList.toggle('visible', isPlatformAdmin);
+            if (isPlatformAdmin) platformAdminNav.style.display = '';
         }
         if (userManagementNav) {
-            userManagementNav.style.display = (isPlatformAdmin || isBusinessAdmin) ? '' : 'none';
+            const showUserMgmt = isPlatformAdmin || isBusinessAdmin;
+            userManagementNav.classList.toggle('visible', showUserMgmt);
+            if (showUserMgmt) userManagementNav.style.display = '';
         }
         if (platformControlNav) {
             platformControlNav.classList.toggle('visible', isPlatformAdmin);
+            if (isPlatformAdmin) platformControlNav.style.display = '';
         }
+        // Always hide tenant selector - it's managed separately by multi-tenant module
         if (tenantSelector) {
-            tenantSelector.style.display = isPlatformAdmin ? '' : 'none';
+            tenantSelector.style.display = 'none';
         }
+        
+        // Show mobile menu button when logged in
+        const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+        if (mobileMenuBtn) mobileMenuBtn.style.display = '';
     } else {
         // User is not logged in
         if (authContainer) authContainer.style.display = '';

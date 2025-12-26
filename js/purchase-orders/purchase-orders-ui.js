@@ -83,7 +83,10 @@ function closePurchaseOrderModal() {
 }
 
 // ==================== PO ITEMS UI ====================
-let poItemCounter = 0;
+// poItemCounter is defined in purchase-orders-core.js - use window reference
+if (typeof poItemCounter === 'undefined') {
+    var poItemCounter = 0;
+}
 
 function addPOItem(item = null) {
     const container = document.getElementById('poItemsContainer');

@@ -146,7 +146,8 @@ function generatePONumber() {
 }
 
 // ==================== PO ITEMS MANAGEMENT ====================
-let poItemCounter = 0;
+var poItemCounter = 0;
+window.poItemCounter = poItemCounter; // Export for purchase-orders-ui.js
 
 function collectPOItems() {
     const rows = document.querySelectorAll('.po-item-row');

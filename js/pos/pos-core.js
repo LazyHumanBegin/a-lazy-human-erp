@@ -541,5 +541,7 @@ window.loadSales = loadSales;
 window.getSalesByBranch = getSalesByBranch;
 window.getSalesSummaryByBranch = getSalesSummaryByBranch;
 window.getBranchNameById = getBranchNameById;
+window.renderPOSProducts = renderPOSProducts;
+window.loadPOSCategories = loadPOSCategories;
 
 console.log('POS Core module loaded');

@@ -252,10 +252,27 @@ function initDetailedBalanceSheet() {
 
 // ==================== DOM CONTENT LOADED ====================
 document.addEventListener('DOMContentLoaded', function() {
-    // Wait for tenant data to load before initializing app
-    // User system loads at 0ms, tenant data loads with 200ms delay
-    // So we wait 300ms to ensure tenant data is ready
-    setTimeout(initializeApp, 300);
+    // Wait for user system to initialize first
+    // User system handles login check and shows login page if needed
+    // Only initialize app after user system is ready (500ms delay)
+    setTimeout(function() {
+        // Only initialize app if user is logged in or app container is visible
+        const appContainer = document.getElementById('appContainer');
+        const isAppVisible = appContainer && appContainer.style.display !== 'none';
+        
+        if (isAppVisible && window.currentUser) {
+            initializeApp();
+        } else {
+            console.log('⏳ App initialization deferred - waiting for login');
+            // Set up a watcher to initialize when user logs in
+            window._waitForLogin = setInterval(function() {
+                if (window.currentUser) {
+                    clearInterval(window._waitForLogin);
+                    initializeApp();
+                }
+            }, 500);
+        }
+    }, 400);
     
     const currentMonth = new Date().toISOString().slice(0, 7);
     const filterMonth = document.getElementById('filterMonth');

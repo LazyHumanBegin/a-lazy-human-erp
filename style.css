@@ -59,7 +59,7 @@ body {
     margin: 0 auto;
 }
 
-@media (min-width: 992px) {
+@media (min-width: 769px) {
     .app-container {
         grid-template-columns: 300px 1fr;
         height: 100vh;
@@ -69,8 +69,19 @@ body {
     .nav-panel {
         height: calc(100vh - 30px);
         overflow-y: auto;
-        position: sticky;
+        position: sticky !important;
         top: 15px;
+        left: 0 !important;
+        width: auto !important;
+        display: flex !important;
+    }
+    
+    .mobile-menu-btn {
+        display: none !important;
+    }
+    
+    .mobile-overlay {
+        display: none !important;
     }
     
     .main-content {

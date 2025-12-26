@@ -433,3 +433,25 @@ window.debugSyncFromLoginPage = async function() {
         alert('Error: ' + err.message);
     }
 };
+
+// ==================== AUTO-INITIALIZATION ====================
+// Initialize user system after ALL user modules are loaded
+// This ensures showLoginPage() and other functions are available
+(function() {
+    function doInit() {
+        if (typeof initializeUserSystem === 'function') {
+            initializeUserSystem();
+        } else {
+            console.error('initializeUserSystem not found - users-auth-core.js may not be loaded');
+        }
+    }
+    
+    // Use setTimeout(0) to ensure all window exports from other scripts are complete
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(doInit, 0);
+        });
+    } else {
+        setTimeout(doInit, 0);
+    }
+})();

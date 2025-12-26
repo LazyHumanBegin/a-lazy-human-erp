@@ -9,33 +9,66 @@ const SESSION_TIMEOUT_HOURS = 24;
 
 // ==================== INITIALIZATION ====================
 function initializeUserSystem() {
+    console.log('🔐 initializeUserSystem called');
     loadUsers();
     
     // Quick check - if no valid session, show login immediately (no flash)
-    const session = localStorage.getItem(CURRENT_USER_KEY);
-    const hasValidSession = session && JSON.parse(session).id;
+    const sessionKey = window.CURRENT_USER_KEY || 'ezcubic_current_user';
+    const session = localStorage.getItem(sessionKey);
+    
+    console.log('🔐 Session check:', { sessionKey, hasSession: !!session });
+    
+    let hasValidSession = false;
+    if (session && session !== 'undefined' && session !== 'null') {
+        try {
+            const parsed = JSON.parse(session);
+            hasValidSession = parsed && parsed.id;
+            console.log('🔐 Parsed session:', { id: parsed?.id, hasValidSession });
+        } catch (e) {
+            console.warn('🔐 Session parse error:', e.message);
+            localStorage.removeItem(sessionKey);
+        }
+    }
     
     if (!hasValidSession) {
         // No session - show login page immediately, hide app
+        console.log('🔐 No valid session - showing login page');
+        const appContainer = document.getElementById('appContainer');
+        if (appContainer) appContainer.style.display = 'none';
         showLoginPage();
         return;
     }
     
+    console.log('🔐 Valid session found - showing app');
     // Has session - show app container
     const appContainer = document.getElementById('appContainer');
     if (appContainer) appContainer.style.display = '';
     
-    // CLOUD SYNC: Try to sync users from cloud before checking session
+    // Show mobile menu immediately
+    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
+    if (mobileMenuBtn) mobileMenuBtn.style.display = '';
+    
+    // Hide tenant selector (should stay hidden)
+    const tenantSelector = document.getElementById('tenantSelector');
+    if (tenantSelector) tenantSelector.style.display = 'none';
+    
+    // Check session and update UI immediately
+    checkSession();
+    if (typeof updateAuthUI === 'function') {
+        updateAuthUI();
+    }
+    
+    // CLOUD SYNC: Try to sync users from cloud (background)
     // This ensures Phone B gets user01 created on Phone A
-    loadUsersFromCloud().then(() => {
+    // Use downloadUsersFromCloud (from users-cloud-core.js) or skip if not available
+    const cloudSyncFn = window.downloadUsersFromCloud || (async () => {});
+    cloudSyncFn().then(() => {
         // Reload users in case cloud had updates
         loadUsers();
         checkSession();
-        updateAuthUI();
+        if (typeof updateAuthUI === 'function') updateAuthUI();
     }).catch(() => {
-        // Fallback to local-only if cloud fails
-        checkSession();
-        updateAuthUI();
+        // Fallback - already handled above
     });
     
     // Start periodic session validation (every 30 seconds)
@@ -267,8 +300,10 @@ function checkSession() {
 
 // Main login function - tries cloud sync first for multi-device support
 function login(email, password) {
-    // Show loading state
-    const loginBtn = document.querySelector('#loginForm button[type="submit"], .login-form button[type="submit"]');
+    console.log('🔐 Login attempt for:', email);
+    
+    // Show loading state - check both loginPageForm (full page) and loginForm (modal)
+    const loginBtn = document.querySelector('#loginPageForm button[type="submit"], #loginForm button[type="submit"], .login-form button[type="submit"]');
     const originalBtnText = loginBtn ? loginBtn.innerHTML : '';
     if (loginBtn) {
         loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
@@ -279,7 +314,7 @@ function login(email, password) {
     tryLoginWithCloudSync(email, password).finally(() => {
         // Restore button state
         if (loginBtn) {
-            loginBtn.innerHTML = originalBtnText || '<i class="fas fa-sign-in-alt"></i> Login';
+            loginBtn.innerHTML = originalBtnText || '<i class="fas fa-sign-in-alt"></i> Sign In';
             loginBtn.disabled = false;
         }
     });
@@ -335,7 +370,9 @@ async function tryLoginWithCloudSync(email, password) {
     // First try to sync users from cloud (for multi-device login)
     try {
         console.log('☁️ Checking cloud for user updates before login...');
-        await loadUsersFromCloud();
+        if (typeof window.downloadUsersFromCloud === 'function') {
+            await window.downloadUsersFromCloud();
+        }
     } catch (err) {
         console.warn('⚠️ Cloud sync failed, using local data:', err);
     }
@@ -562,23 +599,35 @@ function logout() {
 
 // Helper function for resetting to empty data (placeholder - defined in data.js)
 function resetToEmptyData() {
-    if (typeof window.resetToEmptyData === 'function') {
-        window.resetToEmptyData();
-    }
+    // Placeholder - actual implementation may be in data module
+    console.log('resetToEmptyData called - clearing business data arrays');
+    window.transactions = [];
+    window.bills = [];
+    window.products = [];
+    window.customers = [];
+    window.stockMovements = [];
 }
 
-// Helper function for resetting window arrays only (placeholder)
+// Helper function for resetting window arrays only
 function resetWindowArraysOnly() {
-    if (typeof window.resetWindowArraysOnly === 'function') {
-        window.resetWindowArraysOnly();
-    }
+    // Reset all window-level data arrays
+    console.log('resetWindowArraysOnly called');
+    window.transactions = [];
+    window.bills = [];
+    window.products = [];
+    window.customers = [];
+    window.stockMovements = [];
+    window.sales = [];
+    window.purchaseOrders = [];
+    window.quotations = [];
+    window.invoices = [];
 }
 
 // Initialize empty tenant data (placeholder)
 function initializeEmptyTenantData(tenantId, userName) {
-    if (typeof window.initializeEmptyTenantData === 'function') {
-        window.initializeEmptyTenantData(tenantId, userName);
-    }
+    console.log('initializeEmptyTenantData called for:', tenantId);
+    // Initialize empty data structures for new tenant
+    resetWindowArraysOnly();
 }
 
 // ==================== WINDOW EXPORTS ====================
@@ -594,3 +643,6 @@ window.logout = logout;
 window.resetToEmptyData = resetToEmptyData;
 window.resetWindowArraysOnly = resetWindowArraysOnly;
 window.initializeEmptyTenantData = initializeEmptyTenantData;
+
+// NOTE: initializeUserSystem() is called from users-cloud-sync.js (last loaded users module)
+// to ensure all user functions (showLoginPage, etc.) are available

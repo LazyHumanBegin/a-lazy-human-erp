@@ -203,10 +203,16 @@ function initializeKPI() {
 function loadKPIData() {
     // Load templates
     const storedTemplates = localStorage.getItem(KPI_TEMPLATES_KEY);
-    if (storedTemplates) {
-        kpiTemplates = JSON.parse(storedTemplates);
-        // If templates array is empty, reinitialize with defaults
-        if (kpiTemplates.length === 0) {
+    if (storedTemplates && storedTemplates !== 'undefined' && storedTemplates !== 'null') {
+        try {
+            kpiTemplates = JSON.parse(storedTemplates);
+            // If templates array is empty, reinitialize with defaults
+            if (!Array.isArray(kpiTemplates) || kpiTemplates.length === 0) {
+                kpiTemplates = [...DEFAULT_KPI_TEMPLATES];
+                saveKPITemplates();
+            }
+        } catch (e) {
+            console.warn('KPI templates parse error, using defaults:', e.message);
             kpiTemplates = [...DEFAULT_KPI_TEMPLATES];
             saveKPITemplates();
         }
@@ -218,14 +224,26 @@ function loadKPIData() {
     
     // Load assignments
     const storedAssignments = localStorage.getItem(KPI_ASSIGNMENTS_KEY);
-    if (storedAssignments) {
-        kpiAssignments = JSON.parse(storedAssignments);
+    if (storedAssignments && storedAssignments !== 'undefined' && storedAssignments !== 'null') {
+        try {
+            kpiAssignments = JSON.parse(storedAssignments);
+            if (!Array.isArray(kpiAssignments)) kpiAssignments = [];
+        } catch (e) {
+            console.warn('KPI assignments parse error:', e.message);
+            kpiAssignments = [];
+        }
     }
     
     // Load scores
     const storedScores = localStorage.getItem(KPI_SCORES_KEY);
-    if (storedScores) {
-        kpiScores = JSON.parse(storedScores);
+    if (storedScores && storedScores !== 'undefined' && storedScores !== 'null') {
+        try {
+            kpiScores = JSON.parse(storedScores);
+            if (!Array.isArray(kpiScores)) kpiScores = [];
+        } catch (e) {
+            console.warn('KPI scores parse error:', e.message);
+            kpiScores = [];
+        }
     }
 }
 

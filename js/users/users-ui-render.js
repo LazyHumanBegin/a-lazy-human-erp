@@ -367,6 +367,170 @@ function removeViewOnlyMode() {
     });
 }
 
+// ==================== FREE REGISTRATION MODAL ====================
+function showFreeRegistrationModal() {
+    const existingModal = document.getElementById('freeRegisterModal');
+    if (existingModal) existingModal.remove();
+    
+    const modalHTML = `
+        <div class="modal show" id="freeRegisterModal" style="z-index: 9999;">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #10b981, #059669); color: white; text-align: center; padding: 25px;">
+                    <h3 style="margin: 0; font-size: 20px;">
+                        <i class="fas fa-gift" style="margin-right: 8px;"></i> Create Free Account
+                    </h3>
+                    <p style="margin: 8px 0 0; opacity: 0.9; font-size: 13px;">Start tracking your finances for free</p>
+                    <button class="modal-close" onclick="closeFreeRegisterModal()" style="position: absolute; top: 15px; right: 15px; background: none; border: none; color: white; font-size: 20px; cursor: pointer;">&times;</button>
+                </div>
+                <form id="freeRegisterForm" onsubmit="handleFreeRegistration(event)" style="padding: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">Full Name *</label>
+                        <input type="text" id="regName" class="form-control" required placeholder="Enter your full name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email *</label>
+                        <input type="email" id="regEmail" class="form-control" required placeholder="Enter your email">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password *</label>
+                        <input type="password" id="regPassword" class="form-control" required placeholder="Create a password" minlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm Password *</label>
+                        <input type="password" id="regPasswordConfirm" class="form-control" required placeholder="Confirm your password">
+                    </div>
+                    
+                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; margin: 15px 0;">
+                        <div style="font-weight: 600; color: #166534; margin-bottom: 8px;">
+                            <i class="fas fa-check-circle"></i> Personal Plan (Free)
+                        </div>
+                        <ul style="margin: 0; padding-left: 20px; font-size: 12px; color: #15803d;">
+                            <li>Dashboard & Overview</li>
+                            <li>Record Income & Expenses</li>
+                            <li>Transaction Management</li>
+                            <li>Financial Reports</li>
+                            <li>Tax Calculator</li>
+                            <li>AI Assistant</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; align-items: flex-start; gap: 8px;">
+                        <input type="checkbox" id="regAgree" required style="margin-top: 4px;">
+                        <label for="regAgree" style="font-size: 12px; color: #64748b; cursor: pointer;">
+                            I agree to the Terms of Service and Privacy Policy
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="btn-primary" style="width: 100%; padding: 12px; font-size: 14px;">
+                        <i class="fas fa-user-plus"></i> Create Free Account
+                    </button>
+                    
+                    <p style="text-align: center; margin-top: 15px; font-size: 13px; color: #64748b;">
+                        Already have an account? 
+                        <a href="#" onclick="closeFreeRegisterModal(); showLoginPage(); return false;" style="color: #2563eb; font-weight: 500;">Sign In</a>
+                    </p>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function closeFreeRegisterModal() {
+    const modal = document.getElementById('freeRegisterModal');
+    if (modal) modal.remove();
+}
+
+function handleFreeRegistration(event) {
+    event.preventDefault();
+    
+    const name = document.getElementById('regName').value.trim();
+    const email = document.getElementById('regEmail').value.trim();
+    const password = document.getElementById('regPassword').value;
+    const passwordConfirm = document.getElementById('regPasswordConfirm').value;
+    
+    // Validation
+    if (password !== passwordConfirm) {
+        showToast('Passwords do not match', 'error');
+        return;
+    }
+    
+    if (password.length < 6) {
+        showToast('Password must be at least 6 characters', 'error');
+        return;
+    }
+    
+    // Load users if needed
+    if (typeof loadUsers === 'function') loadUsers();
+    
+    // Check if email exists
+    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+        showToast('Email already registered. Please login instead.', 'error');
+        return;
+    }
+    
+    // Create a unique tenant for this user (isolated business data)
+    const tenantId = 'tenant_' + Date.now();
+    
+    // Create personal user
+    const newUser = {
+        id: 'user_' + Date.now(),
+        email: email,
+        password: password,
+        name: name,
+        role: 'personal',
+        plan: 'personal',
+        status: 'active',
+        permissions: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot', 'bills'],
+        tenantId: tenantId,
+        createdAt: new Date().toISOString(),
+        registeredVia: 'free_signup'
+    };
+    
+    users.push(newUser);
+    if (typeof saveUsers === 'function') saveUsers();
+    
+    // Initialize empty tenant data for this user
+    if (typeof initializeEmptyTenantData === 'function') {
+        initializeEmptyTenantData(tenantId, name);
+    }
+    
+    // Auto-login
+    currentUser = newUser;
+    window.currentUser = newUser;
+    localStorage.setItem('ezcubic_current_user', JSON.stringify(currentUser));
+    
+    closeFreeRegisterModal();
+    if (typeof hideLoginPage === 'function') hideLoginPage();
+    
+    // Remove guest mode
+    isGuestMode = false;
+    removeViewOnlyMode();
+    
+    // Load the user's empty tenant data
+    if (typeof loadCurrentTenantData === 'function') {
+        loadCurrentTenantData();
+    } else if (typeof resetToEmptyData === 'function') {
+        resetToEmptyData();
+    }
+    
+    // Update UI
+    if (typeof updateAuthUI === 'function') updateAuthUI();
+    
+    showToast(`Welcome ${name}! Your free account is ready.`, 'success');
+    
+    // Show dashboard
+    if (typeof showSection === 'function') {
+        showSection('dashboard');
+    }
+    
+    // Refresh dashboard
+    if (typeof updateDashboard === 'function') {
+        updateDashboard();
+    }
+}
+
 // ==================== GUEST PREVIEW MODE ====================
 function applyGuestPreviewMode() {
     isGuestMode = true;
@@ -421,5 +585,8 @@ window.verifyResetEmail = verifyResetEmail;
 window.executePasswordReset = executePasswordReset;
 window.toggleCompanyCodeSync = toggleCompanyCodeSync;
 window.removeViewOnlyMode = removeViewOnlyMode;
+window.showFreeRegistrationModal = showFreeRegistrationModal;
+window.closeFreeRegisterModal = closeFreeRegisterModal;
+window.handleFreeRegistration = handleFreeRegistration;
 window.applyGuestPreviewMode = applyGuestPreviewMode;
 window.checkGuestAccess = checkGuestAccess;

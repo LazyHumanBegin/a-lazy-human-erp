@@ -5,8 +5,10 @@
  */
 
 // ==================== CONSTANTS ====================
-const PRODUCTS_KEY = 'ezcubic_inventory';
-const STOCK_MOVEMENTS_KEY = 'ezcubic_stock_movements';
+// Use INVENTORY_KEY to avoid conflict with PRODUCTS_KEY in core.js
+const INVENTORY_KEY = 'ezcubic_inventory';
+// STOCK_MOVEMENTS_KEY is already defined in core.js - reuse it
+// const STOCK_MOVEMENTS_KEY = 'ezcubic_stock_movements';
 
 // ==================== INITIALIZATION ====================
 function initializeInventory() {
@@ -62,7 +64,7 @@ function loadProducts() {
         console.log('✅ Products loaded from window:', products.length);
     } else {
         // PRIORITY 3: Load from localStorage
-        const stored = localStorage.getItem(PRODUCTS_KEY);
+        const stored = localStorage.getItem(INVENTORY_KEY);
         if (stored) {
             const parsed = JSON.parse(stored);
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -84,7 +86,7 @@ function loadProducts() {
 function saveProducts() {
     console.log('💾 saveProducts called, products:', products.length);
     
-    localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+    localStorage.setItem(INVENTORY_KEY, JSON.stringify(products));
     updateInventoryStats();
     updateLowStockBadge();
     
