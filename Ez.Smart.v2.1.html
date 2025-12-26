@@ -221,6 +221,9 @@
                     <i class="fas fa-clipboard-list"></i> Orders
                     <span class="nav-badge" id="pendingOrdersBadge" style="display: none;">0</span>
                 </button>
+                <button class="nav-btn" onclick="showSection('bom')">
+                    <i class="fas fa-sitemap"></i> Bill of Materials
+                </button>
                 </div>
                 
                 <!-- Purchasing -->
@@ -900,6 +903,26 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ==================== BOM (BILL OF MATERIALS) SECTION ==================== -->
+            <div id="bom" class="content-section">
+                <div class="content-card full-width" id="bomContainer">
+                    <!-- BOM content will be rendered by showBOMSection() -->
+                    <div class="bom-section">
+                        <div class="section-header">
+                            <h2><i class="fas fa-sitemap"></i> Bill of Materials (BOM)</h2>
+                            <button class="btn-primary" onclick="showCreateBOMModal()">
+                                <i class="fas fa-plus"></i> New BOM
+                            </button>
+                        </div>
+                        <div class="empty-state" style="padding: 60px;">
+                            <i class="fas fa-sitemap" style="font-size: 48px; color: #cbd5e1;"></i>
+                            <h3 style="margin-top: 15px; color: #64748b;">Bill of Materials</h3>
+                            <p style="color: #94a3b8;">Create BOMs to track components for assembled products, manufacturing recipes, or kits.</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -6492,7 +6515,7 @@
         <i class="fas fa-keyboard"></i> <kbd>Ctrl</kbd>+<kbd>I</kbd> Income | <kbd>Ctrl</kbd>+<kbd>E</kbd> Expense
     </div>
 
-    <!-- Modular JavaScript Files - v2.1.5 -->
+    <!-- Modular JavaScript Files - v2.2.3 (Notifications + BOM) -->
     <script src="js/core.js?v=9999999999"></script>
     <script src="js/data.js?v=1766660010"></script>
     <script src="js/ui.js?v=9999999999"></script>
@@ -6563,6 +6586,10 @@
     
     <!-- Audit Log (System Tracking) -->
     <script src="js/audit-log.js?v=9999999999"></script>
+    
+    <!-- Notifications & BOM - v2.2.3 -->
+    <script src="js/notifications.js?v=1767000001"></script>
+    <script src="js/bom.js?v=1767000001"></script>
     
     <script src="js/app.js?v=9999999999"></script>
     

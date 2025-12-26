@@ -68,6 +68,8 @@ function showSection(sectionId) {
         if (typeof renderStockMovements === 'function') renderStockMovements();
     } else if (sectionId === 'orders') {
         if (typeof initializeOrders === 'function') initializeOrders();
+    } else if (sectionId === 'bom') {
+        if (typeof showBOMSection === 'function') showBOMSection();
     } else if (sectionId === 'invoices') {
         if (typeof initializeInvoices === 'function') initializeInvoices();
     }

@@ -168,6 +168,16 @@ function initializePhase2Modules() {
             initializeAuditLog();
         }
         
+        // Initialize Notifications System
+        if (typeof initializeNotifications === 'function') {
+            initializeNotifications();
+        }
+        
+        // Initialize BOM (Bill of Materials)
+        if (typeof initializeBOM === 'function') {
+            initializeBOM();
+        }
+        
         // Process recurring bills - auto-generate upcoming bills
         if (typeof processRecurringBills === 'function') {
             const generated = processRecurringBills();
