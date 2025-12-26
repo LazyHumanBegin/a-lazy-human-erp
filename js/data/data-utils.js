@@ -1,13 +1,13 @@
 /**
  * EZCubic Smart Accounting - Data Utils Module
  * Version management, import/export utilities, CSV parsing, reset functions
- * Split from data.js for v2.3.1, Updated v2.3.2
+ * Split from data.js for v2.3.1, Updated v2.3.3
  */
 
 // ==================== APP VERSION ====================
 // Single source of truth for version number
 // Update this when releasing new versions
-const APP_VERSION = '2.3.2';
+const APP_VERSION = '2.3.3';
 window.APP_VERSION = APP_VERSION;
 
 // Update version display in UI
