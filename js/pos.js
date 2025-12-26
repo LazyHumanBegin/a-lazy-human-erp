@@ -293,6 +293,11 @@ function filterPOSProducts(term) {
     renderPOSProducts(term);
 }
 
+// Alias for outlet filtering
+function filterProductsByOutlet(outlet) {
+    renderPOSProducts();
+}
+
 function filterPOSByOutlet(outlet) {
     renderPOSProducts();
 }
@@ -1590,9 +1595,10 @@ function loadPOSBranchSelector() {
     const posOutletFilter = document.getElementById('posOutletFilter');
     if (!posOutletFilter) return;
     
-    // Get branches from window or local scope
-    const branchList = window.branches || (typeof branches !== 'undefined' ? branches : []);
-    let activeBranches = branchList.filter(b => b.status === 'active');
+    // Get branches from window or local scope - ensure it's an array
+    let branchList = window.branches || (typeof branches !== 'undefined' ? branches : []);
+    if (!Array.isArray(branchList)) branchList = [];
+    let activeBranches = branchList.filter(b => b && b.status === 'active');
     
     // Always ensure at least HQ exists for single-branch plans
     if (activeBranches.length === 0) {

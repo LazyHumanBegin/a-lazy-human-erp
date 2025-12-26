@@ -1219,8 +1219,7 @@ window.generateSKU = generateSKU;
 window.updateCombinedSKU = updateCombinedSKU;
 window.previewProductImage = previewProductImage;
 window.clearProductImage = clearProductImage;
-window.showOutletModal = showOutletModal;
-window.saveOutlet = saveOutlet;
+// showOutletModal is defined in app.js
 window.loadOutletCheckboxes = loadOutletCheckboxes;
 window.calculateProfitMargin = calculateProfitMargin;
 window.suggestCostFromPrice = suggestCostFromPrice;

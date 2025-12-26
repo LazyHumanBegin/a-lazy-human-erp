@@ -74,6 +74,11 @@ function saveCustomers() {
 }
 
 // ==================== CUSTOMER MODAL ====================
+// Alias for showCustomerDetail - shows customer in view/edit mode
+function showCustomerDetail(customerId) {
+    showCustomerModal(customerId);
+}
+
 function showCustomerModal(customerId = null) {
     // Check customer limit for new customers
     if (!customerId && typeof canAdd === 'function' && !canAdd('customers')) {
@@ -88,11 +93,6 @@ function showCustomerModal(customerId = null) {
         console.error('Customer modal or form not found');
         return;
     }
-
-// Alias for showCustomerDetail - shows customer in view/edit mode
-function showCustomerDetail(customerId) {
-    showCustomerModal(customerId);
-}
     
     form.reset();
     document.getElementById('customerId').value = '';

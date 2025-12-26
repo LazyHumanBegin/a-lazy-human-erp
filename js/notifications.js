@@ -136,20 +136,30 @@ function renderNotificationBell() {
     let bellContainer = document.getElementById('notificationBellContainer');
     
     if (!bellContainer) {
-        // Find the header actions area
-        const headerActions = document.querySelector('.header-actions');
-        if (headerActions) {
+        // Find the top bar actions area (main header)
+        const topBarActions = document.querySelector('.top-bar-actions');
+        if (topBarActions) {
             bellContainer = document.createElement('div');
             bellContainer.id = 'notificationBellContainer';
             bellContainer.className = 'notification-bell-container';
+            bellContainer.style.cssText = 'position: relative; display: inline-flex;';
             bellContainer.innerHTML = `
                 <button class="btn-icon notification-bell" onclick="toggleNotificationPanel()" title="Notifications">
                     <i class="fas fa-bell"></i>
                     <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
                 </button>
             `;
-            // Insert before the first button
-            headerActions.insertBefore(bellContainer, headerActions.firstChild);
+            // Insert after dark mode toggle (3rd position)
+            const darkModeBtn = topBarActions.querySelector('[onclick*="toggleDarkMode"]');
+            if (darkModeBtn && darkModeBtn.nextSibling) {
+                topBarActions.insertBefore(bellContainer, darkModeBtn.nextSibling);
+            } else {
+                // Fallback: insert at the beginning
+                topBarActions.insertBefore(bellContainer, topBarActions.firstChild);
+            }
+            console.log('✅ Notification bell added to header');
+        } else {
+            console.warn('⚠️ Could not find .top-bar-actions for notification bell');
         }
     }
     

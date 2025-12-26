@@ -319,11 +319,11 @@ function showCreateBOMModal() {
     const products = window.products || [];
     
     const modalHTML = `
-        <div class="modal show" id="bomModal" style="z-index: 10001;">
+        <div class="modal show" id="bomModal" data-dynamic="true" style="z-index: 10001;">
             <div class="modal-content" style="max-width: 700px;">
                 <div class="modal-header">
                     <h3><i class="fas fa-sitemap"></i> Create Bill of Materials</h3>
-                    <button class="modal-close" onclick="closeModal('bomModal')">&times;</button>
+                    <button class="modal-close" onclick="closeBOMModal()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <form id="bomForm">
@@ -398,7 +398,7 @@ function showCreateBOMModal() {
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn-secondary" onclick="closeModal('bomModal')">Cancel</button>
+                    <button class="btn-secondary" onclick="closeBOMModal()">Cancel</button>
                     <button class="btn-primary" onclick="saveBOMFromModal()">
                         <i class="fas fa-save"></i> Save BOM
                     </button>
@@ -407,7 +407,20 @@ function showCreateBOMModal() {
         </div>
     `;
     
+    // Remove any existing BOM modal first
+    const existingModal = document.getElementById('bomModal');
+    if (existingModal) existingModal.remove();
+    
     document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+// Close BOM modal - removes the dynamically created modal
+function closeBOMModal() {
+    const modal = document.getElementById('bomModal');
+    if (modal) {
+        modal.classList.remove('show');
+        modal.remove();
+    }
 }
 
 function addBOMComponent() {
@@ -471,7 +484,7 @@ function saveBOMFromModal() {
     };
     
     createBOM(bomData);
-    closeModal('bomModal');
+    closeBOMModal();
     
     // Refresh if on BOM section
     if (document.querySelector('.bom-section')) {
@@ -511,7 +524,7 @@ function showEditBOMModal(bomId) {
         // Update save button to update instead
         const modalFooter = document.querySelector('#bomModal .modal-footer');
         modalFooter.innerHTML = `
-            <button class="btn-secondary" onclick="closeModal('bomModal')">Cancel</button>
+            <button class="btn-secondary" onclick="closeBOMModal()">Cancel</button>
             <button class="btn-primary" onclick="updateBOMFromModal('${bomId}')">
                 <i class="fas fa-save"></i> Update BOM
             </button>
@@ -557,7 +570,7 @@ function updateBOMFromModal(bomId) {
     };
     
     updateBOM(bomId, bomData);
-    closeModal('bomModal');
+    closeBOMModal();
     
     if (document.querySelector('.bom-section')) {
         showBOMSection();
@@ -785,6 +798,7 @@ window.checkBOMAvailability = checkBOMAvailability;
 window.produceBOM = produceBOM;
 window.showBOMSection = showBOMSection;
 window.showCreateBOMModal = showCreateBOMModal;
+window.closeBOMModal = closeBOMModal;
 window.addBOMComponent = addBOMComponent;
 window.saveBOMFromModal = saveBOMFromModal;
 window.showEditBOMModal = showEditBOMModal;
