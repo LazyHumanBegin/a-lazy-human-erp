@@ -6492,13 +6492,15 @@
         <i class="fas fa-keyboard"></i> <kbd>Ctrl</kbd>+<kbd>I</kbd> Income | <kbd>Ctrl</kbd>+<kbd>E</kbd> Expense
     </div>
 
-    <!-- Modular JavaScript Files - v2.3.1 (Batch Split: 6 files into 12 modules) -->
+    <!-- Modular JavaScript Files - v2.3.2 (Batch Split: 12 files into 24 modules) -->
     <script src="js/core.js?v=9999999999"></script>
     <!-- Data Module (Split v2.3.1) -->
     <script src="js/data/data-utils.js?v=9999999999"></script>
     <script src="js/data/data-storage.js?v=9999999999"></script>
     <script src="js/ui.js?v=9999999999"></script>
-    <script src="js/transactions.js?v=9999999999"></script>
+    <!-- Transactions Module (Split v2.3.2) -->
+    <script src="js/transactions/transactions-core.js?v=9999999999"></script>
+    <script src="js/transactions/transactions-ui.js?v=9999999999"></script>
     <script src="js/dashboard.js?v=9999999999"></script>
     <script src="js/bills.js?v=9999999999"></script>
     <script src="js/charts.js?v=9999999999"></script>
@@ -6525,7 +6527,9 @@
     <!-- Journal Entries Module (Split v2.3.0) -->
     <script src="js/journal-entries/journal-entries-core.js?v=9999999999"></script>
     <script src="js/journal-entries/journal-entries-ui.js?v=9999999999"></script>
-    <script src="js/aging-reports.js?v=9999999999"></script>
+    <!-- Aging Reports Module (Split v2.3.2) -->
+    <script src="js/aging-reports/aging-reports-core.js?v=9999999999"></script>
+    <script src="js/aging-reports/aging-reports-ui.js?v=9999999999"></script>
     
     <!-- Phase 2: Operational Core -->
     <!-- Inventory Module (Split v2.3.0) -->
@@ -6541,7 +6545,9 @@
     <script src="js/pos/pos-receipt.js?v=9999999999"></script>
     <script src="js/orders.js?v=9999999999"></script>
     <script src="js/customers.js?v=9999999999"></script>
-    <script src="js/crm.js?v=9999999999"></script>
+    <!-- CRM Module (Split v2.3.2) -->
+    <script src="js/crm/crm-core.js?v=9999999999"></script>
+    <script src="js/crm/crm-ui.js?v=9999999999"></script>
     <!-- Suppliers Module (Split v2.3.0) -->
     <script src="js/suppliers/suppliers-core.js?v=9999999999"></script>
     <script src="js/suppliers/suppliers-ui.js?v=9999999999"></script>
@@ -6559,7 +6565,9 @@
     <!-- Payroll Module -->
     <script src="js/payroll/payroll-core.js?v=9999999999"></script>
     <script src="js/payroll/payroll-calculations.js?v=9999999999"></script>
-    <script src="js/payroll/payroll-ui.js?v=9999999999"></script>
+    <!-- Payroll UI Module (Split v2.3.2) -->
+    <script src="js/payroll/payroll-ui-employee.js?v=9999999999"></script>
+    <script src="js/payroll/payroll-ui-payroll.js?v=9999999999"></script>
     <!-- KPI Module -->
     <script src="js/kpi/kpi-core.js?v=9999999999"></script>
     <script src="js/kpi/kpi-templates.js?v=9999999999"></script>
@@ -6577,7 +6585,9 @@
     <!-- Purchase Orders Module (Split v2.3.0) -->
     <script src="js/purchase-orders/purchase-orders-core.js?v=9999999999"></script>
     <script src="js/purchase-orders/purchase-orders-ui.js?v=9999999999"></script>
-    <script src="js/delivery-orders.js?v=9999999999"></script>
+    <!-- Delivery Orders Module (Split v2.3.2) -->
+    <script src="js/delivery-orders/delivery-orders-core.js?v=9999999999"></script>
+    <script src="js/delivery-orders/delivery-orders-ui.js?v=9999999999"></script>
     <!-- e-Invoice Module (Split v2.2.7) -->
     <script src="js/e-invoice/e-invoice-core.js?v=9999999999"></script>
     <script src="js/e-invoice/e-invoice-api.js?v=9999999999"></script>
@@ -6589,9 +6599,11 @@
     <!-- Excel Export -->
     <script src="js/excel-export.js?v=9999999999"></script>
     
-    <!-- Add-ons Module (Split v2.2.7) -->
-    <script src="js/addons/addons-core.js?v=9999999999"></script>
-    <script src="js/addons/addons-reports.js?v=9999999999"></script>
+    <!-- Add-ons Module (Split v2.3.2) -->
+    <script src="js/addons/addons-data.js?v=9999999999"></script>
+    <script src="js/addons/addons-features.js?v=9999999999"></script>
+    <script src="js/addons/addons-reports-email.js?v=9999999999"></script>
+    <script src="js/addons/addons-reports-pdf.js?v=9999999999"></script>
     
     <!-- Bank Reconciliation Module (Split v2.3.1) -->
     <script src="js/bank-reconciliation/bank-recon-core.js?v=9999999999"></script>
@@ -6609,21 +6621,31 @@
     <script src="js/branches/branches-ui.js?v=9999999999"></script>
     
     <!-- Phase 6: Multi-Tenant & User Management -->
-    <script src="js/multi-tenant.js?v=9999999999"></script>
+    <!-- Multi-Tenant Module (Split v2.3.2) -->
+    <script src="js/multi-tenant/multi-tenant-core.js?v=9999999999"></script>
+    <script src="js/multi-tenant/multi-tenant-ui.js?v=9999999999"></script>
     
     <!-- Users Module (Split v2.2.5) -->
     <script src="js/users/users-core.js?v=9999999999"></script>
-    <script src="js/users/users-auth.js?v=9999999999"></script>
+    <!-- Users Auth Module (Split v2.3.2) -->
+    <script src="js/users/users-auth-core.js?v=9999999999"></script>
+    <script src="js/users/users-auth-session.js?v=9999999999"></script>
     <script src="js/users/users-permissions.js?v=9999999999"></script>
     <script src="js/users/users-ui.js?v=9999999999"></script>
-    <script src="js/users/users-management.js?v=9999999999"></script>
+    <!-- Users Management Module (Split v2.3.2) -->
+    <script src="js/users/users-management-core.js?v=9999999999"></script>
+    <script src="js/users/users-management-ui.js?v=9999999999"></script>
     <script src="js/users/users-cloud.js?v=9999999999"></script>
     
     <!-- Platform Control Module (Split v2.2.6) -->
     <script src="js/platform-control/platform-core.js?v=9999999999"></script>
     <script src="js/platform-control/platform-plans.js?v=9999999999"></script>
-    <script src="js/platform-control/platform-ui.js?v=9999999999"></script>
-    <script src="js/platform-control/platform-ui-advanced.js?v=9999999999"></script>
+    <!-- Platform UI Module (Split v2.3.2) -->
+    <script src="js/platform-control/platform-ui-registration.js?v=9999999999"></script>
+    <script src="js/platform-control/platform-ui-control.js?v=9999999999"></script>
+    <!-- Platform Advanced Module (Split v2.3.2) -->
+    <script src="js/platform-control/platform-advanced-plans.js?v=9999999999"></script>
+    <script src="js/platform-control/platform-advanced-access.js?v=9999999999"></script>
     
     <!-- Cloud Database (Supabase) -->
     <script src="js/supabase.js?v=9999999999"></script>

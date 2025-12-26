@@ -1,161 +1,16 @@
 /**
- * EZCubic - Multi-Tenant Data Management System
- * Isolates data per business/user with Founder oversight
- * Version: 1.0.0 - 17 Dec 2025
+ * EZCubic - Multi-Tenant UI and Data Bridge
+ * Split from multi-tenant.js v2.3.2
+ * 
+ * UI components and data bridge functions connecting tenant data to global businessData
+ * Version: 1.0.0 - 26 Dec 2025
  */
-
-// ==================== TENANT STORAGE ====================
-const TENANTS_KEY = 'ezcubic_tenants';
-const TENANT_DATA_PREFIX = 'ezcubic_tenant_';
-
-// Current active tenant
-let currentTenantId = null;
-
-// ==================== TENANT STRUCTURE ====================
-// Each tenant (business) has its own isolated data
-function createTenantDataStructure() {
-    return {
-        transactions: [],
-        bills: [],
-        products: [],
-        customers: [],
-        stockMovements: [],
-        sales: [],
-        suppliers: [],
-        quotations: [],
-        projects: [],
-        employees: [],
-        branches: [],
-        purchaseOrders: [],
-        settings: {
-            businessName: "",
-            currency: "MYR",
-            ssmNumber: "",
-            tinNumber: "",
-            gstNumber: "",
-            defaultTaxRate: 0,
-            lowStockThreshold: 10
-        },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    };
-}
-
-// ==================== TENANT MANAGEMENT ====================
-function getTenants() {
-    const stored = localStorage.getItem(TENANTS_KEY);
-    return stored ? JSON.parse(stored) : {};
-}
-
-function saveTenants(tenants) {
-    localStorage.setItem(TENANTS_KEY, JSON.stringify(tenants));
-}
-
-// Generate Company Code for sync
-function generateCompanyCode() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 4; i++) {
-        code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return code + '-' + Date.now().toString(36).toUpperCase().slice(-4);
-}
-
-function createTenant(userId, businessName) {
-    const tenants = getTenants();
-    const tenantId = 'tenant_' + Date.now();
-    const companyCode = generateCompanyCode();
-    
-    tenants[tenantId] = {
-        id: tenantId,
-        ownerId: userId,
-        businessName: businessName || 'New Business',
-        companyCode: companyCode, // Auto-generate Company Code
-        createdAt: new Date().toISOString(),
-        status: 'active'
-    };
-    
-    saveTenants(tenants);
-    
-    // Create empty data structure for this tenant
-    const tenantData = createTenantDataStructure();
-    tenantData.settings.businessName = businessName || 'New Business';
-    saveTenantData(tenantId, tenantData);
-    
-    console.log('🏢 Created tenant:', tenantId, 'Company Code:', companyCode);
-    
-    // AUTO-SYNC to cloud (non-blocking)
-    autoSyncToCloud();
-    
-    return tenantId;
-}
-
-// Auto-sync users and tenants to cloud
-async function autoSyncToCloud() {
-    try {
-        // Use shared client from users.js if available
-        const client = typeof getUsersSupabaseClient === 'function' ? getUsersSupabaseClient() : null;
-        if (!client) {
-            console.warn('⚠️ Supabase not ready, will sync later');
-            return;
-        }
-        
-        // Sync users
-        const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
-        if (users.length > 0) {
-            await client.from('tenant_data').upsert({
-                tenant_id: 'global',
-                data_key: 'ezcubic_users',
-                data: { key: 'ezcubic_users', value: users, synced_at: new Date().toISOString() },
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'tenant_id,data_key' });
-        }
-        
-        // Sync tenants
-        const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
-        if (Object.keys(tenants).length > 0) {
-            await client.from('tenant_data').upsert({
-                tenant_id: 'global',
-                data_key: 'ezcubic_tenants',
-                data: { key: 'ezcubic_tenants', value: tenants, synced_at: new Date().toISOString() },
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'tenant_id,data_key' });
-        }
-        
-        console.log('☁️ Auto-synced to cloud');
-    } catch (err) {
-        console.warn('⚠️ Auto-sync failed:', err.message);
-    }
-}
-
-// Export auto-sync for other modules
-window.autoSyncToCloud = autoSyncToCloud;
-
-function getTenantInfo(tenantId) {
-    const tenants = getTenants();
-    return tenants[tenantId] || null;
-}
-
-// ==================== TENANT DATA ACCESS ====================
-function getTenantDataKey(tenantId) {
-    return TENANT_DATA_PREFIX + tenantId;
-}
-
-function loadTenantData(tenantId) {
-    if (!tenantId) return null;
-    const stored = localStorage.getItem(getTenantDataKey(tenantId));
-    return stored ? JSON.parse(stored) : createTenantDataStructure();
-}
-
-function saveTenantData(tenantId, data) {
-    if (!tenantId) return;
-    data.updatedAt = new Date().toISOString();
-    localStorage.setItem(getTenantDataKey(tenantId), JSON.stringify(data));
-}
 
 // ==================== CURRENT USER TENANT ====================
 function getCurrentTenantId() {
     if (!window.currentUser) return null;
+    
+    const currentTenantId = window.getCurrentTenantIdValue ? window.getCurrentTenantIdValue() : null;
     
     // Founder - use their own tenant by default, or selected tenant for viewing others
     if (window.currentUser.role === 'founder') {
@@ -181,7 +36,9 @@ function getCurrentTenantId() {
 }
 
 function setCurrentTenant(tenantId) {
-    currentTenantId = tenantId;
+    if (window.setCurrentTenantIdValue) {
+        window.setCurrentTenantIdValue(tenantId);
+    }
     localStorage.setItem('ezcubic_selected_tenant', tenantId || '');
     
     // Reload data for this tenant
@@ -194,6 +51,44 @@ function setCurrentTenant(tenantId) {
     if (typeof updateDashboard === 'function') {
         updateDashboard();
     }
+}
+
+// ==================== TENANT SELECTOR UI ====================
+function updateTenantSelector() {
+    const container = document.getElementById('tenantSelectorContainer');
+    if (!container) return;
+    
+    if (!window.currentUser || !['founder', 'erp_assistant'].includes(window.currentUser.role)) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'block';
+    
+    const tenants = getTenants();
+    const tenantList = Object.values(tenants);
+    const currentTenantId = window.getCurrentTenantIdValue ? window.getCurrentTenantIdValue() : null;
+    
+    container.innerHTML = `
+        <div class="tenant-selector">
+            <label style="font-size: 12px; color: #64748b; margin-right: 8px;">
+                <i class="fas fa-building"></i> Viewing:
+            </label>
+            <select id="tenantSelect" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;" onchange="handleTenantChange(this.value)">
+                <option value="">All Businesses (Overview)</option>
+                ${tenantList.map(t => `
+                    <option value="${t.id}" ${currentTenantId === t.id ? 'selected' : ''}>
+                        ${escapeHtml(t.businessName)}
+                    </option>
+                `).join('')}
+            </select>
+        </div>
+    `;
+}
+
+function handleTenantChange(tenantId) {
+    setCurrentTenant(tenantId || null);
+    showToast(tenantId ? 'Switched to: ' + getTenantInfo(tenantId)?.businessName : 'Viewing all businesses', 'info');
 }
 
 // ==================== DATA BRIDGE ====================
@@ -250,6 +145,11 @@ function saveCurrentTenantData() {
     saveTenantData(tenantId, tenantData);
 }
 
+// Save to user's tenant (alias for saveCurrentTenantData)
+function saveToUserTenant() {
+    saveCurrentTenantData();
+}
+
 // ==================== USER-TENANT ASSIGNMENT ====================
 function assignUserToTenant(userId, tenantId) {
     // Reload users
@@ -267,43 +167,6 @@ function assignUserToTenant(userId, tenantId) {
 function getUserTenant(userId) {
     const user = window.users?.find(u => u.id === userId);
     return user?.tenantId || null;
-}
-
-// ==================== TENANT SELECTOR UI ====================
-function updateTenantSelector() {
-    const container = document.getElementById('tenantSelectorContainer');
-    if (!container) return;
-    
-    if (!window.currentUser || !['founder', 'erp_assistant'].includes(window.currentUser.role)) {
-        container.style.display = 'none';
-        return;
-    }
-    
-    container.style.display = 'block';
-    
-    const tenants = getTenants();
-    const tenantList = Object.values(tenants);
-    
-    container.innerHTML = `
-        <div class="tenant-selector">
-            <label style="font-size: 12px; color: #64748b; margin-right: 8px;">
-                <i class="fas fa-building"></i> Viewing:
-            </label>
-            <select id="tenantSelect" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;" onchange="handleTenantChange(this.value)">
-                <option value="">All Businesses (Overview)</option>
-                ${tenantList.map(t => `
-                    <option value="${t.id}" ${currentTenantId === t.id ? 'selected' : ''}>
-                        ${escapeHtml(t.businessName)}
-                    </option>
-                `).join('')}
-            </select>
-        </div>
-    `;
-}
-
-function handleTenantChange(tenantId) {
-    setCurrentTenant(tenantId || null);
-    showToast(tenantId ? 'Switched to: ' + getTenantInfo(tenantId)?.businessName : 'Viewing all businesses', 'info');
 }
 
 // ==================== FOUNDER DASHBOARD ====================
@@ -679,8 +542,8 @@ function initializeMultiTenant() {
     // Only restore if user is already logged in AND is not a founder
     if (window.currentUser && window.currentUser.role !== 'founder') {
         const savedTenant = localStorage.getItem('ezcubic_selected_tenant');
-        if (savedTenant) {
-            currentTenantId = savedTenant;
+        if (savedTenant && window.setCurrentTenantIdValue) {
+            window.setCurrentTenantIdValue(savedTenant);
         }
         loadCurrentTenantData();
     }
@@ -689,7 +552,9 @@ function initializeMultiTenant() {
 
 // Clear tenant selection (used on logout or founder login)
 function clearTenantSelection() {
-    currentTenantId = null;
+    if (window.setCurrentTenantIdValue) {
+        window.setCurrentTenantIdValue(null);
+    }
     localStorage.removeItem('ezcubic_selected_tenant');
 }
 
@@ -727,9 +592,6 @@ function scheduleAutoCloudSync() {
     }, AUTO_SYNC_DELAY);
 }
 
-// Expose for manual trigger if needed
-window.scheduleAutoCloudSync = scheduleAutoCloudSync;
-
 // ==================== OVERRIDE SAVE DATA ====================
 // Hook into the existing saveData function to also save tenant data
 const originalSaveData = window.saveData;
@@ -747,27 +609,29 @@ window.saveData = function() {
 };
 
 // ==================== EXPORTS ====================
-window.getTenants = getTenants;
-window.createTenant = createTenant;
-window.getTenantInfo = getTenantInfo;
-window.loadTenantData = loadTenantData;
-window.saveTenantData = saveTenantData;
 window.getCurrentTenantId = getCurrentTenantId;
 window.setCurrentTenant = setCurrentTenant;
-window.clearTenantSelection = clearTenantSelection;
-window.loadCurrentTenantData = loadCurrentTenantData;
-window.saveCurrentTenantData = saveCurrentTenantData;
-window.assignUserToTenant = assignUserToTenant;
 window.updateTenantSelector = updateTenantSelector;
 window.handleTenantChange = handleTenantChange;
+window.loadCurrentTenantData = loadCurrentTenantData;
+window.saveCurrentTenantData = saveCurrentTenantData;
+window.saveToUserTenant = saveToUserTenant;
+window.assignUserToTenant = assignUserToTenant;
+window.getUserTenant = getUserTenant;
 window.renderFounderDashboard = renderFounderDashboard;
+window.renderRecentSessions = renderRecentSessions;
 window.showCreateBusinessModal = showCreateBusinessModal;
 window.createNewBusiness = createNewBusiness;
 window.viewBusiness = viewBusiness;
 window.editBusiness = editBusiness;
 window.updateBusiness = updateBusiness;
+window.formatNumber = formatNumber;
+window.formatDate = formatDate;
+window.formatDateTime = formatDateTime;
+window.getBusinessColor = getBusinessColor;
 window.initializeMultiTenant = initializeMultiTenant;
-window.currentTenantId = currentTenantId;
+window.clearTenantSelection = clearTenantSelection;
+window.scheduleAutoCloudSync = scheduleAutoCloudSync;
 
 // Initialize when DOM ready
 if (document.readyState === 'loading') {
