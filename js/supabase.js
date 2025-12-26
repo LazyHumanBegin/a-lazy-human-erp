@@ -6,15 +6,11 @@
 const SUPABASE_URL = 'https://tctpmizdcksdxngtozwe.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300';
 
-// Initialize Supabase client - SINGLETON (use window to ensure only one instance)
-// This prevents "Multiple GoTrueClient instances" warning
-if (!window._supabaseClientInstance) {
-    window._supabaseClientInstance = null;
-}
+// Initialize Supabase client (renamed to avoid conflict with CDN's window.supabase)
+let _supabaseClient = null;
 
 function initSupabase() {
-    // Check window-level singleton first
-    if (window._supabaseClientInstance) return true;
+    if (_supabaseClient) return true; // Already initialized
     
     // The CDN version exposes supabase.createClient directly
     // Try all possible ways the SDK might be exposed
@@ -37,7 +33,7 @@ function initSupabase() {
     }
     
     try {
-        window._supabaseClientInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         console.log('🐱 Supabase initialized successfully');
         return true;
     } catch (err) {
@@ -48,22 +44,19 @@ function initSupabase() {
 
 // Get Supabase client instance
 function getSupabase() {
-    if (!window._supabaseClientInstance) {
+    if (!_supabaseClient) {
         initSupabase();
     }
-    return window._supabaseClientInstance;
+    return _supabaseClient;
 }
 
-// Auto-initialize on load (only once)
-if (!window._supabaseInitialized) {
-    window._supabaseInitialized = true;
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initSupabase, 100);
-        });
-    } else {
+// Auto-initialize on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
         setTimeout(initSupabase, 100);
-    }
+    });
+} else {
+    setTimeout(initSupabase, 100);
 }
 
 // ============================================
@@ -179,26 +172,15 @@ async function supabaseResetPassword(email) {
 // Create or update tenant data
 async function saveTenantData(tenantId, tableName, data) {
     try {
-        // Handle different call signatures
-        // Can be called as saveTenantData(tenantId, tableName, data) or saveTenantData(tenantId, data)
-        let actualData = data;
-        let actualTableName = tableName;
-        
-        // If tableName is an object, it means we received (tenantId, data) format
-        if (typeof tableName === 'object' && tableName !== null) {
-            actualData = tableName;
-            actualTableName = 'tenant_data'; // default table
-        }
-        
-        // Extract data_key from data object for proper upsert, with safe fallback
-        const dataKey = (actualData && actualData.key) ? actualData.key : 'default';
+        // Extract data_key from data object for proper upsert
+        const dataKey = data.key || 'default';
         
         const { data: result, error } = await getSupabase()
-            .from(actualTableName)
+            .from(tableName)
             .upsert({
                 tenant_id: tenantId,
                 data_key: dataKey,
-                data: actualData,
+                data: data,
                 updated_at: new Date().toISOString()
             }, {
                 onConflict: 'tenant_id,data_key'
@@ -206,10 +188,10 @@ async function saveTenantData(tenantId, tableName, data) {
         
         if (error) throw error;
         
-        console.log(`✅ Saved ${actualTableName}/${dataKey} for tenant ${tenantId}`);
+        console.log(`✅ Saved ${tableName}/${dataKey} for tenant ${tenantId}`);
         return { success: true, data: result };
     } catch (error) {
-        console.error(`❌ Save ${actualTableName || tableName} error:`, error.message);
+        console.error(`❌ Save ${tableName} error:`, error.message);
         return { success: false, error: error.message };
     }
 }

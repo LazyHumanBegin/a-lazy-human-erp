@@ -73,11 +73,6 @@ function saveCustomers() {
     // Note: Don't call saveToUserTenant - it would overwrite with stale data
 }
 
-// Alias for showCustomerDetail - shows customer in view/edit mode
-function showCustomerDetail(customerId) {
-    showCustomerModal(customerId);
-}
-
 // ==================== CUSTOMER MODAL ====================
 function showCustomerModal(customerId = null) {
     // Check customer limit for new customers
@@ -93,6 +88,11 @@ function showCustomerModal(customerId = null) {
         console.error('Customer modal or form not found');
         return;
     }
+
+// Alias for showCustomerDetail - shows customer in view/edit mode
+function showCustomerDetail(customerId) {
+    showCustomerModal(customerId);
+}
     
     form.reset();
     document.getElementById('customerId').value = '';
