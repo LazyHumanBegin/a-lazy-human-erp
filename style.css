@@ -14279,3 +14279,84 @@ body.logged-out {
         flex: 1;
     }
 }
+
+/* ==================== INVOICE MOBILE RESPONSIVE ==================== */
+@media (max-width: 768px) {
+    /* Invoice section - card style on mobile */
+    #invoices .data-table thead {
+        display: none;
+    }
+    
+    #invoices .data-table tbody tr {
+        display: block;
+        background: white;
+        margin-bottom: 12px;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 15px;
+        border: 1px solid #e2e8f0;
+    }
+    
+    #invoices .data-table tbody td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f1f5f9;
+        text-align: right !important;
+    }
+    
+    #invoices .data-table tbody td:last-child {
+        border-bottom: none;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        padding-top: 12px;
+    }
+    
+    #invoices .data-table tbody td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #64748b;
+        font-size: 12px;
+        text-transform: uppercase;
+        text-align: left;
+    }
+    
+    /* Invoice filters - stack on mobile */
+    #invoices .card-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch !important;
+    }
+    
+    #invoices .card-header > div {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    /* Stats cards - 2 per row on mobile */
+    #invoices .stats-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    /* Filter inputs stack */
+    #invoices [style*="display: flex"][style*="gap: 15px"] {
+        flex-direction: column;
+    }
+    
+    #invoices [style*="display: flex"][style*="gap: 15px"] input,
+    #invoices [style*="display: flex"][style*="gap: 15px"] select {
+        width: 100% !important;
+        min-width: unset !important;
+    }
+    
+    /* Summary boxes full width */
+    #invoices [style*="display: flex"][style*="gap: 20px"] {
+        flex-direction: column;
+    }
+    
+    #invoices [style*="min-width: 200px"] {
+        min-width: unset !important;
+    }
+}

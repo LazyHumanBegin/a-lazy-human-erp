@@ -174,14 +174,14 @@ function renderInvoices() {
         
         return `
             <tr onclick="viewInvoice('${inv.id}')" style="cursor: pointer;">
-                <td><strong>${escapeHtml(inv.invoiceNo)}</strong></td>
-                <td>${escapeHtml(inv.customerName || 'N/A')}</td>
-                <td>${formatDate(inv.date)}</td>
-                <td>${formatDate(inv.dueDate)}</td>
-                <td style="text-align: right;"><strong>RM ${(inv.total || 0).toFixed(2)}</strong></td>
-                <td style="text-align: right;">${inv.status === 'paid' ? '-' : `RM ${outstanding.toFixed(2)}`}</td>
-                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                <td onclick="event.stopPropagation();">
+                <td data-label="Invoice #"><strong>${escapeHtml(inv.invoiceNo)}</strong></td>
+                <td data-label="Customer">${escapeHtml(inv.customerName || 'N/A')}</td>
+                <td data-label="Date">${formatDate(inv.date)}</td>
+                <td data-label="Due Date">${formatDate(inv.dueDate)}</td>
+                <td data-label="Total" style="text-align: right;"><strong>RM ${(inv.total || 0).toFixed(2)}</strong></td>
+                <td data-label="Outstanding" style="text-align: right;">${inv.status === 'paid' ? '-' : `RM ${outstanding.toFixed(2)}`}</td>
+                <td data-label="Status"><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                <td data-label="Actions" onclick="event.stopPropagation();">
                     <div class="action-buttons">
                         <button class="btn-icon" onclick="editInvoice('${inv.id}')" title="Edit">
                             <i class="fas fa-edit"></i>

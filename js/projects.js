@@ -15,22 +15,60 @@ function initializeProjects() {
 
 function loadProjects() {
     try {
+        // PRIORITY 1: Load from tenant storage (for data isolation per account)
+        const user = window.currentUser;
+        if (user && user.tenantId) {
+            const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+            const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            if (Array.isArray(tenantData.projects) && tenantData.projects.length > 0) {
+                projects = tenantData.projects;
+                window.projects = projects;
+                console.log('✅ Projects loaded from tenant:', projects.length);
+                return;
+            }
+        }
+        
+        // PRIORITY 2: Check window.projects (set by tenant data loading)
+        if (Array.isArray(window.projects) && window.projects.length > 0) {
+            projects = window.projects;
+            console.log('✅ Projects loaded from window:', projects.length);
+            return;
+        }
+        
+        // PRIORITY 3: Fall back to localStorage key
         const stored = localStorage.getItem(PROJECTS_KEY);
         const parsed = stored ? JSON.parse(stored) : [];
         projects = Array.isArray(parsed) ? parsed : [];
+        console.log('✅ Projects loaded from localStorage:', projects.length);
     } catch (e) {
         console.error('Error loading projects:', e);
         projects = [];
     }
+    window.projects = projects;
 }
 
 function saveProjects() {
     localStorage.setItem(PROJECTS_KEY, JSON.stringify(projects));
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        window.projects = projects;
-        saveToUserTenant();
+    // Sync to window for other modules
+    window.projects = projects;
+    
+    // DIRECT tenant save for data persistence
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.projects = projects;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Projects saved to tenant:', projects.length);
+        
+        // Trigger cloud sync
+        if (typeof window.fullCloudSync === 'function') {
+            setTimeout(() => {
+                window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+            }, 500);
+        }
     }
 }
 

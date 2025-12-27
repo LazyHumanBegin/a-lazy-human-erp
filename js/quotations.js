@@ -65,6 +65,13 @@ function saveQuotations() {
         tenantData.updatedAt = new Date().toISOString();
         localStorage.setItem(tenantKey, JSON.stringify(tenantData));
         console.log('✅ Quotations saved directly to tenant:', quotations.length);
+        
+        // Trigger cloud sync for cross-device synchronization
+        if (typeof window.fullCloudSync === 'function') {
+            setTimeout(() => {
+                window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+            }, 500);
+        }
     }
     
     // Note: Don't call saveToUserTenant - it would overwrite with stale data
@@ -736,10 +743,12 @@ function viewQuotationDetail(quotationId) {
                 </span>
             </div>
             <div class="quotation-detail-actions">
-                ${quotation.status === 'draft' ? `
+                ${quotation.status !== 'accepted' ? `
                     <button class="btn-secondary" onclick="showQuotationModal('${quotation.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
+                ` : ''}
+                ${quotation.status === 'draft' ? `
                     <button class="btn-primary" onclick="markQuotationSent('${quotation.id}')">
                         <i class="fas fa-paper-plane"></i> Mark as Sent
                     </button>

@@ -68,6 +68,13 @@ function saveCustomers() {
         tenantData.updatedAt = new Date().toISOString();
         localStorage.setItem(tenantKey, JSON.stringify(tenantData));
         console.log('✅ Customers saved directly to tenant:', customers.length);
+        
+        // Trigger cloud sync for cross-device synchronization
+        if (typeof window.fullCloudSync === 'function') {
+            setTimeout(() => {
+                window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+            }, 500);
+        }
     }
     
     // Note: Don't call saveToUserTenant - it would overwrite with stale data
