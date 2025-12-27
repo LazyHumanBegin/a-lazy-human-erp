@@ -9,6 +9,15 @@ window.loadRecentTransactions = loadRecentTransactions;
 window.loadUpcomingBills = loadUpcomingBills;
 
 function updateDashboard() {
+    // Debug: Check businessData state
+    console.log('🟢 updateDashboard called');
+    console.log('🟢 businessData exists:', typeof businessData !== 'undefined');
+    console.log('🟢 window.businessData exists:', typeof window.businessData !== 'undefined');
+    console.log('🟢 transactions count:', (window.businessData?.transactions || businessData?.transactions || []).length);
+    
+    // Use window.businessData to ensure we get the correct reference
+    const data = window.businessData || businessData;
+    
     // Update company name in UI first (welcome message, page title, dashboard header)
     if (typeof updateCompanyNameInUI === 'function') updateCompanyNameInUI();
     
@@ -32,7 +41,11 @@ function updateDashboard() {
     let prevMonthIncome = 0;
     let prevMonthExpenses = 0;
     
-    businessData.transactions.forEach(tx => {
+    // Use data reference (window.businessData or businessData)
+    const transactions = data.transactions || [];
+    console.log('🟢 Processing', transactions.length, 'transactions for dashboard');
+    
+    transactions.forEach(tx => {
         const txDate = parseDateSafe(tx.date);
         const txMonth = txDate.getMonth();
         const txYear = txDate.getFullYear();
@@ -56,6 +69,8 @@ function updateDashboard() {
         }
     });
     
+    console.log('🟢 Dashboard totals - Income:', totalIncome, 'Expenses:', totalExpenses);
+    
     const cashBalance = totalIncome - totalExpenses;
     const incomeChange = prevMonthIncome > 0 ? ((monthIncome - prevMonthIncome) / prevMonthIncome * 100).toFixed(1) : '0';
     const expenseChange = prevMonthExpenses > 0 ? ((monthExpenses - prevMonthExpenses) / prevMonthExpenses * 100).toFixed(1) : '0';
@@ -64,7 +79,8 @@ function updateDashboard() {
     let billsDueCount = 0;
     let billsDueAmount = 0;
     
-    businessData.bills.forEach(bill => {
+    const bills = data.bills || [];
+    bills.forEach(bill => {
         const dueDate = parseDateSafe(bill.dueDate);
         if (bill.status !== 'paid' && dueDate >= today) {
             billsDueCount++;

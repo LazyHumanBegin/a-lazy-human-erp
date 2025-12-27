@@ -433,7 +433,7 @@ function renderProjects() {
         const remaining = project.totalAmount - (project.amountPaid || 0);
         
         return `
-            <div class="project-card" onclick="showProjectDetail('${project.id}')">
+            <div class="project-card" data-project-id="${project.id}" style="cursor: pointer;">
                 <div class="project-card-header">
                     <div class="project-info">
                         <span class="project-no">${project.projectNo || 'N/A'}</span>
@@ -484,6 +484,15 @@ function renderProjects() {
             </div>
         `;
     }).join('');
+    
+    // Add click event listeners to cards
+    container.querySelectorAll('.project-card[data-project-id]').forEach(card => {
+        card.addEventListener('click', function() {
+            const id = this.getAttribute('data-project-id');
+            console.log('Project card clicked:', id);
+            showProjectDetail(id);
+        });
+    });
 }
 
 function searchProjects(term) {
@@ -501,8 +510,19 @@ function viewProjectDetail(projectId) {
 
 // ==================== PROJECT DETAIL ====================
 function showProjectDetail(projectId) {
+    console.log('showProjectDetail called with:', projectId);
+    
+    // Reload projects to ensure fresh data
+    loadProjects();
+    
     const project = projects.find(p => p.id === projectId);
-    if (!project) return;
+    if (!project) {
+        console.error('Project not found:', projectId);
+        showToast('Project not found - it may have been deleted', 'error');
+        // Re-render to remove stale cards
+        renderProjects();
+        return;
+    }
     
     const modal = document.getElementById('projectDetailModal');
     const title = document.getElementById('projectDetailTitle');
@@ -719,22 +739,22 @@ function showRecordPaymentModal(projectId, milestoneIndex = null) {
                     </div>
                 </div>
                 
-                <form onsubmit="submitProjectPayment(event, '${projectId}')">
+                <form id="projectPaymentForm">
                     <div class="form-group">
                         <label class="form-label">Milestone *</label>
-                        <select id="paymentMilestone" class="form-control" required onchange="updatePaymentAmount('${projectId}')">
+                        <select id="projPaymentMilestone" class="form-control" required onchange="updatePaymentAmount('${projectId}')">
                             <option value="">-- Select Milestone --</option>
                             ${milestoneOptions}
                         </select>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Payment Amount (RM) *</label>
-                        <input type="number" id="paymentAmount" class="form-control" 
+                        <input type="number" id="projPaymentAmount" class="form-control" 
                                step="0.01" min="0.01" value="${defaultAmount.toFixed(2)}" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Payment Method *</label>
-                        <select id="paymentMethod" class="form-control" required>
+                        <select id="projPaymentMethod" class="form-control" required>
                             <option value="cash">Cash</option>
                             <option value="bank_transfer">Bank Transfer</option>
                             <option value="cheque">Cheque</option>
@@ -744,17 +764,17 @@ function showRecordPaymentModal(projectId, milestoneIndex = null) {
                     </div>
                     <div class="form-group">
                         <label class="form-label">Reference (Optional)</label>
-                        <input type="text" id="paymentReference" class="form-control" 
+                        <input type="text" id="projPaymentReference" class="form-control" 
                                placeholder="Cheque no., transfer ref, etc.">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Payment Date</label>
-                        <input type="date" id="paymentDate" class="form-control" 
+                        <input type="date" id="projPaymentDate" class="form-control" 
                                value="${new Date().toISOString().split('T')[0]}">
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn-secondary" onclick="closeModal('recordPaymentModal')">Cancel</button>
-                        <button type="submit" class="btn-primary">
+                        <button type="button" class="btn-primary" onclick="submitProjectPayment('${projectId}')">
                             <i class="fas fa-check"></i> Record Payment
                         </button>
                     </div>
@@ -769,7 +789,7 @@ function updatePaymentAmount(projectId) {
     const project = projects.find(p => p.id === projectId);
     if (!project) return;
     
-    const milestoneIndex = document.getElementById('paymentMilestone').value;
+    const milestoneIndex = document.getElementById('projPaymentMilestone').value;
     if (milestoneIndex !== '') {
         const milestone = project.milestones[parseInt(milestoneIndex)];
         // Calculate amount if not set (for backward compatibility)
@@ -777,23 +797,37 @@ function updatePaymentAmount(projectId) {
             milestone.amount = (project.totalAmount * milestone.percentage / 100);
         }
         const remaining = (milestone.amount || 0) - (milestone.paidAmount || 0);
-        document.getElementById('paymentAmount').value = remaining.toFixed(2);
+        document.getElementById('projPaymentAmount').value = remaining.toFixed(2);
     }
 }
 
-function submitProjectPayment(event, projectId) {
-    event.preventDefault();
-    
+function submitProjectPayment(projectId) {
+    console.log('Submit payment for project:', projectId);
     const project = projects.find(p => p.id === projectId);
-    if (!project) return;
+    if (!project) {
+        showToast('Project not found!', 'error');
+        console.error('Project not found:', projectId);
+        return;
+    }
     
-    const milestoneIndex = parseInt(document.getElementById('paymentMilestone').value);
-    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
-    const method = document.getElementById('paymentMethod').value;
-    const reference = document.getElementById('paymentReference').value.trim();
-    const date = document.getElementById('paymentDate').value || new Date().toISOString().split('T')[0];
+    const milestoneEl = document.getElementById('projPaymentMilestone');
+    const amountEl = document.getElementById('projPaymentAmount');
+    const methodEl = document.getElementById('projPaymentMethod');
+    const referenceEl = document.getElementById('projPaymentReference');
+    const dateEl = document.getElementById('projPaymentDate');
     
-    if (isNaN(milestoneIndex)) {
+    if (!milestoneEl || !amountEl) {
+        showToast('Form error - please try again!', 'error');
+        return;
+    }
+    
+    const milestoneIndex = parseInt(milestoneEl.value);
+    const amount = parseFloat(amountEl.value) || 0;
+    const method = methodEl ? methodEl.value : 'cash';
+    const reference = referenceEl ? referenceEl.value.trim() : '';
+    const date = dateEl ? dateEl.value : new Date().toISOString().split('T')[0];
+    
+    if (isNaN(milestoneIndex) || milestoneEl.value === '') {
         showToast('Please select a milestone!', 'error');
         return;
     }
@@ -885,10 +919,17 @@ function submitProjectPayment(event, projectId) {
     
     saveProjects();
     closeModal('recordPaymentModal');
+    
+    // Immediately refresh the project cards list to show updated progress
+    renderProjects();
+    
+    // Then show the updated project detail
     showProjectDetail(projectId);
     updateProjectStats();
     
-    showToast(`Payment of RM ${amount.toFixed(2)} recorded successfully!`, 'success');
+    // Show success notification - this should appear at top-right
+    console.log('Payment successful! Showing notification...');
+    showToast(`✅ Payment of RM ${amount.toFixed(2)} recorded for ${milestone.name}!`, 'success');
 }
 
 // ==================== PRINT INVOICE ====================
@@ -1136,6 +1177,44 @@ function deleteProject(projectId) {
         }
     }
     
+    // Also update/delete linked quotation if exists
+    if (project.quotationId) {
+        // Use window.quotations to access the global array
+        let quotationsList = window.quotations || [];
+        const quotationIndex = quotationsList.findIndex(q => q.id === project.quotationId);
+        if (quotationIndex !== -1) {
+            // Delete the quotation too
+            quotationsList.splice(quotationIndex, 1);
+            window.quotations = quotationsList;
+            
+            // Use saveQuotations function if available (handles all sync)
+            if (typeof window.saveQuotations === 'function') {
+                window.saveQuotations();
+                console.log('✅ Deleted linked quotation via saveQuotations:', project.quotationId);
+            } else {
+                // Fallback: Manual save to tenant storage
+                const user = window.currentUser;
+                if (user && user.tenantId) {
+                    const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+                    let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+                    tenantData.quotations = quotationsList;
+                    tenantData.updatedAt = new Date().toISOString();
+                    localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+                }
+                localStorage.setItem('ezcubic_quotations', JSON.stringify(quotationsList));
+                console.log('✅ Deleted linked quotation (manual save):', project.quotationId);
+            }
+            
+            // Force re-render quotations immediately
+            if (typeof window.renderQuotations === 'function') {
+                window.renderQuotations();
+            }
+            if (typeof window.updateQuotationStats === 'function') {
+                window.updateQuotationStats();
+            }
+        }
+    }
+    
     // Remove project
     const index = projects.findIndex(p => p.id === projectId);
     if (index !== -1) {
@@ -1144,6 +1223,21 @@ function deleteProject(projectId) {
         renderProjects();
         updateProjectStats();
         closeModal('projectDetailModal');
-        showToast('Project and related transactions deleted!', 'success');
+        showToast('Project and linked quotation deleted!', 'success');
     }
 }
+
+// Export functions to window for onclick handlers
+window.showProjectDetail = showProjectDetail;
+window.viewProjectDetail = viewProjectDetail;
+window.showProjectModal = showProjectModal;
+window.deleteProject = deleteProject;
+window.showRecordPaymentModal = showRecordPaymentModal;
+window.initializeProjects = initializeProjects;
+window.renderProjects = renderProjects;
+window.submitProjectPayment = submitProjectPayment;
+// updateMilestonePayment is alias for updatePaymentAmount
+window.updateMilestonePayment = updatePaymentAmount;
+window.updatePaymentAmount = updatePaymentAmount;
+window.printProjectInvoice = printProjectInvoice;
+window.saveProject = saveProject;

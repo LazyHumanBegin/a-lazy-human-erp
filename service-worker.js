@@ -4,7 +4,7 @@
  * Auto-syncs updates without manual version changes
  */
 
-const CACHE_NAME = 'ezcubic-erp-v2.2.1';
+const CACHE_NAME = 'ezcubic-erp-v2.2.4';
 
 // Files to cache for offline fallback
 const ASSETS_TO_CACHE = [

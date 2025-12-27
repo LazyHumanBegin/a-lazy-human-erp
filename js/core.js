@@ -228,6 +228,8 @@ let businessData = {
         pointsRedemptionRate: 100 // 100 points = RM1
     }
 };
+// CRITICAL: Expose businessData to window for cross-module access
+window.businessData = businessData;
 
 // Phase 2: Global references for operational modules
 let products = [];

@@ -18,11 +18,16 @@ function initializeApp() {
     window._initAppRetries = 0; // Reset retry counter
     
     try {
-        // Only load data if no user is logged in (user system handles tenant data)
-        // This prevents loading stale data when switching accounts
-        if (!window.currentUser) {
-            loadData();
-        }
+        // DEBUG: Check what we have BEFORE loadData
+        console.log('🟡 BEFORE loadData: window.businessData.transactions =', window.businessData?.transactions?.length || 0);
+        
+        // Load data - this will merge with any existing tenant data
+        // loadData now has smart merge logic that preserves tenant data if it has more items
+        loadData();
+        
+        // DEBUG: Log what we have AFTER loadData
+        console.log('🟡 AFTER loadData: window.businessData.transactions =', window.businessData?.transactions?.length || 0);
+        console.log('🟡 AFTER loadData: window.transactions =', window.transactions?.length || 0);
         
         // Initialize settings fields
         const businessNameInput = document.getElementById('businessName');

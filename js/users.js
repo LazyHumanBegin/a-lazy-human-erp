@@ -1317,11 +1317,13 @@ function loadUserTenantData(user) {
             const localData = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
             const tenantLen = (tenantArray || []).length;
             const localLen = localData.length;
+            console.log(`🔀 Merge ${localStorageKey}: tenant=${tenantLen}, localStorage=${localLen}`);
             // If localStorage has more data OR tenant is empty, use localStorage
             if (localLen > tenantLen || tenantLen === 0) {
-                console.log(`Using localStorage for ${localStorageKey}: ${localLen} items (tenant had ${tenantLen})`);
+                console.log(`🔀 Using localStorage for ${localStorageKey}: ${localLen} items (tenant had ${tenantLen})`);
                 return localData;
             }
+            console.log(`🔀 Using tenant for ${localStorageKey}: ${tenantLen} items (localStorage had ${localLen})`);
             return tenantArray || [];
         };
         
@@ -1339,33 +1341,70 @@ function loadUserTenantData(user) {
         const mergedOrders = mergeWithLocalStorage(tenantData.orders, 'ezcubic_orders');
         const mergedPurchaseOrders = mergeWithLocalStorage(tenantData.purchaseOrders, 'ezcubic_purchase_orders');
         
-        // Map merged data to global businessData
-        if (typeof businessData !== 'undefined') {
-            businessData.transactions = tenantData.transactions || [];
-            businessData.bills = tenantData.bills || [];
-            businessData.products = mergedProducts;
-            businessData.customers = mergedCustomers;
-            businessData.stockMovements = mergedStockMovements;
-            businessData.sales = mergedSales;
-            businessData.suppliers = mergedSuppliers;
-            businessData.branches = mergedBranches;
-            businessData.quotations = mergedQuotations;
-            businessData.projects = mergedProjects;
-            businessData.purchaseOrders = mergedPurchaseOrders;
-            businessData.deliveryOrders = tenantData.deliveryOrders || [];
-            if (tenantData.settings) {
-                businessData.settings = { ...getDefaultSettings(), ...tenantData.settings };
-            }
+        // CRITICAL: Also check ezcubicDataMY for transactions - this is where saveData() saves them
+        const ezcubicDataMY = JSON.parse(localStorage.getItem('ezcubicDataMY') || '{}');
+        const localTransactions = ezcubicDataMY.transactions || [];
+        const tenantTransactions = tenantData.transactions || [];
+        // Use whichever has more transactions (newer data)
+        const mergedTransactions = localTransactions.length > tenantTransactions.length ? localTransactions : tenantTransactions;
+        console.log(`🔵 Transactions merge: local=${localTransactions.length}, tenant=${tenantTransactions.length}, using=${mergedTransactions.length}`);
+        
+        // DEBUG: Show actual transaction data
+        if (mergedTransactions.length > 0) {
+            console.log('🔵 First transaction:', mergedTransactions[0]);
         }
         
+        const localBills = ezcubicDataMY.bills || [];
+        const tenantBills = tenantData.bills || [];
+        const mergedBills = localBills.length > tenantBills.length ? localBills : tenantBills;
+        
+        // Map merged data to global businessData - use window.businessData for cross-module access
+        console.log('🔵 loadUserTenantData: Setting businessData.transactions to', mergedTransactions.length, 'items');
+        console.log('🔵 window.businessData exists?', typeof window.businessData !== 'undefined');
+        
+        // FORCE create window.businessData if it doesn't exist
+        if (typeof window.businessData === 'undefined' || !window.businessData) {
+            console.log('🔵 Creating window.businessData');
+            window.businessData = {
+                transactions: [],
+                bills: [],
+                settings: {}
+            };
+        }
+        
+        // Now set the data
+        window.businessData.transactions = mergedTransactions;
+        window.businessData.bills = mergedBills;
+        window.businessData.products = mergedProducts;
+        window.businessData.customers = mergedCustomers;
+        window.businessData.stockMovements = mergedStockMovements;
+        window.businessData.sales = mergedSales;
+        window.businessData.suppliers = mergedSuppliers;
+        window.businessData.branches = mergedBranches;
+        window.businessData.quotations = mergedQuotations;
+        window.businessData.projects = mergedProjects;
+        window.businessData.purchaseOrders = mergedPurchaseOrders;
+        window.businessData.deliveryOrders = tenantData.deliveryOrders || [];
+        if (tenantData.settings) {
+            window.businessData.settings = { ...getDefaultSettings(), ...tenantData.settings };
+        }
+        
+        // Also update the local businessData reference if it exists
+        if (typeof businessData !== 'undefined') {
+            businessData = window.businessData;
+        }
+        
+        console.log('🔵 After setting window.businessData.transactions:', window.businessData.transactions.length);
+        
         // Update global arrays with merged data
+        window.transactions = mergedTransactions;
         window.products = mergedProducts;
         window.customers = mergedCustomers;
         window.stockMovements = mergedStockMovements;
         window.sales = mergedSales;
-        window.transactions = tenantData.transactions || [];
         window.suppliers = mergedSuppliers;
         window.branches = mergedBranches;
+        console.log('🔵 SET window.branches to', mergedBranches.length, 'items');
         window.branchTransfers = tenantData.branchTransfers || [];
         window.quotations = mergedQuotations;
         window.projects = mergedProjects;
@@ -1381,6 +1420,7 @@ function loadUserTenantData(user) {
         if (typeof customers !== 'undefined') customers = mergedCustomers;
         if (typeof stockMovements !== 'undefined') stockMovements = mergedStockMovements;
         if (typeof sales !== 'undefined') sales = mergedSales;
+        if (typeof transactions !== 'undefined') transactions = mergedTransactions;
         if (typeof suppliers !== 'undefined') suppliers = mergedSuppliers;
         if (typeof branches !== 'undefined') branches = mergedBranches;
         if (typeof branchTransfers !== 'undefined') branchTransfers = tenantData.branchTransfers || [];
@@ -1510,18 +1550,22 @@ function loadUserTenantData(user) {
         localStorage.setItem('ezcubic_ai_state', JSON.stringify(tenantData.aiState || {}));
         
         // Also update ezcubicDataMY for compatibility with transactions/bills loading
+        // Use mergedTransactions instead of tenantData.transactions to preserve local data
         localStorage.setItem('ezcubicDataMY', JSON.stringify({
-            transactions: tenantData.transactions || [],
-            bills: tenantData.bills || [],
+            transactions: mergedTransactions,
+            bills: mergedBills,
             settings: tenantData.settings || businessData.settings,
             version: '2.0',
             lastSaved: new Date().toISOString()
         }));
         
+        console.log('🔵 Saved to ezcubicDataMY with', mergedTransactions.length, 'transactions');
+        
         // Refresh ALL UI components after tenant data load
         setTimeout(() => {
             try {
-                console.log('Refreshing all modules after tenant data load...');
+                console.log('🔵 Refreshing all modules after tenant data load...');
+                console.log('🔵 window.businessData.transactions =', window.businessData?.transactions?.length || 0);
                 
                 // Core modules
                 if (typeof renderProducts === 'function') renderProducts();
@@ -1872,10 +1916,11 @@ function updateAuthUI() {
                 setCurrentTenant(currentUser.tenantId);
             }
             
-            // Reset global data to founder's own tenant
-            if (typeof resetToEmptyData === 'function') {
-                resetToEmptyData();
-            }
+            // DON'T reset data here - it's already loaded by loadUserTenantData
+            // resetToEmptyData() was wiping localStorage on every page load!
+            // if (typeof resetToEmptyData === 'function') {
+            //     resetToEmptyData();
+            // }
         }
         
         // Load tenant data (not for ERP Assistants - they only manage users)
@@ -4784,7 +4829,8 @@ function resetWindowArraysOnly() {
 
 // Reset global data to empty state - clears in-memory data AND legacy storage
 function resetToEmptyData() {
-    console.log('Resetting all data to empty state...');
+    console.log('⚠️ resetToEmptyData() called - CLEARING ALL localStorage keys');
+    console.trace('Stack trace:'); // This will show what called this function
     
     // Get default settings
     const defaultSettings = typeof getDefaultSettings === 'function' ? getDefaultSettings() : {

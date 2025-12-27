@@ -1220,7 +1220,7 @@ window.updateCombinedSKU = updateCombinedSKU;
 window.previewProductImage = previewProductImage;
 window.clearProductImage = clearProductImage;
 // showOutletModal is defined in app.js
-window.loadOutletCheckboxes = loadOutletCheckboxes;
+// loadOutletCheckboxes removed - function doesn't exist
 window.calculateProfitMargin = calculateProfitMargin;
 window.suggestCostFromPrice = suggestCostFromPrice;
 window.applySuggestedCost = applySuggestedCost;

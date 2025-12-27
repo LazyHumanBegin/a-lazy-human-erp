@@ -241,38 +241,78 @@ function saveDirectToLocalStorage() {
 
 function loadData() {
     try {
+        console.log('🟠 loadData() called');
+        console.log('🟠 Current window.businessData.transactions:', window.businessData?.transactions?.length || 0);
+        
+        // Use window.businessData for consistency across modules
+        if (!window.businessData) {
+            window.businessData = {
+                transactions: [],
+                bills: [],
+                settings: getDefaultSettings()
+            };
+        }
+        
         // Use safe localStorage getter
         const savedData = safeLocalStorageGet('ezcubicDataMY', null);
+        console.log('🟠 ezcubicDataMY transactions:', savedData?.transactions?.length || 0);
+        
         if (savedData) {
-            businessData = savedData;
-            
-            if (!businessData.settings) {
-                businessData.settings = getDefaultSettings();
+            // If businessData already has transactions (from tenant load), merge instead of overwrite
+            if (window.businessData.transactions && window.businessData.transactions.length > 0) {
+                console.log('🟠 loadData: Merging with existing businessData (has ' + window.businessData.transactions.length + ' transactions)');
+                // Keep existing if it has more data
+                if (!savedData.transactions || savedData.transactions.length <= window.businessData.transactions.length) {
+                    console.log('🟠 loadData: Keeping existing businessData transactions');
+                    // Still merge settings if needed
+                    if (savedData.settings) {
+                        window.businessData.settings = { ...getDefaultSettings(), ...savedData.settings };
+                    }
+                } else {
+                    window.businessData = savedData;
+                    console.log('🟠 loadData: Using ezcubicDataMY (has ' + savedData.transactions.length + ' transactions)');
+                }
+            } else {
+                // No existing data - use savedData
+                window.businessData = savedData;
+                console.log('🟠 loadData: Loaded from ezcubicDataMY (' + (savedData.transactions?.length || 0) + ' transactions)');
             }
             
-            if (!businessData.transactions) businessData.transactions = [];
-            if (!businessData.bills) businessData.bills = [];
+            if (!window.businessData.settings) {
+                window.businessData.settings = getDefaultSettings();
+            }
+            
+            if (!window.businessData.transactions) window.businessData.transactions = [];
+            if (!window.businessData.bills) window.businessData.bills = [];
             
             console.log('EZCubic Malaysia data loaded successfully');
         }
         
         // Sync global references for Phase 2 modules
-        transactions = businessData.transactions || [];
-        settings = businessData.settings || {};
+        transactions = window.businessData.transactions || [];
+        window.transactions = transactions;
+        settings = window.businessData.settings || {};
+        
+        // Update local businessData reference if it exists
+        if (typeof businessData !== 'undefined') {
+            businessData = window.businessData;
+        }
         
     } catch (error) {
         console.error('Error loading data:', error);
         showNotification('Error loading saved data. Using default settings.', 'error');
-        businessData = {
+        window.businessData = {
             transactions: [],
             bills: [],
             settings: getDefaultSettings()
         };
         transactions = [];
-        settings = businessData.settings;
+        settings = window.businessData.settings;
+        if (typeof businessData !== 'undefined') {
+            businessData = window.businessData;
+        }
     }
 }
-
 function saveData() {
     try {
         // PROTECTION: Don't save if we're in the middle of switching users
@@ -282,23 +322,30 @@ function saveData() {
             return false; // Return false to indicate save was skipped
         }
         
+        // Use window.businessData for consistency
+        if (!window.businessData) {
+            console.warn('saveData: window.businessData is not defined');
+            return false;
+        }
+        
         // Ensure global transactions reference is synced with businessData
         // This handles cases where modules push to global 'transactions' array
-        if (typeof transactions !== 'undefined' && transactions !== businessData.transactions) {
+        if (typeof transactions !== 'undefined' && transactions !== window.businessData.transactions) {
             // Merge any transactions that might be in global but not in businessData
             transactions.forEach(tx => {
-                if (!businessData.transactions.find(bt => bt.id === tx.id)) {
-                    businessData.transactions.push(tx);
+                if (!window.businessData.transactions.find(bt => bt.id === tx.id)) {
+                    window.businessData.transactions.push(tx);
                 }
             });
             // Re-sync the reference
-            transactions = businessData.transactions;
+            transactions = window.businessData.transactions;
+            window.transactions = transactions;
         }
         
         const dataToSave = {
-            transactions: businessData.transactions,
-            bills: businessData.bills,
-            settings: businessData.settings,
+            transactions: window.businessData.transactions,
+            bills: window.businessData.bills,
+            settings: window.businessData.settings,
             version: '2.0',
             lastSaved: new Date().toISOString()
         };

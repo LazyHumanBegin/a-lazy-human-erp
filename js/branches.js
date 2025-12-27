@@ -197,17 +197,33 @@ function initializeBranches() {
 
 function loadBranchData() {
     try {
-        console.log('loadBranchData called');
+        console.log('🏢 loadBranchData called');
+        console.log('🏢 window.branches at start:', window.branches?.length || 0, window.branches);
         
-        // PRIORITY 1: Load from tenant storage directly (most reliable)
+        // PRIORITY 1: Check window first (set by loadUserTenantData with merged data)
+        // This is the most up-to-date source after merge logic runs
+        if (Array.isArray(window.branches) && window.branches.length > 0) {
+            branches = window.branches;
+            console.log('🏢 ✅ Branches loaded from window (merged):', branches.length);
+            // Also load transfers from window
+            if (Array.isArray(window.branchTransfers)) {
+                branchTransfers = window.branchTransfers;
+            }
+            currentBranchId = localStorage.getItem(CURRENT_BRANCH_KEY);
+            return; // Found window data, done
+        }
+        
+        // PRIORITY 2: Load from tenant storage directly
         const user = window.currentUser;
+        console.log('🏢 currentUser:', user?.email, 'tenantId:', user?.tenantId);
         if (user && user.tenantId) {
             const tenantKey = 'ezcubic_tenant_' + user.tenantId;
             const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            console.log('🏢 Tenant branches count:', tenantData.branches?.length || 0);
             if (Array.isArray(tenantData.branches) && tenantData.branches.length > 0) {
                 branches = tenantData.branches;
                 window.branches = branches;
-                console.log('✅ Branches loaded from tenant:', branches.length);
+                console.log('🏢 ✅ Branches loaded from tenant:', branches.length);
             }
             if (Array.isArray(tenantData.branchTransfers)) {
                 branchTransfers = tenantData.branchTransfers;
@@ -220,22 +236,16 @@ function loadBranchData() {
             }
         }
         
-        // PRIORITY 2: Check window (set by tenant data loading)
-        if (Array.isArray(window.branches) && window.branches.length > 0) {
-            branches = window.branches;
-            console.log('✅ Branches loaded from window:', branches.length);
-        } else {
-            // PRIORITY 3: Fall back to localStorage key
-            const storedBranches = localStorage.getItem(BRANCHES_KEY);
-            console.log('Falling back to localStorage, stored:', !!storedBranches);
-            if (storedBranches) {
-                branches = JSON.parse(storedBranches);
-                if (!Array.isArray(branches)) branches = [];
-                console.log('✅ Branches loaded from localStorage key:', branches.length);
-            }
-            // Sync back to window
-            window.branches = branches;
+        // PRIORITY 3: Fall back to localStorage key
+        const storedBranches = localStorage.getItem(BRANCHES_KEY);
+        console.log('Falling back to localStorage, stored:', !!storedBranches);
+        if (storedBranches) {
+            branches = JSON.parse(storedBranches);
+            if (!Array.isArray(branches)) branches = [];
+            console.log('✅ Branches loaded from localStorage key:', branches.length);
         }
+        // Sync back to window
+        window.branches = branches;
         
         // Load transfers
         if (Array.isArray(window.branchTransfers) && window.branchTransfers.length > 0) {
@@ -261,6 +271,7 @@ function loadBranchData() {
 
 function saveBranchData() {
     try {
+        console.log('🏢 saveBranchData called, branches count:', branches.length);
         localStorage.setItem(BRANCHES_KEY, JSON.stringify(branches));
         localStorage.setItem(BRANCH_TRANSFERS_KEY, JSON.stringify(branchTransfers));
         if (currentBranchId) {
@@ -269,6 +280,7 @@ function saveBranchData() {
         
         // DIRECT tenant save (don't use saveToUserTenant - it overwrites with stale data)
         const user = window.currentUser;
+        console.log('🏢 currentUser:', user?.email, 'tenantId:', user?.tenantId);
         if (user && user.tenantId) {
             const tenantKey = 'ezcubic_tenant_' + user.tenantId;
             let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
@@ -276,7 +288,9 @@ function saveBranchData() {
             tenantData.branchTransfers = branchTransfers;
             tenantData.updatedAt = new Date().toISOString();
             localStorage.setItem(tenantKey, JSON.stringify(tenantData));
-            console.log('✅ Branches saved directly to tenant:', branches.length);
+            console.log('🏢 ✅ Branches saved directly to tenant:', branches.length);
+        } else {
+            console.log('🏢 ⚠️ No user/tenant, branches only saved to localStorage');
         }
         
         // Sync to window for other modules

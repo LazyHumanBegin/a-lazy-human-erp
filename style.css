@@ -14027,6 +14027,7 @@ body.logged-out {
     text-overflow: ellipsis;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
 }
 
@@ -14358,5 +14359,1243 @@ body.logged-out {
     
     #invoices [style*="min-width: 200px"] {
         min-width: unset !important;
+    }
+}
+
+/* ==================== GLOBAL MOBILE RESPONSIVE - ALL PAGES ==================== */
+@media (max-width: 768px) {
+    /* Global card header - stack vertically */
+    .card-header {
+        flex-direction: column !important;
+        gap: 12px !important;
+        align-items: stretch !important;
+    }
+    
+    .card-header h3 {
+        font-size: 18px !important;
+        text-align: center;
+    }
+    
+    .card-header > div,
+    .card-header > .btn,
+    .card-header > button {
+        width: 100% !important;
+    }
+    
+    /* Stats grid - 2 columns on mobile */
+    .stats-grid,
+    .stat-cards,
+    .dashboard-stats {
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+    }
+    
+    .stat-card,
+    .stats-card {
+        padding: 12px !important;
+    }
+    
+    .stat-card h4,
+    .stats-card h4 {
+        font-size: 11px !important;
+    }
+    
+    .stat-card .value,
+    .stats-card .value,
+    .stat-card p,
+    .stats-card p {
+        font-size: 16px !important;
+    }
+    
+    /* Buttons - full width and stack */
+    .btn-group,
+    .action-buttons,
+    .button-group {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 8px !important;
+    }
+    
+    .btn-group .btn,
+    .action-buttons .btn,
+    .button-group .btn,
+    .btn-group button,
+    .action-buttons button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+    
+    /* Filter sections - stack */
+    .filters,
+    .filter-row,
+    [class*="filter"] {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .filters input,
+    .filters select,
+    .filter-row input,
+    .filter-row select {
+        width: 100% !important;
+        min-width: unset !important;
+    }
+    
+    /* Search inputs */
+    input[type="search"],
+    input[type="text"][placeholder*="Search"],
+    .search-input {
+        width: 100% !important;
+    }
+    
+    /* Tables to card view - global */
+    .data-table,
+    table.styled-table {
+        display: block;
+    }
+    
+    .data-table thead,
+    table.styled-table thead {
+        display: none;
+    }
+    
+    .data-table tbody,
+    table.styled-table tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .data-table tr,
+    table.styled-table tr {
+        display: block;
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        border: 1px solid #e2e8f0;
+    }
+    
+    .data-table td,
+    table.styled-table td {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0 !important;
+        border: none !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+    
+    .data-table td:last-child,
+    table.styled-table td:last-child {
+        border-bottom: none !important;
+    }
+    
+    .data-table td::before,
+    table.styled-table td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #64748b;
+        font-size: 12px;
+        text-transform: uppercase;
+    }
+}
+
+/* ==================== CRM MODULES MOBILE ==================== */
+@media (max-width: 768px) {
+    /* Quotations - cards full width */
+    #quotations .quotations-grid,
+    .quotations-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .quotation-card {
+        padding: 15px !important;
+    }
+    
+    .quotation-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .quotation-card-details {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    /* Projects - cards full width */
+    #projects .projects-grid,
+    .projects-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .project-card {
+        padding: 15px !important;
+    }
+    
+    .project-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+    
+    .project-amounts {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    
+    .project-status {
+        align-self: flex-start !important;
+    }
+    
+    /* Customers - cards full width */
+    #customers .customers-grid,
+    .customers-grid,
+    #crm-customers .crm-grid,
+    .crm-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .customer-card,
+    .crm-card {
+        padding: 15px !important;
+    }
+    
+    /* Modal responsiveness */
+    .modal-content {
+        width: 95% !important;
+        max-width: none !important;
+        margin: 10px !important;
+        max-height: 90vh !important;
+    }
+    
+    .modal-header {
+        padding: 15px !important;
+    }
+    
+    .modal-body {
+        padding: 15px !important;
+    }
+    
+    .modal-footer {
+        padding: 15px !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .modal-footer .btn,
+    .modal-footer button {
+        width: 100% !important;
+    }
+    
+    /* Form inputs stack */
+    .form-row,
+    .form-group-row {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+    
+    .form-group {
+        width: 100% !important;
+    }
+    
+    /* Detail views */
+    .project-detail-summary,
+    .quotation-detail-summary {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    
+    .project-detail-actions,
+    .quotation-detail-actions {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .project-detail-actions .btn,
+    .quotation-detail-actions button {
+        width: 100% !important;
+    }
+    
+    /* Milestones */
+    .milestone-item {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    
+    .milestone-actions {
+        width: 100% !important;
+    }
+    
+    .milestone-actions .btn {
+        width: 100% !important;
+    }
+}
+
+/* ==================== ENHANCED MOBILE MODAL STYLES ==================== */
+/* Full-screen modals on mobile for better UX */
+@media (max-width: 768px) {
+    /* Make all modals full-screen on mobile */
+    .modal,
+    .modal-overlay,
+    [id*="Modal"] {
+        padding: 0 !important;
+    }
+    
+    .modal-content,
+    .modal > div:not(.modal-overlay),
+    [id*="Modal"] > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: 100vh !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+        padding: 15px !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    /* Modal header - sticky at top */
+    .modal-header,
+    .modal-content > h2:first-child,
+    .modal-content > .card-header:first-child {
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        padding: 15px 0 !important;
+        margin: -15px -15px 15px -15px !important;
+        padding: 15px !important;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    /* Modal title */
+    .modal-title,
+    .modal-header h2,
+    .modal-content > h2:first-child {
+        font-size: 18px !important;
+    }
+    
+    /* Form groups in modals */
+    .modal-content .form-group,
+    .modal-content .form-row {
+        margin-bottom: 15px !important;
+    }
+    
+    .modal-content .form-row {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+    
+    .modal-content .form-row > * {
+        width: 100% !important;
+        flex: none !important;
+    }
+    
+    /* Input fields - larger touch targets */
+    .modal-content input[type="text"],
+    .modal-content input[type="number"],
+    .modal-content input[type="email"],
+    .modal-content input[type="tel"],
+    .modal-content input[type="date"],
+    .modal-content input[type="password"],
+    .modal-content select,
+    .modal-content textarea {
+        font-size: 16px !important; /* Prevents iOS zoom */
+        padding: 12px !important;
+        min-height: 48px !important;
+    }
+    
+    .modal-content textarea {
+        min-height: 100px !important;
+    }
+    
+    /* Labels */
+    .modal-content label {
+        font-size: 14px !important;
+        margin-bottom: 6px !important;
+        display: block;
+    }
+    
+    /* Buttons - full width and larger */
+    .modal-content .btn,
+    .modal-content button[type="submit"],
+    .modal-content .btn-primary,
+    .modal-content .btn-secondary,
+    .modal-content .btn-danger {
+        width: 100% !important;
+        padding: 14px 20px !important;
+        font-size: 16px !important;
+        min-height: 50px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    /* Button groups */
+    .modal-content .btn-group,
+    .modal-content .form-actions,
+    .modal-content .modal-footer {
+        flex-direction: column !important;
+        gap: 10px !important;
+        padding-top: 15px !important;
+        border-top: 1px solid #e2e8f0;
+        margin-top: 20px !important;
+    }
+    
+    /* Close button - larger touch target */
+    .modal-content .close-modal,
+    .modal-content .modal-close,
+    .modal-content [onclick*="close"],
+    .modal-header .close-modal {
+        font-size: 28px !important;
+        padding: 10px !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+    }
+    
+    /* Tables in modals - horizontal scroll */
+    .modal-content .table-container,
+    .modal-content table {
+        overflow-x: auto !important;
+        display: block !important;
+        font-size: 13px !important;
+    }
+    
+    /* Grid layouts in modals */
+    .modal-content .stats-row,
+    .modal-content .grid,
+    .modal-content [style*="grid"] {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    
+    /* Specific modal adjustments */
+    #branchModal .modal-content,
+    #productModal .modal-content,
+    #quotationModal .modal-content,
+    #projectModal .modal-content,
+    #customerModal .modal-content,
+    #supplierModal .modal-content,
+    #employeeModal .modal-content,
+    #transactionModal .modal-content {
+        padding-bottom: 80px !important; /* Space for bottom actions */
+    }
+    
+    /* Invoice/Quotation item tables */
+    .modal-content .items-table,
+    .modal-content .line-items {
+        font-size: 12px !important;
+    }
+    
+    .modal-content .items-table th,
+    .modal-content .items-table td {
+        padding: 8px 5px !important;
+    }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+    .modal-content,
+    .modal > div:not(.modal-overlay),
+    [id*="Modal"] > div {
+        padding: 10px !important;
+    }
+    
+    .modal-title,
+    .modal-header h2 {
+        font-size: 16px !important;
+    }
+    
+    .modal-content .btn,
+    .modal-content button {
+        padding: 12px 15px !important;
+        font-size: 14px !important;
+    }
+    
+    /* Stack all form elements */
+    .modal-content .form-inline,
+    .modal-content .input-group {
+        flex-direction: column !important;
+    }
+    
+    .modal-content .input-group > * {
+        width: 100% !important;
+        border-radius: 8px !important;
+        margin-bottom: 5px !important;
+    }
+}
+
+/* ==================== COMPREHENSIVE MOBILE STYLES FOR ALL SECTIONS ==================== */
+@media (max-width: 768px) {
+    
+    /* ===== 1. PROJECTS SECTION ===== */
+    #projects .content-card {
+        padding: 10px !important;
+    }
+    
+    #projects .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+    
+    #projects .card-header h2 {
+        font-size: 16px !important;
+    }
+    
+    #projects .header-actions {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    #projects .header-actions .btn,
+    #projects .header-actions button {
+        width: 100% !important;
+    }
+    
+    /* Project cards grid */
+    #projectsGrid,
+    .projects-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .project-card {
+        padding: 15px !important;
+    }
+    
+    .project-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .project-card-actions {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+    
+    .project-card-actions .btn {
+        flex: 1 !important;
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Project detail modal */
+    .project-detail-summary {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .project-detail-actions {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    .project-detail-actions .btn {
+        width: 100% !important;
+    }
+    
+    /* Milestones */
+    .milestone-item {
+        flex-direction: column !important;
+        padding: 12px !important;
+        gap: 10px !important;
+    }
+    
+    .milestone-info {
+        width: 100% !important;
+    }
+    
+    .milestone-actions {
+        width: 100% !important;
+        flex-wrap: wrap !important;
+        gap: 5px !important;
+    }
+    
+    .milestone-actions .btn {
+        flex: 1 !important;
+        min-width: 80px !important;
+        padding: 8px !important;
+        font-size: 12px !important;
+    }
+    
+    /* ===== 2. QUOTATIONS SECTION ===== */
+    #quotations .content-card {
+        padding: 10px !important;
+    }
+    
+    #quotations .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #quotationsGrid,
+    .quotations-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .quotation-card {
+        padding: 15px !important;
+    }
+    
+    .quotation-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .quotation-card-actions {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 5px !important;
+    }
+    
+    .quotation-card-actions .btn {
+        flex: 1 !important;
+        min-width: 60px !important;
+        padding: 8px 10px !important;
+        font-size: 11px !important;
+    }
+    
+    /* Quotation items table */
+    .quotation-items-table {
+        font-size: 11px !important;
+    }
+    
+    .quotation-items-table th,
+    .quotation-items-table td {
+        padding: 6px 4px !important;
+    }
+    
+    /* ===== 3. STOCK CONTROL SECTION ===== */
+    #stock .content-card,
+    #stock-control .content-card {
+        padding: 10px !important;
+    }
+    
+    #stock .card-header,
+    #stock-control .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #stock .stats-row,
+    #stock-control .stats-row {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    #stock .stat-card,
+    #stock-control .stat-card {
+        padding: 12px !important;
+    }
+    
+    #stock .stat-value,
+    #stock-control .stat-value {
+        font-size: 18px !important;
+    }
+    
+    #stock .stat-label,
+    #stock-control .stat-label {
+        font-size: 11px !important;
+    }
+    
+    /* Stock movement table */
+    .stock-movements-table {
+        font-size: 11px !important;
+    }
+    
+    .stock-movements-table th,
+    .stock-movements-table td {
+        padding: 8px 5px !important;
+    }
+    
+    /* ===== 4. SUPPLIERS SECTION ===== */
+    #suppliers .content-card {
+        padding: 10px !important;
+    }
+    
+    #suppliers .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #suppliersGrid,
+    .suppliers-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .supplier-card {
+        padding: 15px !important;
+    }
+    
+    .supplier-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .supplier-card-actions {
+        width: 100% !important;
+        display: flex !important;
+        gap: 8px !important;
+    }
+    
+    .supplier-card-actions .btn {
+        flex: 1 !important;
+    }
+    
+    /* ===== 5. EMPLOYEES SECTION ===== */
+    #employees .content-card,
+    #payroll .content-card {
+        padding: 10px !important;
+    }
+    
+    #employees .card-header,
+    #payroll .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .employees-grid,
+    #employeesGrid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .employee-card {
+        padding: 15px !important;
+    }
+    
+    .employee-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+    
+    .employee-card-actions {
+        width: 100% !important;
+        display: flex !important;
+        gap: 8px !important;
+    }
+    
+    .employee-card-actions .btn {
+        flex: 1 !important;
+    }
+    
+    /* Payroll table */
+    .payroll-table {
+        font-size: 11px !important;
+    }
+    
+    /* ===== 6. CHART OF ACCOUNTS SECTION ===== */
+    #chart-of-accounts .content-card {
+        padding: 10px !important;
+    }
+    
+    #chart-of-accounts .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .accounts-tree,
+    .coa-tree {
+        font-size: 13px !important;
+    }
+    
+    .account-item {
+        padding: 10px !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .account-item-actions {
+        width: 100% !important;
+        display: flex !important;
+        gap: 5px !important;
+    }
+    
+    .account-item-actions .btn {
+        flex: 1 !important;
+        padding: 8px !important;
+        font-size: 11px !important;
+    }
+    
+    /* Journal entries */
+    .journal-entries-table {
+        font-size: 11px !important;
+    }
+    
+    /* ===== 7. TRANSACTIONS SECTION ===== */
+    #transactions .content-card {
+        padding: 10px !important;
+    }
+    
+    #transactions .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #transactions .filter-row,
+    .transactions-filters {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #transactions .filter-row > *,
+    .transactions-filters > * {
+        width: 100% !important;
+    }
+    
+    .transactions-table {
+        font-size: 11px !important;
+    }
+    
+    .transactions-table th,
+    .transactions-table td {
+        padding: 8px 5px !important;
+    }
+    
+    /* Transaction cards view */
+    .transaction-card {
+        padding: 12px !important;
+    }
+    
+    .transaction-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 5px !important;
+    }
+    
+    /* ===== 8. BILLS SECTION ===== */
+    #bills .content-card {
+        padding: 10px !important;
+    }
+    
+    #bills .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #billsGrid,
+    .bills-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .bill-card {
+        padding: 15px !important;
+    }
+    
+    .bill-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .bill-card-actions {
+        width: 100% !important;
+        display: flex !important;
+        gap: 8px !important;
+    }
+    
+    .bill-card-actions .btn {
+        flex: 1 !important;
+    }
+    
+    /* Bills table */
+    .bills-table {
+        font-size: 11px !important;
+    }
+    
+    /* ===== 9. REPORTS SECTION ===== */
+    #reports .content-card {
+        padding: 10px !important;
+    }
+    
+    #reports .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #reports .report-filters,
+    .report-controls {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #reports .report-filters > *,
+    .report-controls > * {
+        width: 100% !important;
+    }
+    
+    /* Report cards */
+    .report-card,
+    .report-summary-card {
+        padding: 15px !important;
+    }
+    
+    .report-summary-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+    
+    /* Report tables */
+    .report-table {
+        font-size: 11px !important;
+    }
+    
+    .report-table th,
+    .report-table td {
+        padding: 8px 5px !important;
+    }
+    
+    /* Charts in reports */
+    .chart-container {
+        height: 250px !important;
+        min-height: 200px !important;
+    }
+    
+    /* Balance sheet */
+    .balance-sheet-section {
+        padding: 10px !important;
+    }
+    
+    .balance-sheet-row {
+        flex-direction: column !important;
+        gap: 5px !important;
+    }
+    
+    /* P&L Report */
+    .pnl-section {
+        padding: 10px !important;
+    }
+    
+    /* Cash Flow */
+    .cashflow-section {
+        padding: 10px !important;
+    }
+    
+    /* ===== 10. BRANCHES/OUTLETS SECTION ===== */
+    #branches .content-card {
+        padding: 10px !important;
+    }
+    
+    #branches .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    #branches .header-actions {
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+    }
+    
+    #branches .header-actions > * {
+        width: 100% !important;
+    }
+    
+    #branchesGrid,
+    .branches-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .branch-card {
+        padding: 15px !important;
+    }
+    
+    .branch-card-header {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+    }
+    
+    .branch-card-actions {
+        width: 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 5px !important;
+    }
+    
+    .branch-card-actions .btn {
+        flex: 1 !important;
+        min-width: 80px !important;
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Branch stats */
+    #branches .stats-row {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    #branches .stat-card {
+        padding: 12px !important;
+    }
+    
+    /* Branch selector dropdown */
+    #globalBranchSelector {
+        width: 100% !important;
+        font-size: 14px !important;
+        padding: 12px !important;
+    }
+    
+    /* ===== 11. AI ASSISTANT SECTION ===== */
+    #ai-chatbot .content-card,
+    #ai-assistant .content-card {
+        padding: 10px !important;
+        height: calc(100vh - 120px) !important;
+    }
+    
+    .chat-container {
+        height: calc(100vh - 180px) !important;
+    }
+    
+    .chat-messages {
+        padding: 10px !important;
+    }
+    
+    .chat-message {
+        max-width: 90% !important;
+        padding: 12px !important;
+        font-size: 14px !important;
+    }
+    
+    .chat-input-container {
+        padding: 10px !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .chat-input-container input,
+    .chat-input-container textarea {
+        font-size: 16px !important;
+        padding: 12px !important;
+    }
+    
+    .chat-input-container button {
+        width: 100% !important;
+        padding: 12px !important;
+    }
+    
+    /* AI suggestions */
+    .ai-suggestions {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    .ai-suggestion-btn {
+        width: 100% !important;
+        text-align: left !important;
+    }
+    
+    /* ===== SETTINGS SECTION ===== */
+    #settings .content-card {
+        padding: 10px !important;
+    }
+    
+    #settings .card-header {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .settings-tabs {
+        flex-direction: column !important;
+        gap: 5px !important;
+    }
+    
+    .settings-tab {
+        width: 100% !important;
+        text-align: left !important;
+        padding: 12px 15px !important;
+    }
+    
+    .settings-section {
+        padding: 15px !important;
+    }
+    
+    .settings-group {
+        margin-bottom: 20px !important;
+    }
+    
+    .settings-group h3 {
+        font-size: 16px !important;
+    }
+    
+    .settings-row {
+        flex-direction: column !important;
+        gap: 15px !important;
+    }
+    
+    .settings-row > * {
+        width: 100% !important;
+    }
+    
+    /* Settings form */
+    #settings .form-group {
+        margin-bottom: 15px !important;
+    }
+    
+    #settings input,
+    #settings select,
+    #settings textarea {
+        font-size: 16px !important;
+        padding: 12px !important;
+    }
+    
+    #settings .btn {
+        width: 100% !important;
+        padding: 14px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    /* ===== COMMON TABLE IMPROVEMENTS ===== */
+    .table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    table {
+        min-width: 600px !important;
+    }
+    
+    th, td {
+        padding: 8px 6px !important;
+        font-size: 12px !important;
+        white-space: nowrap !important;
+    }
+    
+    /* Action buttons in tables */
+    td .btn,
+    td button {
+        padding: 6px 10px !important;
+        font-size: 11px !important;
+        margin: 2px !important;
+    }
+    
+    /* ===== COMMON CARD IMPROVEMENTS ===== */
+    .content-card {
+        padding: 10px !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .card-header {
+        padding-bottom: 10px !important;
+        margin-bottom: 15px !important;
+    }
+    
+    .card-header h2 {
+        font-size: 16px !important;
+    }
+    
+    /* ===== STATS ROW IMPROVEMENTS ===== */
+    .stats-row {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+    }
+    
+    .stat-card {
+        padding: 12px !important;
+    }
+    
+    .stat-icon {
+        font-size: 20px !important;
+    }
+    
+    .stat-value {
+        font-size: 18px !important;
+    }
+    
+    .stat-label {
+        font-size: 11px !important;
+    }
+    
+    /* ===== FILTER/SEARCH IMPROVEMENTS ===== */
+    .filter-row,
+    .search-row,
+    .controls-row {
+        flex-direction: column !important;
+        gap: 10px !important;
+    }
+    
+    .filter-row > *,
+    .search-row > *,
+    .controls-row > * {
+        width: 100% !important;
+    }
+    
+    .search-input {
+        font-size: 16px !important;
+        padding: 12px !important;
+    }
+    
+    /* ===== BUTTON IMPROVEMENTS ===== */
+    .btn-group {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+    
+    .btn-group .btn {
+        width: 100% !important;
+    }
+    
+    /* Floating action button */
+    .fab,
+    .floating-btn {
+        bottom: 20px !important;
+        right: 20px !important;
+        width: 56px !important;
+        height: 56px !important;
+        font-size: 24px !important;
+    }
+}
+
+/* Extra small screens - additional adjustments */
+@media (max-width: 480px) {
+    /* Even smaller stats grid */
+    .stats-row {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Smaller card padding */
+    .content-card {
+        padding: 8px !important;
+    }
+    
+    .project-card,
+    .quotation-card,
+    .branch-card,
+    .supplier-card,
+    .employee-card,
+    .bill-card {
+        padding: 12px !important;
+    }
+    
+    /* Smaller fonts */
+    .card-header h2 {
+        font-size: 14px !important;
+    }
+    
+    .stat-value {
+        font-size: 16px !important;
+    }
+    
+    table {
+        font-size: 10px !important;
+    }
+    
+    th, td {
+        padding: 6px 4px !important;
     }
 }

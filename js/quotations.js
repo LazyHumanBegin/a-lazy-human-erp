@@ -53,6 +53,11 @@ function loadQuotations() {
 }
 
 function saveQuotations() {
+    // Sync local variable with window.quotations (in case it was modified externally)
+    if (window.quotations && Array.isArray(window.quotations)) {
+        quotations = window.quotations;
+    }
+    
     localStorage.setItem(QUOTATIONS_KEY, JSON.stringify(quotations));
     window.quotations = quotations;
     
@@ -602,6 +607,11 @@ function renderQuotations() {
     const container = document.getElementById('quotationsGrid');
     if (!container) return;
     
+    // Sync local variable with window.quotations (in case it was modified externally)
+    if (window.quotations && Array.isArray(window.quotations)) {
+        quotations = window.quotations;
+    }
+    
     // Apply filters
     const searchTerm = document.getElementById('quotationSearch')?.value?.toLowerCase() || '';
     const statusFilter = document.getElementById('quotationStatusFilter')?.value || '';
@@ -657,7 +667,7 @@ function renderQuotations() {
         }
         
         return `
-            <div class="quotation-card" onclick="viewQuotationDetail('${q.id}')">
+            <div class="quotation-card" data-quotation-id="${q.id}" style="cursor: pointer;">
                 <div class="quotation-card-header">
                     <div class="quotation-number">${escapeHtml(q.quotationNo)}</div>
                     <span class="status-badge" style="background: ${statusColors[displayStatus]}20; color: ${statusColors[displayStatus]};">
@@ -686,6 +696,15 @@ function renderQuotations() {
             </div>
         `;
     }).join('');
+    
+    // Add click event listeners to cards
+    container.querySelectorAll('.quotation-card[data-quotation-id]').forEach(card => {
+        card.addEventListener('click', function() {
+            const id = this.getAttribute('data-quotation-id');
+            console.log('Quotation card clicked:', id);
+            viewQuotationDetail(id);
+        });
+    });
 }
 
 function searchQuotations(term) {
@@ -698,11 +717,31 @@ function filterQuotationsByStatus() {
 
 // ==================== QUOTATION DETAIL VIEW ====================
 function viewQuotationDetail(quotationId) {
-    const quotation = quotations.find(q => q.id === quotationId);
-    if (!quotation) return;
+    console.log('viewQuotationDetail called with:', quotationId);
+    
+    // Reload quotations to ensure fresh data
+    loadQuotations();
+    
+    // Use window.quotations to ensure we have access
+    const quotationsList = window.quotations || quotations || [];
+    const quotation = quotationsList.find(q => q.id === quotationId);
+    
+    if (!quotation) {
+        console.error('Quotation not found:', quotationId);
+        showToast('Quotation not found - it may have been deleted', 'error');
+        // Re-render to remove stale cards
+        renderQuotations();
+        return;
+    }
     
     const modal = document.getElementById('quotationDetailModal');
     const content = document.getElementById('quotationDetailContent');
+    
+    if (!modal || !content) {
+        console.error('Modal elements not found');
+        showToast('Error opening quotation details', 'error');
+        return;
+    }
     
     // Check if expired
     let displayStatus = quotation.status;
@@ -747,7 +786,11 @@ function viewQuotationDetail(quotationId) {
                     <button class="btn-secondary" onclick="showQuotationModal('${quotation.id}')">
                         <i class="fas fa-edit"></i> Edit
                     </button>
-                ` : ''}
+                ` : `
+                    <button class="btn-outline" onclick="closeModal('quotationDetailModal'); if(typeof showSection==='function') showSection('projects'); setTimeout(()=>viewProjectDetail('${quotation.projectId}'),300);" style="background: #10b981; color: white; border: none;">
+                        <i class="fas fa-project-diagram"></i> View Project
+                    </button>
+                `}
                 ${quotation.status === 'draft' ? `
                     <button class="btn-primary" onclick="markQuotationSent('${quotation.id}')">
                         <i class="fas fa-paper-plane"></i> Mark as Sent
@@ -1396,3 +1439,21 @@ ${companyName}
 document.addEventListener('DOMContentLoaded', function() {
     initializeQuotations();
 });
+
+// Export functions to window for onclick handlers
+window.viewQuotationDetail = viewQuotationDetail;
+window.showQuotationModal = showQuotationModal;
+// approveQuotation is alias for acceptQuotation
+window.approveQuotation = acceptQuotation;
+window.acceptQuotation = acceptQuotation;
+window.initializeQuotations = initializeQuotations;
+window.renderQuotations = renderQuotations;
+window.saveQuotations = saveQuotations;
+window.updateQuotationStats = updateQuotationStats;
+window.deleteQuotation = deleteQuotation;
+window.markQuotationSent = markQuotationSent;
+window.rejectQuotation = rejectQuotation;
+window.duplicateQuotation = duplicateQuotation;
+window.shareQuotationWhatsApp = shareQuotationWhatsApp;
+window.emailQuotation = emailQuotation;
+window.generateQuotationPDF = generateQuotationPDF;
