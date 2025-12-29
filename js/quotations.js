@@ -1456,4 +1456,5 @@ window.rejectQuotation = rejectQuotation;
 window.duplicateQuotation = duplicateQuotation;
 window.shareQuotationWhatsApp = shareQuotationWhatsApp;
 window.emailQuotation = emailQuotation;
-window.generateQuotationPDF = generateQuotationPDF;
+// Note: generateQuotationPDF is defined in js/addons.js, not here
+// window.generateQuotationPDF = generateQuotationPDF;

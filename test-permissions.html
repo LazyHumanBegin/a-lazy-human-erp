@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Test - Permissions</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h3 { 
+            margin-top: 0; 
+            color: #10b981;
+            border-bottom: 2px solid #10b981;
+            padding-bottom: 10px;
+        }
+        .pass { color: #10b981; }
+        .fail { color: #ef4444; }
+        .test-item {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .test-item:last-child { border-bottom: none; }
+        pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+        .btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover { background: #059669; }
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        .summary {
+            background: #10b981;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .summary.has-failures { background: #ef4444; }
+        #console-output {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        #console-output div { padding: 2px 0; }
+        .log-info { color: #60a5fa; }
+        .log-warn { color: #fbbf24; }
+        .log-error { color: #f87171; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Module Test: Permissions</h1>
+    <p>This page tests the extracted <code>permissions.js</code> module independently.</p>
+    
+    <div class="test-section">
+        <h3>📦 Module Loading</h3>
+        <div id="loading-tests"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔐 Constants Check</h3>
+        <div id="constants-tests"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>⚡ Function Tests</h3>
+        <div id="function-tests"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🔄 Integration Tests (with mock user)</h3>
+        <div id="integration-tests"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>📝 Console Output</h3>
+        <div id="console-output"></div>
+    </div>
+    
+    <div id="summary" class="summary">Running tests...</div>
+    
+    <div style="margin-top: 20px; text-align: center;">
+        <button class="btn" onclick="runAllTests()">🔄 Re-run Tests</button>
+        <button class="btn btn-danger" onclick="clearAndRun()">🗑️ Clear & Re-run</button>
+    </div>
+
+    <!-- Load ONLY the permissions module (no other dependencies) -->
+    <script src="js/permissions/permissions.js"></script>
+    
+    <script>
+        // Capture console output
+        const consoleOutput = document.getElementById('console-output');
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const div = document.createElement('div');
+            div.className = 'log-info';
+            div.textContent = '[LOG] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            const div = document.createElement('div');
+            div.className = 'log-warn';
+            div.textContent = '[WARN] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+            consoleOutput.appendChild(div);
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            const div = document.createElement('div');
+            div.className = 'log-error';
+            div.textContent = '[ERROR] ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+            consoleOutput.appendChild(div);
+        };
+        
+        // Test results tracker
+        let totalTests = 0;
+        let passedTests = 0;
+        
+        function addTest(containerId, name, passed, details = '') {
+            totalTests++;
+            if (passed) passedTests++;
+            
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = 'test-item';
+            div.innerHTML = `
+                <span class="${passed ? 'pass' : 'fail'}">${passed ? '✅' : '❌'}</span>
+                <strong>${name}</strong>
+                ${details ? `<br><small style="color: #666; margin-left: 25px;">${details}</small>` : ''}
+            `;
+            container.appendChild(div);
+        }
+        
+        function runAllTests() {
+            // Reset
+            totalTests = 0;
+            passedTests = 0;
+            document.getElementById('loading-tests').innerHTML = '';
+            document.getElementById('constants-tests').innerHTML = '';
+            document.getElementById('function-tests').innerHTML = '';
+            document.getElementById('integration-tests').innerHTML = '';
+            
+            // 1. MODULE LOADING TESTS
+            addTest('loading-tests', 'permissions.js loaded', 
+                typeof window.ROLES !== 'undefined',
+                'window.ROLES should exist');
+            
+            addTest('loading-tests', 'Module exports present', 
+                typeof window.canAccessModule === 'function',
+                'canAccessModule function should be exported');
+            
+            // 2. CONSTANTS TESTS
+            addTest('constants-tests', 'ROLES defined', 
+                typeof ROLES === 'object' && Object.keys(ROLES).length > 0,
+                `Found ${Object.keys(ROLES).length} roles`);
+            
+            addTest('constants-tests', 'Has founder role', 
+                ROLES.founder && ROLES.founder.level === 1,
+                'Founder should be level 1');
+            
+            addTest('constants-tests', 'Has staff role', 
+                ROLES.staff && ROLES.staff.level === 5,
+                'Staff should be level 5');
+            
+            addTest('constants-tests', 'ERP_MODULES defined', 
+                Array.isArray(ERP_MODULES) && ERP_MODULES.length > 0,
+                `Found ${ERP_MODULES.length} modules`);
+            
+            addTest('constants-tests', 'ERP_MODULE_CATEGORIES defined', 
+                Array.isArray(ERP_MODULE_CATEGORIES) && ERP_MODULE_CATEGORIES.length > 0,
+                `Found ${ERP_MODULE_CATEGORIES.length} categories`);
+            
+            addTest('constants-tests', 'MODULE_MAP defined', 
+                typeof MODULE_MAP === 'object',
+                `Found ${Object.keys(MODULE_MAP).length} mappings`);
+            
+            // 3. FUNCTION TESTS
+            addTest('function-tests', 'canAccessModule exists', 
+                typeof canAccessModule === 'function',
+                'Should be a function');
+            
+            addTest('function-tests', 'canManageRole exists', 
+                typeof canManageRole === 'function',
+                'Should be a function');
+            
+            addTest('function-tests', 'applyUserPermissions exists', 
+                typeof applyUserPermissions === 'function',
+                'Should be a function');
+            
+            addTest('function-tests', 'hideBusinessNavSeparators exists', 
+                typeof hideBusinessNavSeparators === 'function',
+                'Should be a function');
+            
+            addTest('function-tests', 'getOwnerPlanFeatures exists', 
+                typeof getOwnerPlanFeatures === 'function',
+                'Should be a function');
+            
+            addTest('function-tests', 'getRoleDefinition exists', 
+                typeof getRoleDefinition === 'function',
+                'Should be a function');
+            
+            // Test getRoleDefinition
+            const founderRole = getRoleDefinition('founder');
+            addTest('function-tests', 'getRoleDefinition(founder) works', 
+                founderRole && founderRole.name === 'Founder',
+                `Returns: ${founderRole ? founderRole.name : 'null'}`);
+            
+            // Test getModulesByCategory
+            const financeModules = getModulesByCategory('finance');
+            addTest('function-tests', 'getModulesByCategory(finance) works', 
+                Array.isArray(financeModules) && financeModules.length > 0,
+                `Found ${financeModules.length} finance modules`);
+            
+            // 4. INTEGRATION TESTS (with mock user)
+            // Test with no user
+            window.currentUser = null;
+            addTest('integration-tests', 'canAccessModule returns false when no user', 
+                canAccessModule('dashboard') === false,
+                'Should deny access when not logged in');
+            
+            // Test with founder
+            window.currentUser = {
+                id: 'test_founder',
+                email: 'test@test.com',
+                role: 'founder',
+                permissions: ['all'],
+                tenantId: 'test_tenant'
+            };
+            addTest('integration-tests', 'Founder can access dashboard', 
+                canAccessModule('dashboard') === true,
+                'Founder should have full access');
+            
+            addTest('integration-tests', 'Founder can access any module', 
+                canAccessModule('pos') === true && canAccessModule('payroll') === true,
+                'Founder should access POS and Payroll');
+            
+            // Test canManageRole for founder
+            addTest('integration-tests', 'Founder can manage staff', 
+                canManageRole('staff') === true,
+                'Founder should manage staff');
+            
+            addTest('integration-tests', 'Founder can manage business_admin', 
+                canManageRole('business_admin') === true,
+                'Founder should manage business_admin');
+            
+            // Test with staff
+            window.currentUser = {
+                id: 'test_staff',
+                email: 'staff@test.com',
+                role: 'staff',
+                permissions: ['pos', 'dashboard'],
+                tenantId: 'test_tenant'
+            };
+            addTest('integration-tests', 'Staff cannot manage anyone', 
+                canManageRole('staff') === false,
+                'Staff should not manage anyone');
+            
+            // Clean up
+            window.currentUser = null;
+            
+            // Update summary
+            const summary = document.getElementById('summary');
+            const allPassed = passedTests === totalTests;
+            summary.className = 'summary' + (allPassed ? '' : ' has-failures');
+            summary.innerHTML = `
+                ${allPassed ? '🎉' : '⚠️'} 
+                ${passedTests}/${totalTests} tests passed
+                ${allPassed ? '- Module is working correctly!' : '- Some tests failed'}
+            `;
+        }
+        
+        function clearAndRun() {
+            document.getElementById('console-output').innerHTML = '';
+            runAllTests();
+        }
+        
+        // Run tests on load
+        window.onload = runAllTests;
+    </script>
+</body>
+</html>

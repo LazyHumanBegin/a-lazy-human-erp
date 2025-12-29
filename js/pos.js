@@ -1728,11 +1728,11 @@ window.showCheckout = showPaymentModal;
 window.showPaymentModal = showPaymentModal;
 window.closePosPaymentModal = closePosPaymentModal;
 window.processPayment = processPayment;
-window.selectPOSCustomer = selectPOSCustomer;
+// Note: selectPOSCustomer was removed - customer selection handled by posCustomer dropdown
 window.showItemMemo = showItemMemo;
-window.saveItemMemo = saveItemMemo;
-window.updateAmountReceived = updateAmountReceived;
-window.applyDiscount = applyDiscount;
+// Note: saveItemMemo was removed - memo is saved directly in showItemMemo via prompt()
+// Note: updateAmountReceived was removed - use calculateChange() instead
+// Note: applyDiscount was removed - discount is applied via cartDiscount input field
 window.printReceipt = printReceipt;
 window.emailReceipt = emailReceipt;
 window.loadSales = loadSales;

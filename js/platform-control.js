@@ -70,8 +70,8 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 branches: 3, // Up to 3 branches/outlets
                 storage: 2000
             },
-            // Professional gets ALL features including branches (up to 3)
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'settings', 'users'],
+            // Professional gets ALL features including branches (up to 3) - 37 modules
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'email-invoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'products', 'settings', 'users'],
             hiddenSections: [] // Professional now has access to branches (limited to 3)
         },
         enterprise: {
@@ -2543,7 +2543,8 @@ function syncPlanFeaturesToUsers() {
             }
         }
         
-        // Sync Staff/Manager - add new features from owner's plan
+        // Sync Staff/Manager - ONLY REMOVE features no longer in owner's plan
+        // DO NOT add features automatically - Admin must assign them manually
         if (['staff', 'manager'].includes(user.role) && user.tenantId) {
             const owner = allUsers.find(u => 
                 u.tenantId === user.tenantId && 
@@ -2554,35 +2555,27 @@ function syncPlanFeaturesToUsers() {
                 const ownerPlan = settings.plans[owner.plan];
                 if (ownerPlan) {
                     const ownerFeatures = ownerPlan.features;
-                    const oldPermissions = user.permissions ? [...user.permissions] : [];
                     
                     // If staff has 'all' access, keep it
                     if (user.permissions && user.permissions.includes('all')) {
                         // No change needed
                     }
-                    // If owner has 'all' access, add new features to staff that they might be missing
+                    // If owner has 'all' access, staff keeps their current assigned permissions
                     else if (ownerFeatures.includes('all')) {
-                        // Staff keeps their current permissions, owner plan allows everything
-                        // Optionally: could grant staff all permissions too
+                        // Staff keeps their current permissions - owner plan allows everything
+                        // No auto-add, just validate
                     }
-                    // Owner has specific features - add any new ones staff doesn't have
+                    // Owner has specific features - ONLY remove features no longer in plan
                     else {
-                        // Get all new features in owner's plan that staff doesn't have yet
                         const staffPerms = user.permissions || [];
-                        const newFeaturesInPlan = ownerFeatures.filter(f => !staffPerms.includes(f));
                         
-                        // Add new features automatically (staff gets same access as owner by default)
-                        if (newFeaturesInPlan.length > 0) {
-                            user.permissions = [...new Set([...staffPerms, ...newFeaturesInPlan])];
-                            syncCount++;
-                            user.updatedAt = new Date().toISOString();
-                            console.log(`✓ Added new features to ${user.role} ${user.email}:`, newFeaturesInPlan);
-                        }
-                        
-                        // Also remove features that are no longer in owner's plan
+                        // DO NOT auto-add features - this overwrites admin's manual assignments
+                        // Only remove features that are no longer in owner's plan
                         const invalidFeatures = staffPerms.filter(p => !ownerFeatures.includes(p));
                         if (invalidFeatures.length > 0) {
-                            user.permissions = user.permissions.filter(p => ownerFeatures.includes(p));
+                            user.permissions = staffPerms.filter(p => ownerFeatures.includes(p));
+                            syncCount++;
+                            user.updatedAt = new Date().toISOString();
                             console.log(`✗ Removed features from ${user.email} (not in plan):`, invalidFeatures);
                         }
                     }
