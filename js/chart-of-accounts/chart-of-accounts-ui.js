@@ -1,4 +1,4 @@
-// ==================== CHART OF ACCOUNTS UI - v2.3.0 ====================
+// ==================== CHART OF ACCOUNTS UI - v2.3.1 ====================
 // Rendering, modals, filtering, and UI interactions
 // Split from chart-of-accounts.js for better maintainability
 

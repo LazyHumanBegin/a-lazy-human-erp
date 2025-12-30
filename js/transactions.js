@@ -549,9 +549,29 @@ function deleteTransaction() {
                 });
             }
             
-            // Save data
+            // Save data to main localStorage
             console.log('Saving data...');
             saveData();
+            
+            // CRITICAL: Also save directly to tenant storage to ensure deletion persists
+            const user = window.currentUser;
+            if (user && user.tenantId) {
+                const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+                let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+                tenantData.transactions = businessData.transactions;
+                tenantData.updatedAt = new Date().toISOString();
+                localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+                console.log('✅ Transaction deletion saved directly to tenant storage');
+            }
+            
+            // Force cloud sync to ensure deletion persists
+            if (typeof CloudSync !== 'undefined' && CloudSync.uploadToCloud) {
+                CloudSync.uploadToCloud().then(() => {
+                    console.log('☁️ Deletion synced to cloud');
+                }).catch(err => {
+                    console.warn('Cloud sync failed:', err);
+                });
+            }
             
             // Close modal first
             console.log('Closing modal...');
@@ -600,6 +620,26 @@ function confirmDeleteTransaction(transactionId) {
         
         // Save data
         saveData();
+        
+        // CRITICAL: Also save directly to tenant storage to ensure deletion persists
+        const user = window.currentUser;
+        if (user && user.tenantId) {
+            const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+            let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            tenantData.transactions = businessData.transactions;
+            tenantData.updatedAt = new Date().toISOString();
+            localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+            console.log('✅ Transaction deletion saved directly to tenant storage');
+        }
+        
+        // Force cloud sync to ensure deletion persists
+        if (typeof CloudSync !== 'undefined' && CloudSync.uploadToCloud) {
+            CloudSync.uploadToCloud().then(() => {
+                console.log('☁️ Deletion synced to cloud');
+            }).catch(err => {
+                console.warn('Cloud sync failed:', err);
+            });
+        }
         
         // Show notification
         showNotification('🗑️ Transaction deleted successfully!', 'success');

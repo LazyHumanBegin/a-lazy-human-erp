@@ -1,4 +1,4 @@
-// ==================== CHART OF ACCOUNTS CORE - v2.3.0 ====================
+// ==================== CHART OF ACCOUNTS CORE - v2.3.1 ====================
 // Data management, CRUD operations, and business logic
 // Split from chart-of-accounts.js for better maintainability
 

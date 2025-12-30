@@ -1,5 +1,5 @@
 /**
- * EZCubic - User Management & Access Control System
+ * A Lazy Human - User Management & Access Control System
  * Role-based access control for multi-tenant ERP
  * Version: 2.3.0 - Modular architecture refactoring complete
  * 

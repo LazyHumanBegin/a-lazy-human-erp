@@ -1,11 +1,597 @@
 /**
- * EZCubic Phase 2 - Point of Sale (POS) Module
+ * A Lazy Human - Point of Sale (POS) Module
  * Cart management, checkout, payment processing, receipts
+ * Restaurant table management support
  */
 
 // ==================== POS STATE ====================
 let heldSales = [];
 let currentPOSCategory = '';
+
+// ==================== ORDER TYPE STATE ====================
+let currentOrderType = 'dine-in'; // 'dine-in', 'takeaway', 'delivery'
+let currentDeliveryPlatform = ''; // 'grab', 'foodpanda', 'shopeefood', 'own', 'other'
+let currentDeliveryOrderId = '';
+
+const DELIVERY_PLATFORMS = [
+    { id: 'grab', name: 'Grab', icon: '🟢' },
+    { id: 'foodpanda', name: 'FoodPanda', icon: '🩷' },
+    { id: 'shopeefood', name: 'ShopeeFood', icon: '🟠' },
+    { id: 'own', name: 'Own Delivery', icon: '🚗' },
+    { id: 'other', name: 'Other', icon: '📦' }
+];
+
+// Platform commission rates (editable in Settings)
+const PLATFORM_COMMISSIONS_KEY = 'ezcubic_platform_commissions';
+
+function getPlatformCommissions() {
+    const stored = localStorage.getItem(PLATFORM_COMMISSIONS_KEY);
+    if (stored) {
+        return JSON.parse(stored);
+    }
+    // Default rates
+    return {
+        grab: 30,
+        foodpanda: 30,
+        shopeefood: 25,
+        own: 0,
+        other: 0
+    };
+}
+
+function savePlatformCommissions() {
+    const commissions = {
+        grab: parseFloat(document.getElementById('commissionGrab')?.value) || 30,
+        foodpanda: parseFloat(document.getElementById('commissionFoodpanda')?.value) || 30,
+        shopeefood: parseFloat(document.getElementById('commissionShopeefood')?.value) || 25,
+        own: parseFloat(document.getElementById('commissionOwn')?.value) || 0,
+        other: parseFloat(document.getElementById('commissionOther')?.value) || 0
+    };
+    localStorage.setItem(PLATFORM_COMMISSIONS_KEY, JSON.stringify(commissions));
+    showToast('Platform commissions saved', 'success');
+}
+
+function loadPlatformCommissions() {
+    const commissions = getPlatformCommissions();
+    const grabInput = document.getElementById('commissionGrab');
+    const foodpandaInput = document.getElementById('commissionFoodpanda');
+    const shopeefoodInput = document.getElementById('commissionShopeefood');
+    const ownInput = document.getElementById('commissionOwn');
+    const otherInput = document.getElementById('commissionOther');
+    
+    if (grabInput) grabInput.value = commissions.grab;
+    if (foodpandaInput) foodpandaInput.value = commissions.foodpanda;
+    if (shopeefoodInput) shopeefoodInput.value = commissions.shopeefood;
+    if (ownInput) ownInput.value = commissions.own;
+    if (otherInput) otherInput.value = commissions.other;
+}
+
+// ==================== TABLE MANAGEMENT STATE ====================
+let posTables = [];
+let currentTable = null; // Currently selected table
+let posMode = 'retail'; // 'retail' or 'restaurant'
+const POS_TABLES_KEY = 'ezcubic_pos_tables';
+const POS_MODE_KEY = 'ezcubic_pos_mode';
+
+// ==================== TABLE MANAGEMENT FUNCTIONS ====================
+
+function loadPOSTables() {
+    const stored = localStorage.getItem(POS_TABLES_KEY);
+    if (stored) {
+        posTables = JSON.parse(stored);
+    } else {
+        // Default tables for restaurant
+        posTables = [];
+    }
+    
+    // Load POS mode
+    const storedMode = localStorage.getItem(POS_MODE_KEY);
+    posMode = storedMode || 'retail';
+}
+
+function savePOSTables() {
+    localStorage.setItem(POS_TABLES_KEY, JSON.stringify(posTables));
+}
+
+function savePOSMode() {
+    localStorage.setItem(POS_MODE_KEY, posMode);
+}
+
+function togglePOSMode() {
+    posMode = posMode === 'retail' ? 'restaurant' : 'retail';
+    savePOSMode();
+    renderPOSModeUI();
+    
+    if (posMode === 'restaurant') {
+        showToast('Restaurant Mode - Table management enabled', 'success');
+    } else {
+        currentTable = null;
+        showToast('Retail Mode - Standard POS', 'success');
+    }
+}
+
+// ==================== ORDER TYPE FUNCTIONS ====================
+
+function setOrderType(type) {
+    currentOrderType = type;
+    
+    // Update button states
+    const buttons = document.querySelectorAll('.order-type-btn');
+    buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    
+    // Show/hide delivery details
+    const deliveryDetails = document.getElementById('deliveryDetails');
+    if (deliveryDetails) {
+        deliveryDetails.style.display = type === 'delivery' ? 'block' : 'none';
+    }
+    
+    // Clear delivery info if not delivery
+    if (type !== 'delivery') {
+        currentDeliveryPlatform = '';
+        currentDeliveryOrderId = '';
+        const platformSelect = document.getElementById('deliveryPlatform');
+        const orderIdInput = document.getElementById('deliveryOrderId');
+        if (platformSelect) platformSelect.value = '';
+        if (orderIdInput) orderIdInput.value = '';
+    }
+}
+
+function setDeliveryPlatform(platform) {
+    currentDeliveryPlatform = platform;
+}
+
+function setDeliveryOrderId(orderId) {
+    currentDeliveryOrderId = orderId;
+}
+
+function resetOrderType() {
+    currentOrderType = 'dine-in';
+    currentDeliveryPlatform = '';
+    currentDeliveryOrderId = '';
+    
+    const buttons = document.querySelectorAll('.order-type-btn');
+    buttons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.type === 'dine-in');
+    });
+    
+    const deliveryDetails = document.getElementById('deliveryDetails');
+    if (deliveryDetails) deliveryDetails.style.display = 'none';
+    
+    const platformSelect = document.getElementById('deliveryPlatform');
+    const orderIdInput = document.getElementById('deliveryOrderId');
+    if (platformSelect) platformSelect.value = '';
+    if (orderIdInput) orderIdInput.value = '';
+}
+
+function getOrderTypeLabel(type) {
+    switch(type) {
+        case 'dine-in': return '🍽️ Dine-in';
+        case 'takeaway': return '🥡 Takeaway';
+        case 'delivery': return '🛵 Delivery';
+        default: return type;
+    }
+}
+
+function getPlatformLabel(platform) {
+    const p = DELIVERY_PLATFORMS.find(d => d.id === platform);
+    return p ? `${p.icon} ${p.name}` : platform;
+}
+
+function renderPOSModeUI() {
+    const tableSection = document.getElementById('posTableSection');
+    const modeToggle = document.getElementById('posModeToggle');
+    
+    if (modeToggle) {
+        modeToggle.innerHTML = posMode === 'restaurant' 
+            ? '<i class="fas fa-store"></i> Retail Mode'
+            : '<i class="fas fa-utensils"></i> Restaurant Mode';
+        modeToggle.className = posMode === 'restaurant' 
+            ? 'btn-outline btn-sm' 
+            : 'btn-primary btn-sm';
+    }
+    
+    if (tableSection) {
+        tableSection.style.display = posMode === 'restaurant' ? 'block' : 'none';
+    }
+    
+    // Update current table display
+    updateCurrentTableDisplay();
+    
+    // If restaurant mode, load tables
+    if (posMode === 'restaurant') {
+        renderTableSelector();
+    }
+}
+
+function renderTableSelector() {
+    const container = document.getElementById('posTableSelector');
+    if (!container) return;
+    
+    const occupiedTables = getOccupiedTables();
+    
+    if (posTables.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 10px; color: #64748b;">
+                <i class="fas fa-chair" style="font-size: 24px; margin-bottom: 5px;"></i>
+                <p style="margin: 0; font-size: 12px;">No tables configured</p>
+                <button class="btn-outline btn-sm" onclick="showTableManagement()" style="margin-top: 8px;">
+                    <i class="fas fa-plus"></i> Add Tables
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = `
+        <div class="pos-table-grid">
+            ${posTables.map(table => {
+                const isOccupied = occupiedTables.includes(table.id);
+                const isSelected = currentTable?.id === table.id;
+                const heldSale = heldSales.find(s => s.tableId === table.id);
+                
+                return `
+                    <div class="pos-table-btn ${isOccupied ? 'occupied' : 'available'} ${isSelected ? 'selected' : ''}"
+                         onclick="selectTable('${table.id}')"
+                         title="${table.name}${heldSale ? ' - ' + heldSale.items.length + ' items' : ''}">
+                        <div class="table-number">${table.number}</div>
+                        <div class="table-name">${table.name}</div>
+                        ${isOccupied ? `<div class="table-status"><i class="fas fa-utensils"></i></div>` : ''}
+                        ${heldSale ? `<div class="table-amount">RM ${heldSale.items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(0)}</div>` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+        <div style="display: flex; gap: 5px; margin-top: 10px;">
+            <button class="btn-outline btn-sm flex-1" onclick="showTableManagement()">
+                <i class="fas fa-cog"></i> Manage
+            </button>
+            ${currentTable ? `
+                <button class="btn-outline btn-sm danger" onclick="clearTableSelection()">
+                    <i class="fas fa-times"></i> Clear
+                </button>
+            ` : ''}
+        </div>
+    `;
+}
+
+function getOccupiedTables() {
+    return heldSales.filter(s => s.tableId).map(s => s.tableId);
+}
+
+function selectTable(tableId) {
+    const table = posTables.find(t => t.id === tableId);
+    if (!table) return;
+    
+    // Check if table has a held sale
+    const heldSale = heldSales.find(s => s.tableId === tableId);
+    
+    if (heldSale) {
+        // Table has existing order - recall it
+        if (currentCart.length > 0) {
+            if (!confirm(`Table ${table.number} has an existing order. Load it? (Current cart will be saved)`)) {
+                return;
+            }
+            // Hold current cart first (without table)
+            holdSaleInternal(null);
+        }
+        
+        // Recall the table's order
+        currentCart = [...heldSale.items];
+        document.getElementById('posCustomer').value = heldSale.customerId || '';
+        document.getElementById('posSalesperson').value = heldSale.salesperson || '';
+        document.getElementById('cartDiscount').value = heldSale.discount || 0;
+        
+        // Remove from held
+        const heldIndex = heldSales.indexOf(heldSale);
+        if (heldIndex > -1) {
+            heldSales.splice(heldIndex, 1);
+            saveHeldSales();
+        }
+        
+        currentTable = table;
+        renderCart();
+        updateCartTotals();
+        showToast(`Table ${table.number} order loaded`, 'success');
+    } else {
+        // Empty table - just select it
+        if (currentTable?.id === tableId) {
+            // Deselect if clicking same table
+            currentTable = null;
+            showToast('Table deselected', 'info');
+        } else {
+            currentTable = table;
+            showToast(`Table ${table.number} selected`, 'success');
+        }
+    }
+    
+    renderTableSelector();
+    updateCurrentTableDisplay();
+}
+
+function clearTableSelection() {
+    currentTable = null;
+    renderTableSelector();
+    updateCurrentTableDisplay();
+    showToast('Table selection cleared', 'info');
+}
+
+function updateCurrentTableDisplay() {
+    const display = document.getElementById('currentTableDisplay');
+    if (!display) return;
+    
+    if (posMode === 'restaurant' && currentTable) {
+        display.innerHTML = `
+            <div class="current-table-badge">
+                <i class="fas fa-chair"></i>
+                <span>Table ${currentTable.number}</span>
+                <button onclick="clearTableSelection()" class="badge-close">&times;</button>
+            </div>
+        `;
+        display.style.display = 'block';
+    } else {
+        display.style.display = 'none';
+    }
+}
+
+// ==================== TABLE MANAGEMENT MODAL ====================
+
+function showTableManagement() {
+    let modal = document.getElementById('tableManagementModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'tableManagementModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 600px;">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fas fa-chair"></i> Table Management</h3>
+                    <button class="modal-close" onclick="closeTableManagement()">&times;</button>
+                </div>
+                <div class="modal-body" id="tableManagementContent"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    renderTableManagementContent();
+    modal.style.display = '';
+    modal.classList.add('show');
+}
+
+function closeTableManagement() {
+    const modal = document.getElementById('tableManagementModal');
+    if (modal) modal.classList.remove('show');
+}
+
+function renderTableManagementContent() {
+    const content = document.getElementById('tableManagementContent');
+    if (!content) return;
+    
+    content.innerHTML = `
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px;">Quick Add Tables</h4>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <input type="number" id="quickAddTableCount" min="1" max="50" value="5" 
+                       class="form-control" style="width: 80px;" placeholder="Count">
+                <input type="text" id="quickAddTablePrefix" class="form-control" style="width: 120px;" 
+                       placeholder="Prefix (e.g., T)" value="T">
+                <button class="btn-primary" onclick="quickAddTables()">
+                    <i class="fas fa-plus"></i> Add Tables
+                </button>
+            </div>
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+            <h4 style="margin-bottom: 10px;">Add Single Table</h4>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="newTableNumber" class="form-control" style="width: 80px;" placeholder="No.">
+                <input type="text" id="newTableName" class="form-control" style="flex: 1;" placeholder="Name (e.g., Window Seat)">
+                <button class="btn-primary" onclick="addSingleTable()">
+                    <i class="fas fa-plus"></i> Add
+                </button>
+            </div>
+        </div>
+        
+        <div>
+            <h4 style="margin-bottom: 10px;">Current Tables (${posTables.length})</h4>
+            ${posTables.length === 0 ? `
+                <div style="text-align: center; padding: 20px; color: #64748b; background: #f8fafc; border-radius: 8px;">
+                    <i class="fas fa-chair" style="font-size: 32px; margin-bottom: 10px;"></i>
+                    <p>No tables configured yet</p>
+                </div>
+            ` : `
+                <div class="table-management-list" style="max-height: 300px; overflow-y: auto;">
+                    ${posTables.map(table => {
+                        const isOccupied = getOccupiedTables().includes(table.id);
+                        return `
+                            <div class="table-mgmt-item" style="display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 8px;">
+                                <div class="table-mgmt-number" style="width: 50px; height: 50px; background: ${isOccupied ? '#fef3c7' : '#e0f2fe'}; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; color: ${isOccupied ? '#d97706' : '#0284c7'};">
+                                    ${table.number}
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600;">${table.name}</div>
+                                    <div style="font-size: 12px; color: ${isOccupied ? '#d97706' : '#22c55e'};">
+                                        ${isOccupied ? '<i class="fas fa-utensils"></i> Occupied' : '<i class="fas fa-check"></i> Available'}
+                                    </div>
+                                </div>
+                                <button class="btn-outline btn-sm" onclick="editTable('${table.id}')" ${isOccupied ? 'disabled title="Cannot edit occupied table"' : ''}>
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn-outline btn-sm danger" onclick="deleteTable('${table.id}')" ${isOccupied ? 'disabled title="Cannot delete occupied table"' : ''}>
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                    <button class="btn-outline danger" onclick="clearAllTables()">
+                        <i class="fas fa-trash-alt"></i> Clear All Tables
+                    </button>
+                </div>
+            `}
+        </div>
+    `;
+}
+
+function quickAddTables() {
+    const count = parseInt(document.getElementById('quickAddTableCount').value) || 5;
+    const prefix = document.getElementById('quickAddTablePrefix').value || 'T';
+    
+    if (count < 1 || count > 50) {
+        showToast('Please enter 1-50 tables', 'warning');
+        return;
+    }
+    
+    // Find highest existing number
+    let startNum = 1;
+    posTables.forEach(t => {
+        const num = parseInt(t.number.replace(/\D/g, '')) || 0;
+        if (num >= startNum) startNum = num + 1;
+    });
+    
+    for (let i = 0; i < count; i++) {
+        const num = startNum + i;
+        posTables.push({
+            id: generateUUID(),
+            number: `${prefix}${num}`,
+            name: `Table ${num}`,
+            capacity: 4,
+            createdAt: new Date().toISOString()
+        });
+    }
+    
+    savePOSTables();
+    renderTableManagementContent();
+    renderTableSelector();
+    showToast(`Added ${count} tables`, 'success');
+}
+
+function addSingleTable() {
+    const number = document.getElementById('newTableNumber').value.trim();
+    const name = document.getElementById('newTableName').value.trim() || `Table ${number}`;
+    
+    if (!number) {
+        showToast('Please enter table number', 'warning');
+        return;
+    }
+    
+    // Check for duplicate
+    if (posTables.find(t => t.number === number)) {
+        showToast('Table number already exists', 'warning');
+        return;
+    }
+    
+    posTables.push({
+        id: generateUUID(),
+        number: number,
+        name: name,
+        capacity: 4,
+        createdAt: new Date().toISOString()
+    });
+    
+    savePOSTables();
+    renderTableManagementContent();
+    renderTableSelector();
+    
+    // Clear inputs
+    document.getElementById('newTableNumber').value = '';
+    document.getElementById('newTableName').value = '';
+    
+    showToast(`Table ${number} added`, 'success');
+}
+
+function editTable(tableId) {
+    const table = posTables.find(t => t.id === tableId);
+    if (!table) return;
+    
+    const newNumber = prompt('Enter table number:', table.number);
+    if (newNumber === null) return;
+    
+    const newName = prompt('Enter table name:', table.name);
+    if (newName === null) return;
+    
+    // Check for duplicate number (excluding current)
+    if (posTables.find(t => t.number === newNumber && t.id !== tableId)) {
+        showToast('Table number already exists', 'warning');
+        return;
+    }
+    
+    table.number = newNumber.trim() || table.number;
+    table.name = newName.trim() || table.name;
+    
+    savePOSTables();
+    renderTableManagementContent();
+    renderTableSelector();
+    showToast('Table updated', 'success');
+}
+
+function deleteTable(tableId) {
+    const table = posTables.find(t => t.id === tableId);
+    if (!table) return;
+    
+    if (!confirm(`Delete table ${table.number}?`)) return;
+    
+    posTables = posTables.filter(t => t.id !== tableId);
+    savePOSTables();
+    
+    if (currentTable?.id === tableId) {
+        currentTable = null;
+        updateCurrentTableDisplay();
+    }
+    
+    renderTableManagementContent();
+    renderTableSelector();
+    showToast('Table deleted', 'success');
+}
+
+function clearAllTables() {
+    const occupiedCount = getOccupiedTables().length;
+    if (occupiedCount > 0) {
+        showToast(`Cannot clear - ${occupiedCount} tables have active orders`, 'warning');
+        return;
+    }
+    
+    if (!confirm('Delete ALL tables? This cannot be undone.')) return;
+    
+    posTables = [];
+    currentTable = null;
+    savePOSTables();
+    
+    renderTableManagementContent();
+    renderTableSelector();
+    updateCurrentTableDisplay();
+    showToast('All tables cleared', 'success');
+}
+
+// Internal hold function (for table management)
+function holdSaleInternal(tableId) {
+    if (currentCart.length === 0) return;
+    
+    const customerId = document.getElementById('posCustomer')?.value || '';
+    const customer = customers.find(c => c.id === customerId);
+    const salesperson = document.getElementById('posSalesperson')?.value || '';
+    
+    heldSales.push({
+        id: generateUUID(),
+        date: new Date().toISOString(),
+        customerId: customerId,
+        customerName: customer?.name || 'Walk-in',
+        salesperson: salesperson,
+        items: [...currentCart],
+        discount: parseFloat(document.getElementById('cartDiscount')?.value) || 0,
+        tableId: tableId,
+        tableName: tableId ? posTables.find(t => t.id === tableId)?.number : null
+    });
+    
+    saveHeldSales();
+    currentCart = [];
+    document.getElementById('cartDiscount').value = 0;
+    renderCart();
+    updateCartTotals();
+}
 
 // ==================== POS INITIALIZATION ====================
 function initializePOS() {
@@ -20,6 +606,7 @@ function initializePOS() {
     }
     
     loadHeldSales();
+    loadPOSTables(); // Load restaurant tables
     loadPOSProducts();
     loadPOSCategories();
     loadPOSCustomers();
@@ -38,6 +625,9 @@ function initializePOS() {
     
     // Load POS branch/outlet selector
     loadPOSBranchSelector();
+    
+    // Initialize restaurant mode UI
+    renderPOSModeUI();
 }
 
 // Ensure HQ branch exists for ALL plans - even Starter needs an outlet for POS
@@ -88,12 +678,100 @@ function loadHeldSales() {
     const stored = localStorage.getItem('ezcubic_held_sales');
     if (stored) {
         heldSales = JSON.parse(stored);
+        console.log('Loaded held sales from ezcubic_held_sales:', heldSales.length, heldSales.map(s => ({ id: s.id?.slice(0,8), tableId: s.tableId, tableName: s.tableName })));
+    } else {
+        console.log('No held sales in ezcubic_held_sales');
+    }
+    
+    // Debug: Check all localStorage for held sales
+    console.log('DEBUG: Checking all localStorage keys for held sales...');
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.includes('tenant') || key.includes('held')) {
+            const val = localStorage.getItem(key);
+            if (val && val.includes('tableId')) {
+                console.log('  Found held sale data in:', key);
+            }
+        }
     }
 }
 
 function saveHeldSales() {
     localStorage.setItem('ezcubic_held_sales', JSON.stringify(heldSales));
     updateHeldCount();
+    console.log('Saved held sales:', heldSales.length, 'occupied tables:', getOccupiedTables());
+    
+    // Always refresh table selector when held sales change
+    if (posMode === 'restaurant') {
+        renderTableSelector();
+    }
+}
+
+// Debug helper - call from console: clearAllHeldSales()
+async function clearAllHeldSales() {
+    console.log('=== CLEARING ALL HELD SALES ===');
+    
+    // 1. Clear the in-memory array
+    heldSales = [];
+    console.log('1. Cleared heldSales array');
+    
+    // 2. Clear ezcubic_held_sales directly
+    localStorage.setItem('ezcubic_held_sales', JSON.stringify([]));
+    console.log('2. Cleared ezcubic_held_sales');
+    
+    // 3. Clear from window.tenantData
+    if (window.tenantData) {
+        window.tenantData.heldSales = [];
+        console.log('3. Cleared window.tenantData.heldSales');
+    }
+    
+    // 4. Clear from ALL tenant storage keys in localStorage
+    const tenantId = localStorage.getItem('ezcubic_last_tenant_id');
+    let tenantDataToSync = null;
+    
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('ezcubic_tenant_')) {
+            try {
+                const data = JSON.parse(localStorage.getItem(key));
+                if (data && data.heldSales) {
+                    data.heldSales = [];
+                    localStorage.setItem(key, JSON.stringify(data));
+                    console.log('4. Cleared heldSales from:', key);
+                    
+                    // Keep reference to current tenant data for cloud sync
+                    if (tenantId && key === 'ezcubic_tenant_' + tenantId) {
+                        tenantDataToSync = data;
+                    }
+                }
+            } catch (e) {
+                console.log('Error parsing', key, e);
+            }
+        }
+    }
+    
+    // 5. Sync to Supabase cloud to clear there too
+    if (tenantId && tenantDataToSync && typeof window.syncTenantDataToCloud === 'function') {
+        try {
+            await window.syncTenantDataToCloud(tenantId, tenantDataToSync);
+            console.log('5. ☁️ Synced empty heldSales to cloud');
+        } catch (e) {
+            console.log('5. Cloud sync failed:', e);
+        }
+    } else {
+        console.log('5. No cloud sync (tenantId:', tenantId, ')');
+    }
+    
+    // 6. Update held count
+    updateHeldCount();
+    
+    // 7. Refresh table selector
+    if (posMode === 'restaurant') {
+        renderTableSelector();
+    }
+    
+    console.log('=== DONE - Refresh the page to verify ===');
+    showToast('All held sales cleared (local + cloud)', 'success');
 }
 
 // ==================== POS PRODUCTS ====================
@@ -655,6 +1333,10 @@ function holdSale() {
     const customer = customers.find(c => c.id === customerId);
     const salesperson = document.getElementById('posSalesperson')?.value || '';
     
+    // Include table info if in restaurant mode
+    const tableId = posMode === 'restaurant' && currentTable ? currentTable.id : null;
+    const tableName = currentTable?.number || null;
+    
     heldSales.push({
         id: generateUUID(),
         date: new Date().toISOString(),
@@ -662,16 +1344,33 @@ function holdSale() {
         customerName: customer?.name || 'Walk-in',
         salesperson: salesperson,
         items: [...currentCart],
-        discount: parseFloat(document.getElementById('cartDiscount')?.value) || 0
+        discount: parseFloat(document.getElementById('cartDiscount')?.value) || 0,
+        tableId: tableId,
+        tableName: tableName,
+        // Order type info
+        orderType: currentOrderType,
+        deliveryPlatform: currentOrderType === 'delivery' ? currentDeliveryPlatform : null,
+        deliveryOrderId: currentOrderType === 'delivery' ? currentDeliveryOrderId : null
     });
     
     saveHeldSales();
     currentCart = [];
     document.getElementById('cartDiscount').value = 0;
+    
+    // Clear table selection after holding
+    if (posMode === 'restaurant') {
+        currentTable = null;
+        renderTableSelector();
+        updateCurrentTableDisplay();
+    }
+    
+    // Reset order type
+    resetOrderType();
+    
     renderCart();
     updateCartTotals();
     
-    showToast('Sale held successfully!', 'success');
+    showToast(tableName ? `Table ${tableName} order held` : 'Sale held successfully!', 'success');
 }
 
 function showHeldSales() {
@@ -685,7 +1384,12 @@ function showHeldSales() {
             ${heldSales.map((sale, index) => `
                 <div class="held-sale-item">
                     <div class="held-sale-info">
-                        <strong>${sale.customerName}</strong>
+                        <strong>
+                            ${sale.tableName ? `<span class="held-table-badge"><i class="fas fa-chair"></i> ${sale.tableName}</span> ` : ''}
+                            ${sale.orderType ? `<span class="held-order-type-badge ${sale.orderType}">${getOrderTypeLabel(sale.orderType)}</span> ` : ''}
+                            ${sale.deliveryPlatform ? `<span class="held-platform-badge">${getPlatformLabel(sale.deliveryPlatform)}${sale.deliveryOrderId ? ' #' + sale.deliveryOrderId : ''}</span> ` : ''}
+                            ${sale.customerName}
+                        </strong>
                         <span>${formatHeldDate(sale.date)}</span>
                         <span>${sale.items.length} items - RM ${sale.items.reduce((s, i) => s + i.price * i.quantity, 0).toFixed(2)}</span>
                     </div>
@@ -707,7 +1411,7 @@ function showHeldSales() {
         modal.innerHTML = `
             <div class="modal-content" style="max-width: 500px;">
                 <div class="modal-header">
-                    <h3 class="modal-title">Held Sales</h3>
+                    <h3 class="modal-title"><i class="fas fa-history"></i> Held Sales</h3>
                     <button class="modal-close" onclick="closeHeldModal()">&times;</button>
                 </div>
                 <div id="heldSalesContent"></div>
@@ -740,13 +1444,44 @@ function recallSale(index) {
     document.getElementById('posSalesperson').value = sale.salesperson || '';
     document.getElementById('cartDiscount').value = sale.discount || 0;
     
+    // Restore order type
+    if (sale.orderType) {
+        setOrderType(sale.orderType);
+        if (sale.orderType === 'delivery') {
+            if (sale.deliveryPlatform) {
+                const platformSelect = document.getElementById('deliveryPlatform');
+                if (platformSelect) platformSelect.value = sale.deliveryPlatform;
+                currentDeliveryPlatform = sale.deliveryPlatform;
+            }
+            if (sale.deliveryOrderId) {
+                const orderIdInput = document.getElementById('deliveryOrderId');
+                if (orderIdInput) orderIdInput.value = sale.deliveryOrderId;
+                currentDeliveryOrderId = sale.deliveryOrderId;
+            }
+        }
+    }
+    
+    // Restore table selection if this sale had a table
+    if (sale.tableId && posMode === 'restaurant') {
+        const table = posTables.find(t => t.id === sale.tableId);
+        if (table) {
+            currentTable = table;
+            updateCurrentTableDisplay();
+        }
+    }
+    
     // Remove from held
     heldSales.splice(index, 1);
     saveHeldSales();
     
+    // Refresh table selector to update occupied status
+    if (posMode === 'restaurant') {
+        renderTableSelector();
+    }
+    
     renderCart();
     updateCartTotals();
-    showToast('Sale recalled!', 'success');
+    showToast(sale.tableName ? `Table ${sale.tableName} order recalled` : 'Sale recalled!', 'success');
 }
 
 function deleteHeldSale(index) {
@@ -754,6 +1489,11 @@ function deleteHeldSale(index) {
         heldSales.splice(index, 1);
         saveHeldSales();
         showHeldSales();
+        
+        // Refresh table selector to update occupied status
+        if (posMode === 'restaurant') {
+            renderTableSelector();
+        }
     }
 }
 
@@ -1146,6 +1886,10 @@ function processPayment(event) {
         }
     }
     
+    // Get table info if restaurant mode
+    const tableId = posMode === 'restaurant' && currentTable ? currentTable.id : null;
+    const tableName = posMode === 'restaurant' && currentTable ? currentTable.number : null;
+    
     const sale = {
         id: generateUUID(),
         receiptNo: generateReceiptNumber(),
@@ -1170,7 +1914,14 @@ function processPayment(event) {
         reference: reference,
         amountReceived: paymentMethod === 'cash' ? parseFloat(document.getElementById('amountReceived').value) : total,
         change: paymentMethod === 'cash' ? parseFloat(document.getElementById('amountReceived').value) - total : 0,
-        status: paymentMethod === 'credit' ? 'unpaid' : 'completed' // Credit sales start as unpaid
+        status: paymentMethod === 'credit' ? 'unpaid' : 'completed', // Credit sales start as unpaid
+        // Order type info
+        orderType: currentOrderType,
+        deliveryPlatform: currentOrderType === 'delivery' ? currentDeliveryPlatform : null,
+        deliveryOrderId: currentOrderType === 'delivery' ? currentDeliveryOrderId : null,
+        // Table info (restaurant mode)
+        tableId: tableId,
+        tableName: tableName
     };
     
     // Save sale
@@ -1334,6 +2085,16 @@ function processPayment(event) {
     renderCart();
     updateCartTotals();
     
+    // Clear table selection after payment (restaurant mode)
+    if (posMode === 'restaurant') {
+        currentTable = null;
+        renderTableSelector();
+        updateCurrentTableDisplay();
+    }
+    
+    // Reset order type
+    resetOrderType();
+    
     // Reset payment form
     const paymentForm = document.getElementById('paymentForm');
     if (paymentForm) paymentForm.reset();
@@ -1404,6 +2165,33 @@ function showReceipt(sale) {
     const sst = settings.sstNumber || '';
     const branchName = sale.branchName || 'Main Branch';
     
+    // Build order type display
+    let orderTypeDisplay = '';
+    if (sale.orderType) {
+        const orderTypeLabels = {
+            'dine-in': '🍽️ DINE-IN',
+            'takeaway': '🥡 TAKEAWAY', 
+            'delivery': '🛵 DELIVERY'
+        };
+        orderTypeDisplay = orderTypeLabels[sale.orderType] || sale.orderType.toUpperCase();
+    }
+    
+    // Build delivery info display
+    let deliveryInfoDisplay = '';
+    if (sale.orderType === 'delivery' && sale.deliveryPlatform) {
+        const platformLabels = {
+            'grab': '🟢 Grab',
+            'foodpanda': '🩷 FoodPanda',
+            'shopeefood': '🟠 ShopeeFood',
+            'own': '🚗 Own Delivery',
+            'other': '📦 Other'
+        };
+        deliveryInfoDisplay = platformLabels[sale.deliveryPlatform] || sale.deliveryPlatform;
+        if (sale.deliveryOrderId) {
+            deliveryInfoDisplay += ` #${sale.deliveryOrderId}`;
+        }
+    }
+    
     content.innerHTML = `
         <div class="receipt">
             <div class="receipt-header">
@@ -1412,6 +2200,13 @@ function showReceipt(sale) {
                 ${businessAddress ? `<p>${escapeHtml(businessAddress)}</p>` : ''}
                 ${sst ? `<p>SST No: ${sst}</p>` : ''}
             </div>
+            ${orderTypeDisplay ? `
+            <div style="text-align: center; padding: 8px; margin: 8px 0; background: #f0f0f0; border-radius: 4px; font-weight: bold; font-size: 14px;">
+                ${orderTypeDisplay}
+                ${sale.tableName ? ` - Table ${sale.tableName}` : ''}
+                ${deliveryInfoDisplay ? `<br><span style="font-size: 12px;">${deliveryInfoDisplay}</span>` : ''}
+            </div>
+            ` : ''}
             <div class="receipt-divider">================================</div>
             <div class="receipt-info">
                 <div><strong>Receipt:</strong> ${sale.receiptNo}</div>
@@ -1744,5 +2539,60 @@ window.searchPOSProducts = searchPOSProducts;
 window.calculateChange = calculateChange;
 window.fillExactAmount = fillExactAmount;
 window.generateTransactionRef = generateTransactionRef;
+
+// Restaurant mode / Table management
+window.togglePOSMode = togglePOSMode;
+window.selectTable = selectTable;
+window.clearTableSelection = clearTableSelection;
+window.showTableManagement = showTableManagement;
+window.closeTableManagement = closeTableManagement;
+window.quickAddTables = quickAddTables;
+window.addSingleTable = addSingleTable;
+window.editTable = editTable;
+window.deleteTable = deleteTable;
+window.clearAllTables = clearAllTables;
+window.clearAllHeldSales = clearAllHeldSales; // Debug helper
+
+// Order type functions
+window.setOrderType = setOrderType;
+window.setDeliveryPlatform = setDeliveryPlatform;
+window.setDeliveryOrderId = setDeliveryOrderId;
+window.resetOrderType = resetOrderType;
+window.getOrderTypeLabel = getOrderTypeLabel;
+window.getPlatformLabel = getPlatformLabel;
+
+// Platform commission functions
+window.getPlatformCommissions = getPlatformCommissions;
+window.savePlatformCommissions = savePlatformCommissions;
+window.loadPlatformCommissions = loadPlatformCommissions;
+
+// Load commissions into Settings form
+window.loadCommissionSettings = function() {
+    const commissions = getPlatformCommissions();
+    const grabInput = document.getElementById('commissionGrab');
+    const foodpandaInput = document.getElementById('commissionFoodpanda');
+    const shopeefoodInput = document.getElementById('commissionShopeefood');
+    const ownInput = document.getElementById('commissionOwn');
+    const otherInput = document.getElementById('commissionOther');
+    
+    if (grabInput) grabInput.value = commissions.grab || 30;
+    if (foodpandaInput) foodpandaInput.value = commissions.foodpanda || 30;
+    if (shopeefoodInput) shopeefoodInput.value = commissions.shopeefood || 25;
+    if (ownInput) ownInput.value = commissions.own || 0;
+    if (otherInput) otherInput.value = commissions.other || 0;
+};
+
+// Save commissions from Settings form
+window.saveCommissionSettings = function() {
+    const commissions = {
+        grab: parseFloat(document.getElementById('commissionGrab')?.value) || 0,
+        foodpanda: parseFloat(document.getElementById('commissionFoodpanda')?.value) || 0,
+        shopeefood: parseFloat(document.getElementById('commissionShopeefood')?.value) || 0,
+        own: parseFloat(document.getElementById('commissionOwn')?.value) || 0,
+        other: parseFloat(document.getElementById('commissionOther')?.value) || 0
+    };
+    savePlatformCommissions(commissions);
+    showNotification('Platform commission rates saved!', 'success');
+};
 
 // Note: POS module is initialized by app.js via initializePhase2Modules()

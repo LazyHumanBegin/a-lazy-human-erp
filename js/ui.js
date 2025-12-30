@@ -131,6 +131,7 @@ function showSection(sectionId) {
     else if (sectionId === 'settings') {
         if (typeof loadCompanyLogo === 'function') loadCompanyLogo();
         if (typeof loadDocumentNumberingSettings === 'function') loadDocumentNumberingSettings();
+        if (typeof loadCommissionSettings === 'function') loadCommissionSettings();
     }
     
     // Update AI contextual help for the current section

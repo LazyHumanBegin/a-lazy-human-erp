@@ -836,7 +836,7 @@ function showLoginPage() {
                     </div>
                     
                     <div class="login-page-footer">
-                        <p>© ${new Date().getFullYear()} EZCubic. All rights reserved.</p>
+                        <p>© ${new Date().getFullYear()} A Lazy Human. All rights reserved.</p>
                     </div>
                 </div>
             </div>

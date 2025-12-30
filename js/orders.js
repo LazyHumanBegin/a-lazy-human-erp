@@ -30,15 +30,17 @@ function updateOrderStats() {
     
     if (!totalEl) return;
     
-    const completed = sales.filter(s => s.status === 'completed' || !s.status).length;
+    // Exclude voided from completed count
+    const completed = sales.filter(s => (s.status === 'completed' || !s.status) && s.status !== 'voided').length;
     const pending = sales.filter(s => s.status === 'pending').length;
     const processing = sales.filter(s => s.status === 'processing').length;
     const cancelled = sales.filter(s => s.status === 'cancelled').length;
+    const voided = sales.filter(s => s.status === 'voided').length;
     
     totalEl.textContent = sales.length;
     completedEl.textContent = completed;
     pendingEl.textContent = pending + processing;
-    cancelledEl.textContent = cancelled;
+    cancelledEl.textContent = cancelled + voided; // Combine cancelled and voided
     
     // Update badge
     updatePendingOrdersBadge();
@@ -139,9 +141,14 @@ function renderOrders() {
                         <button class="btn-outline btn-sm" onclick="printOrderReceipt('${order.id}')" title="Print Receipt">
                             <i class="fas fa-print"></i>
                         </button>
-                        ${status !== 'completed' && status !== 'cancelled' ? `
+                        ${status !== 'completed' && status !== 'cancelled' && status !== 'voided' ? `
                             <button class="btn-outline btn-sm" onclick="updateOrderStatus('${order.id}')" title="Update Status">
                                 <i class="fas fa-edit"></i>
+                            </button>
+                        ` : ''}
+                        ${status !== 'voided' && status !== 'cancelled' ? `
+                            <button class="btn-outline btn-sm" onclick="voidOrder('${order.id}')" title="Void Order" style="color: #ef4444;">
+                                <i class="fas fa-ban"></i>
                             </button>
                         ` : ''}
                     </div>
@@ -166,6 +173,7 @@ function getOrderStatusClass(status) {
         case 'pending': return 'status-pending';
         case 'processing': return 'status-processing';
         case 'cancelled': return 'status-cancelled';
+        case 'voided': return 'status-voided';
         default: return 'status-completed';
     }
 }
@@ -176,6 +184,7 @@ function getOrderStatusIcon(status) {
         case 'pending': return 'fa-clock';
         case 'processing': return 'fa-spinner';
         case 'cancelled': return 'fa-times-circle';
+        case 'voided': return 'fa-ban';
         default: return 'fa-check-circle';
     }
 }
@@ -597,6 +606,174 @@ ${companyName}
 }
 
 // ==================== WINDOW EXPORTS ====================
+// ==================== VOID ORDER ====================
+function voidOrder(orderId) {
+    const order = sales.find(s => s.id === orderId);
+    if (!order) {
+        showToast('Order not found', 'error');
+        return;
+    }
+    
+    if (order.status === 'voided') {
+        showToast('This order is already voided', 'info');
+        return;
+    }
+    
+    const confirmMsg = `Are you sure you want to VOID this order?\n\n` +
+        `Receipt: ${order.receiptNo}\n` +
+        `Amount: RM ${order.total.toFixed(2)}\n\n` +
+        `This will:\n` +
+        `• Mark the order as VOIDED\n` +
+        `• Reverse the sales transaction\n` +
+        `• Return items to stock\n\n` +
+        `This action cannot be undone.`;
+    
+    if (!confirm(confirmMsg)) return;
+    
+    const orderIndex = sales.findIndex(s => s.id === orderId);
+    if (orderIndex === -1) return;
+    
+    // Store original status for audit
+    const originalStatus = sales[orderIndex].status || 'completed';
+    
+    // 1. Mark order as voided
+    sales[orderIndex].status = 'voided';
+    sales[orderIndex].voidedAt = new Date().toISOString();
+    sales[orderIndex].voidedBy = typeof getCurrentUser === 'function' ? getCurrentUser()?.name || 'Unknown' : 'Unknown';
+    
+    // 2. Reverse stock - return items to inventory
+    const branchId = order.branchId || 'BRANCH_HQ';
+    const branchName = order.branchName || 'Main Branch';
+    
+    order.items.forEach(item => {
+        const productIndex = products.findIndex(p => p.id === item.productId);
+        if (productIndex !== -1) {
+            // Add stock back using branch stock system
+            if (branchId && branchId !== 'all' && typeof adjustBranchStock === 'function') {
+                adjustBranchStock(item.productId, branchId, item.quantity);
+                
+                if (typeof getTotalBranchStock === 'function') {
+                    products[productIndex].stock = getTotalBranchStock(item.productId);
+                }
+            } else {
+                products[productIndex].stock = (products[productIndex].stock || 0) + item.quantity;
+            }
+            
+            // Record stock movement for the reversal
+            if (typeof recordStockMovement === 'function') {
+                recordStockMovement({
+                    productId: item.productId,
+                    productName: item.name,
+                    type: 'void_return',
+                    quantity: item.quantity,
+                    branchId: branchId,
+                    branchName: branchName,
+                    reason: 'Voided Sale',
+                    reference: order.receiptNo,
+                    notes: `Stock returned from voided sale ${order.receiptNo}`
+                });
+            }
+        }
+    });
+    
+    // Save products
+    if (typeof saveProducts === 'function') {
+        saveProducts();
+    } else {
+        localStorage.setItem('ezcubic_products', JSON.stringify(products));
+    }
+    
+    // 3. Create reversal transaction (negative income)
+    const reversalTransaction = {
+        id: typeof generateUUID === 'function' ? generateUUID() : 'TXN-' + Date.now(),
+        date: new Date().toISOString().split('T')[0],
+        amount: order.total,
+        category: 'Sales Reversal',
+        description: `VOIDED: POS Sale #${order.receiptNo}`,
+        type: 'expense', // Reversal reduces income, so it's an expense
+        method: order.paymentMethod,
+        reference: order.receiptNo,
+        isVoidReversal: true,
+        originalSaleId: order.id,
+        timestamp: new Date().toISOString()
+    };
+    
+    if (typeof businessData !== 'undefined' && businessData.transactions) {
+        businessData.transactions.push(reversalTransaction);
+    }
+    
+    // 4. Reverse COGS if applicable
+    const totalCost = order.items.reduce((sum, item) => {
+        const product = products.find(p => p.id === item.productId);
+        return sum + ((product?.cost || 0) * item.quantity);
+    }, 0);
+    
+    if (totalCost > 0) {
+        const cogsReversalTransaction = {
+            id: typeof generateUUID === 'function' ? generateUUID() : 'TXN-' + Date.now() + '-cogs',
+            date: new Date().toISOString().split('T')[0],
+            amount: totalCost,
+            category: 'Cost of Goods Sold',
+            description: `COGS Reversal for Voided Sale #${order.receiptNo}`,
+            type: 'income', // COGS reversal is income (reduces expense)
+            method: order.paymentMethod,
+            reference: order.receiptNo,
+            isVoidReversal: true,
+            originalSaleId: order.id,
+            timestamp: new Date().toISOString()
+        };
+        
+        if (typeof businessData !== 'undefined' && businessData.transactions) {
+            businessData.transactions.push(cogsReversalTransaction);
+        }
+    }
+    
+    // 5. Update customer credit if it was a credit sale
+    if (order.paymentMethod === 'credit' && order.customerId) {
+        if (typeof updateCRMCustomerCredit === 'function') {
+            updateCRMCustomerCredit(order.customerId, -order.total); // Reduce outstanding
+        }
+    }
+    
+    // 6. Save sales and sync to cloud
+    localStorage.setItem('ezcubic_sales', JSON.stringify(sales));
+    window.sales = sales;
+    
+    // Update tenantData.sales for cloud sync
+    if (typeof window.tenantData !== 'undefined' && window.tenantData) {
+        window.tenantData.sales = sales;
+    }
+    
+    // Save to tenant storage and sync to cloud
+    if (typeof saveToUserTenant === 'function') {
+        saveToUserTenant();
+    }
+    if (typeof saveData === 'function') {
+        saveData();
+    }
+    
+    // 7. Record audit log
+    if (typeof recordAuditLog === 'function') {
+        recordAuditLog({
+            action: 'void',
+            module: 'orders',
+            recordId: order.id,
+            recordName: order.receiptNo,
+            description: `Order voided: ${order.receiptNo} - RM ${order.total.toFixed(2)}`,
+            oldValue: { status: originalStatus, total: order.total },
+            newValue: { status: 'voided', voidedAt: sales[orderIndex].voidedAt }
+        });
+    }
+    
+    // 8. Refresh UI
+    renderOrders();
+    updateOrderStats();
+    if (typeof updateDashboard === 'function') updateDashboard();
+    if (typeof loadTransactions === 'function') loadTransactions();
+    
+    showToast(`✅ Order ${order.receiptNo} has been voided`, 'success');
+}
+
 window.initializeOrders = initializeOrders;
 window.renderOrders = renderOrders;
 window.updateOrderStats = updateOrderStats;
@@ -608,5 +785,6 @@ window.saveOrderStatus = saveOrderStatus;
 window.exportOrders = exportOrders;
 window.emailCurrentOrder = emailCurrentOrder;
 window.shareCurrentOrderWhatsApp = shareCurrentOrderWhatsApp;
+window.voidOrder = voidOrder;
 
 // Note: Orders module is initialized by app.js via initializePhase2Modules()

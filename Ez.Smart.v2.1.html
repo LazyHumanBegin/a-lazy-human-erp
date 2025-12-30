@@ -174,7 +174,7 @@
             <div class="logo">
                 <h1><img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 32px; height: 32px; vertical-align: middle; margin-right: 8px;"> A Lazy Human</h1>
                 <div class="tagline">Malaysian Business Accounting & Tax</div>
-                <div class="version" id="appVersion">v2.3.0</div>
+                <div class="version" id="appVersion">v2.3.1</div>
             </div>
             
             <div class="nav-menu">
@@ -654,9 +654,27 @@
                     <div class="pos-cart-panel">
                         <div class="pos-cart-header">
                             <h3><i class="fas fa-shopping-cart"></i> Current Sale</h3>
-                            <button class="btn-outline btn-sm" onclick="clearCart()">
-                                <i class="fas fa-trash"></i> Clear
-                            </button>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="btn-primary btn-sm" id="posModeToggle" onclick="togglePOSMode()">
+                                    <i class="fas fa-utensils"></i> Restaurant Mode
+                                </button>
+                                <button class="btn-outline btn-sm" onclick="clearCart()">
+                                    <i class="fas fa-trash"></i> Clear
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Current Table Display (Restaurant Mode) -->
+                        <div id="currentTableDisplay" style="display: none; margin-bottom: 10px;"></div>
+                        
+                        <!-- Table Selection (Restaurant Mode) -->
+                        <div id="posTableSection" style="display: none; margin-bottom: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <h4 style="margin: 0; font-size: 14px; color: #475569;"><i class="fas fa-chair"></i> Tables</h4>
+                            </div>
+                            <div id="posTableSelector">
+                                <!-- Tables will be loaded dynamically -->
+                            </div>
                         </div>
                         
                         <!-- Customer Selection -->
@@ -673,6 +691,35 @@
                                 <option value="">-- Select Cashier/Staff --</option>
                                 <!-- Staff will be loaded dynamically -->
                             </select>
+                        </div>
+                        
+                        <!-- Order Type Selection -->
+                        <div class="pos-order-type" style="margin-bottom: 10px;">
+                            <div class="order-type-buttons" id="orderTypeButtons">
+                                <button class="order-type-btn active" data-type="dine-in" onclick="setOrderType('dine-in')">
+                                    <i class="fas fa-utensils"></i> Dine-in
+                                </button>
+                                <button class="order-type-btn" data-type="takeaway" onclick="setOrderType('takeaway')">
+                                    <i class="fas fa-shopping-bag"></i> Takeaway
+                                </button>
+                                <button class="order-type-btn" data-type="delivery" onclick="setOrderType('delivery')">
+                                    <i class="fas fa-motorcycle"></i> Delivery
+                                </button>
+                            </div>
+                            <!-- Delivery Details (shown when delivery selected) -->
+                            <div id="deliveryDetails" style="display: none; margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 8px;">
+                                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                    <select id="deliveryPlatform" class="form-control" style="flex: 1;" onchange="setDeliveryPlatform(this.value)">
+                                        <option value="">-- Select Platform --</option>
+                                        <option value="grab">🟢 Grab</option>
+                                        <option value="foodpanda">🩷 FoodPanda</option>
+                                        <option value="shopeefood">🟠 ShopeeFood</option>
+                                        <option value="own">🚗 Own Delivery</option>
+                                        <option value="other">📦 Other</option>
+                                    </select>
+                                </div>
+                                <input type="text" id="deliveryOrderId" class="form-control" placeholder="Order ID (e.g., GR-123456)" onchange="setDeliveryOrderId(this.value)">
+                            </div>
                         </div>
                         
                         <!-- Cart Items -->
@@ -875,6 +922,7 @@
                             <option value="pending">Pending</option>
                             <option value="processing">Processing</option>
                             <option value="cancelled">Cancelled</option>
+                            <option value="voided">Voided</option>
                         </select>
                     </div>
                     
@@ -2258,6 +2306,9 @@
                     <div class="card-header">
                         <h2><i class="fas fa-chart-bar"></i> Monthly Financial Reports</h2>
                         <div class="chart-controls">
+                            <button class="btn-outline btn-sm" onclick="showSalesChannelReport()" style="margin-right: 10px;">
+                                <i class="fas fa-motorcycle"></i> Sales Channels
+                            </button>
                             <select id="monthlyYearSelect" onchange="updateMonthlyCharts()">
                                 <!-- Year options will be populated by JavaScript -->
                             </select>
@@ -4101,6 +4152,122 @@
                             </div>
                             <p style="font-size: 11px; color: #94a3b8; margin: 10px 0 0;">
                                 <i class="fas fa-info-circle"></i> Staff enter this code on the login page → "Sync from another device?" → Enter Company Code
+                            </p>
+                        </div>
+                        
+                        <!-- Delivery Platform Commission Rates -->
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-motorcycle"></i> Delivery Platform Commission Rates
+                                <i class="fas fa-question-circle" style="color: #60a5fa; cursor: pointer; margin-left: 5px;" 
+                                   onclick="toggleHelpTooltip('deliveryCommissionHelp')" 
+                                   title="Click for more info"></i>
+                            </label>
+                            <div id="deliveryCommissionHelp" class="help-tooltip-box" style="display: none;">
+                                <div style="color: #60a5fa; font-weight: 600; margin-bottom: 8px;">
+                                    <i class="fas fa-info-circle"></i> Platform Commissions
+                                </div>
+                                <p style="color: #e2e8f0; margin: 0 0 8px 0;">Set your delivery platform commission rates. These vary by merchant agreement.</p>
+                                <div style="color: #94a3b8; font-size: 11px;">
+                                    📝 Typical rates in Malaysia: Grab ~30%, FoodPanda ~30%, ShopeeFood ~25%
+                                </div>
+                            </div>
+                            
+                            <!-- Clean Table Layout -->
+                            <div style="background: #1e293b; border-radius: 8px; overflow: hidden; margin-top: 10px; border: 1px solid #334155;">
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <thead>
+                                        <tr style="background: #0f172a;">
+                                            <th style="text-align: left; padding: 10px 12px; color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase;">Platform</th>
+                                            <th style="text-align: center; padding: 10px 12px; color: #94a3b8; font-size: 11px; font-weight: 600; text-transform: uppercase; width: 100px;">Commission %</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr style="border-bottom: 1px solid #334155;">
+                                            <td style="padding: 10px 12px;">
+                                                <span style="display: flex; align-items: center; gap: 10px;">
+                                                    <span style="font-size: 20px;">🟢</span>
+                                                    <span style="color: #e2e8f0; font-weight: 500;">Grab</span>
+                                                </span>
+                                            </td>
+                                            <td style="padding: 10px 12px; text-align: center;">
+                                                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                                    <input type="number" id="commissionGrab" min="0" max="100" step="0.5" value="30" 
+                                                           style="width: 55px; text-align: center; padding: 6px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0;" 
+                                                           onchange="saveCommissionSettings()">
+                                                    <span style="color: #64748b;">%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #334155;">
+                                            <td style="padding: 10px 12px;">
+                                                <span style="display: flex; align-items: center; gap: 10px;">
+                                                    <span style="font-size: 20px;">🩷</span>
+                                                    <span style="color: #e2e8f0; font-weight: 500;">FoodPanda</span>
+                                                </span>
+                                            </td>
+                                            <td style="padding: 10px 12px; text-align: center;">
+                                                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                                    <input type="number" id="commissionFoodpanda" min="0" max="100" step="0.5" value="30" 
+                                                           style="width: 55px; text-align: center; padding: 6px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0;" 
+                                                           onchange="saveCommissionSettings()">
+                                                    <span style="color: #64748b;">%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #334155;">
+                                            <td style="padding: 10px 12px;">
+                                                <span style="display: flex; align-items: center; gap: 10px;">
+                                                    <span style="font-size: 20px;">🟠</span>
+                                                    <span style="color: #e2e8f0; font-weight: 500;">ShopeeFood</span>
+                                                </span>
+                                            </td>
+                                            <td style="padding: 10px 12px; text-align: center;">
+                                                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                                    <input type="number" id="commissionShopeefood" min="0" max="100" step="0.5" value="25" 
+                                                           style="width: 55px; text-align: center; padding: 6px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0;" 
+                                                           onchange="saveCommissionSettings()">
+                                                    <span style="color: #64748b;">%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr style="border-bottom: 1px solid #334155;">
+                                            <td style="padding: 10px 12px;">
+                                                <span style="display: flex; align-items: center; gap: 10px;">
+                                                    <span style="font-size: 20px;">🚗</span>
+                                                    <span style="color: #e2e8f0; font-weight: 500;">Own Delivery</span>
+                                                </span>
+                                            </td>
+                                            <td style="padding: 10px 12px; text-align: center;">
+                                                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                                    <input type="number" id="commissionOwn" min="0" max="100" step="0.5" value="0" 
+                                                           style="width: 55px; text-align: center; padding: 6px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0;" 
+                                                           onchange="saveCommissionSettings()">
+                                                    <span style="color: #64748b;">%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        <tr>
+                                            <td style="padding: 10px 12px;">
+                                                <span style="display: flex; align-items: center; gap: 10px;">
+                                                    <span style="font-size: 20px;">📦</span>
+                                                    <span style="color: #e2e8f0; font-weight: 500;">Other</span>
+                                                </span>
+                                            </td>
+                                            <td style="padding: 10px 12px; text-align: center;">
+                                                <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                                                    <input type="number" id="commissionOther" min="0" max="100" step="0.5" value="0" 
+                                                           style="width: 55px; text-align: center; padding: 6px; border-radius: 4px; border: 1px solid #475569; background: #0f172a; color: #e2e8f0;" 
+                                                           onchange="saveCommissionSettings()">
+                                                    <span style="color: #64748b;">%</span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p style="font-size: 11px; color: #64748b; margin: 8px 0 0; display: flex; align-items: center; gap: 6px;">
+                                <i class="fas fa-chart-pie"></i> View deductions in: <strong>Monthly Reports → 📊 Sales Channels</strong>
                             </p>
                         </div>
                         

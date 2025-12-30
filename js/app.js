@@ -1465,7 +1465,7 @@ function showOpeningBalanceWizard() {
                     <div class="wizard-intro">
                         <i class="fas fa-piggy-bank"></i>
                         <h4>Enter your opening balances</h4>
-                        <p style="color: #64748b;">These are the balances as of the date you start using EZCubic</p>
+                        <p style="color: #64748b;">These are the balances as of the date you start using A Lazy Human</p>
                     </div>
                     
                     <div class="form-group">

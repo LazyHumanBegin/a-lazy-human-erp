@@ -321,3 +321,213 @@ function updateIncomeSources(startDate, endDate) {
         </div>
     `).join('');
 }
+
+// ==================== SALES CHANNEL REPORT ====================
+// Shows breakdown by Order Type (Dine-in, Takeaway, Delivery) and Platform
+
+function getPlatformCommissionsForReport() {
+    // Get from localStorage (editable in Settings)
+    const stored = localStorage.getItem('ezcubic_platform_commissions');
+    if (stored) {
+        return JSON.parse(stored);
+    }
+    // Default rates
+    return {
+        grab: 30,
+        foodpanda: 30,
+        shopeefood: 25,
+        own: 0,
+        other: 0
+    };
+}
+
+function showSalesChannelReport(startDate, endDate) {
+    // Default to current month if no dates provided
+    if (!startDate || !endDate) {
+        const now = new Date();
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+    
+    const salesData = window.sales || JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+    
+    // Filter by date range
+    const filteredSales = salesData.filter(sale => {
+        const saleDate = new Date(sale.date);
+        return saleDate >= startDate && saleDate <= endDate;
+    });
+    
+    // Get editable commission rates
+    const platformCommissions = getPlatformCommissionsForReport();
+    
+    // Calculate totals by order type
+    const byOrderType = {
+        'dine-in': { count: 0, total: 0 },
+        'takeaway': { count: 0, total: 0 },
+        'delivery': { count: 0, total: 0 }
+    };
+    
+    // Calculate totals by delivery platform
+    const byPlatform = {};
+    
+    filteredSales.forEach(sale => {
+        const orderType = sale.orderType || 'dine-in';
+        const total = sale.total || 0;
+        
+        // Count by order type
+        if (!byOrderType[orderType]) {
+            byOrderType[orderType] = { count: 0, total: 0 };
+        }
+        byOrderType[orderType].count++;
+        byOrderType[orderType].total += total;
+        
+        // Count by platform (delivery only)
+        if (orderType === 'delivery' && sale.deliveryPlatform) {
+            if (!byPlatform[sale.deliveryPlatform]) {
+                byPlatform[sale.deliveryPlatform] = { count: 0, total: 0, commission: 0 };
+            }
+            byPlatform[sale.deliveryPlatform].count++;
+            byPlatform[sale.deliveryPlatform].total += total;
+            
+            // Calculate commission using editable rates
+            const commissionRate = platformCommissions[sale.deliveryPlatform] || 0;
+            byPlatform[sale.deliveryPlatform].commission += total * (commissionRate / 100);
+        }
+    });
+    
+    const grandTotal = filteredSales.reduce((sum, s) => sum + (s.total || 0), 0);
+    const totalCommission = Object.values(byPlatform).reduce((sum, p) => sum + p.commission, 0);
+    const netAfterCommission = grandTotal - totalCommission;
+    
+    // Build report HTML
+    const html = `
+        <div style="padding: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h3 style="margin: 0;"><i class="fas fa-chart-pie"></i> Sales Channel Report</h3>
+                <span style="color: #64748b; font-size: 14px;">
+                    ${startDate.toLocaleDateString('en-MY')} - ${endDate.toLocaleDateString('en-MY')}
+                </span>
+            </div>
+            
+            <!-- Summary Cards -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px;">
+                <div style="background: linear-gradient(135deg, #dbeafe, #eff6ff); padding: 15px; border-radius: 10px;">
+                    <div style="font-size: 12px; color: #1d4ed8;">Total Sales</div>
+                    <div style="font-size: 24px; font-weight: 700; color: #1e40af;">RM ${grandTotal.toFixed(2)}</div>
+                    <div style="font-size: 12px; color: #64748b;">${filteredSales.length} orders</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #dcfce7, #f0fdf4); padding: 15px; border-radius: 10px;">
+                    <div style="font-size: 12px; color: #16a34a;">🍽️ Dine-in</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #15803d;">RM ${byOrderType['dine-in'].total.toFixed(2)}</div>
+                    <div style="font-size: 12px; color: #64748b;">${byOrderType['dine-in'].count} orders (${grandTotal > 0 ? ((byOrderType['dine-in'].total / grandTotal) * 100).toFixed(1) : 0}%)</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #fef3c7, #fffbeb); padding: 15px; border-radius: 10px;">
+                    <div style="font-size: 12px; color: #d97706;">🥡 Takeaway</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #b45309;">RM ${byOrderType['takeaway'].total.toFixed(2)}</div>
+                    <div style="font-size: 12px; color: #64748b;">${byOrderType['takeaway'].count} orders (${grandTotal > 0 ? ((byOrderType['takeaway'].total / grandTotal) * 100).toFixed(1) : 0}%)</div>
+                </div>
+                <div style="background: linear-gradient(135deg, #fee2e2, #fef2f2); padding: 15px; border-radius: 10px;">
+                    <div style="font-size: 12px; color: #dc2626;">🛵 Delivery</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #b91c1c;">RM ${byOrderType['delivery'].total.toFixed(2)}</div>
+                    <div style="font-size: 12px; color: #64748b;">${byOrderType['delivery'].count} orders (${grandTotal > 0 ? ((byOrderType['delivery'].total / grandTotal) * 100).toFixed(1) : 0}%)</div>
+                </div>
+            </div>
+            
+            <!-- Delivery Platform Breakdown -->
+            ${Object.keys(byPlatform).length > 0 ? `
+                <div style="background: #f8fafc; border-radius: 10px; padding: 20px; margin-bottom: 20px;">
+                    <h4 style="margin: 0 0 15px 0; color: #334155;"><i class="fas fa-motorcycle"></i> Delivery Platform Breakdown</h4>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 2px solid #e2e8f0;">
+                                <th style="text-align: left; padding: 10px; color: #64748b; font-weight: 600;">Platform</th>
+                                <th style="text-align: right; padding: 10px; color: #64748b; font-weight: 600;">Orders</th>
+                                <th style="text-align: right; padding: 10px; color: #64748b; font-weight: 600;">Sales</th>
+                                <th style="text-align: right; padding: 10px; color: #64748b; font-weight: 600;">Commission %</th>
+                                <th style="text-align: right; padding: 10px; color: #64748b; font-weight: 600;">Commission</th>
+                                <th style="text-align: right; padding: 10px; color: #64748b; font-weight: 600;">Net</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${Object.entries(byPlatform).map(([platform, data]) => {
+                                const commissionRate = platformCommissions[platform] || 0;
+                                const net = data.total - data.commission;
+                                const platformNames = {
+                                    'grab': '🟢 Grab',
+                                    'foodpanda': '🩷 FoodPanda',
+                                    'shopeefood': '🟠 ShopeeFood',
+                                    'own': '🚗 Own Delivery',
+                                    'other': '📦 Other'
+                                };
+                                return `
+                                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                                        <td style="padding: 12px; font-weight: 600;">${platformNames[platform] || platform}</td>
+                                        <td style="padding: 12px; text-align: right;">${data.count}</td>
+                                        <td style="padding: 12px; text-align: right;">RM ${data.total.toFixed(2)}</td>
+                                        <td style="padding: 12px; text-align: right; color: #dc2626;">${commissionRate}%</td>
+                                        <td style="padding: 12px; text-align: right; color: #dc2626;">-RM ${data.commission.toFixed(2)}</td>
+                                        <td style="padding: 12px; text-align: right; color: #059669; font-weight: 600;">RM ${net.toFixed(2)}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                        <tfoot>
+                            <tr style="background: #f1f5f9; font-weight: 700;">
+                                <td style="padding: 12px;">Total Delivery</td>
+                                <td style="padding: 12px; text-align: right;">${byOrderType['delivery'].count}</td>
+                                <td style="padding: 12px; text-align: right;">RM ${byOrderType['delivery'].total.toFixed(2)}</td>
+                                <td style="padding: 12px; text-align: right;"></td>
+                                <td style="padding: 12px; text-align: right; color: #dc2626;">-RM ${totalCommission.toFixed(2)}</td>
+                                <td style="padding: 12px; text-align: right; color: #059669;">RM ${(byOrderType['delivery'].total - totalCommission).toFixed(2)}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            ` : '<div style="background: #f8fafc; padding: 20px; border-radius: 10px; text-align: center; color: #64748b; margin-bottom: 20px;">No delivery orders in this period</div>'}
+            
+            <!-- Net Profit Summary -->
+            <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); padding: 20px; border-radius: 10px; border: 2px solid #22c55e;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-size: 14px; color: #16a34a; font-weight: 600;">💰 Net Sales After Platform Commission</div>
+                        <div style="font-size: 12px; color: #64748b; margin-top: 5px;">
+                            Total Sales (RM ${grandTotal.toFixed(2)}) - Platform Commissions (RM ${totalCommission.toFixed(2)})
+                        </div>
+                    </div>
+                    <div style="font-size: 28px; font-weight: 700; color: #15803d;">RM ${netAfterCommission.toFixed(2)}</div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Show in modal
+    let modal = document.getElementById('salesChannelModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'salesChannelModal';
+        modal.className = 'modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 900px;">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fas fa-chart-pie"></i> Sales Channel Report</h3>
+                    <button class="modal-close" onclick="closeSalesChannelReport()">&times;</button>
+                </div>
+                <div id="salesChannelContent"></div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    document.getElementById('salesChannelContent').innerHTML = html;
+    modal.style.display = '';
+    modal.classList.add('show');
+}
+
+function closeSalesChannelReport() {
+    const modal = document.getElementById('salesChannelModal');
+    if (modal) modal.classList.remove('show');
+}
+
+// Expose to window
+window.showSalesChannelReport = showSalesChannelReport;
+window.closeSalesChannelReport = closeSalesChannelReport;
