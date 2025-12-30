@@ -187,6 +187,145 @@ body {
         max-height: 85vh;
         margin: 5vh auto;
     }
+    
+    /* ==================== POS LANDSCAPE MODE - Desktop Layout ==================== */
+    .pos-container {
+        display: grid !important;
+        grid-template-columns: 1fr 320px !important;
+        gap: 12px !important;
+        min-height: 60vh !important;
+    }
+    
+    .pos-products-panel {
+        min-height: auto !important;
+        padding: 12px !important;
+    }
+    
+    .pos-panel-header {
+        margin-bottom: 10px !important;
+        padding-bottom: 10px !important;
+    }
+    
+    .pos-panel-header h3 {
+        font-size: 14px !important;
+    }
+    
+    .pos-search input {
+        padding: 8px 12px !important;
+        font-size: 13px !important;
+    }
+    
+    .pos-categories {
+        gap: 6px !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .pos-category-btn {
+        padding: 6px 12px !important;
+        font-size: 11px !important;
+    }
+    
+    .pos-products-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)) !important;
+        gap: 8px !important;
+        min-height: 150px !important;
+        max-height: calc(60vh - 150px) !important;
+    }
+    
+    .pos-product-card {
+        padding: 8px !important;
+        min-height: 100px !important;
+    }
+    
+    .pos-product-image {
+        height: 60px !important;
+        margin-bottom: 5px !important;
+    }
+    
+    .pos-product-sku {
+        font-size: 8px !important;
+    }
+    
+    .pos-product-name {
+        font-size: 9px !important;
+    }
+    
+    .pos-product-price {
+        font-size: 10px !important;
+    }
+    
+    .pos-cart-panel {
+        min-height: auto !important;
+        padding: 12px !important;
+    }
+    
+    .pos-cart-header h3 {
+        font-size: 14px !important;
+    }
+    
+    .pos-cart-items {
+        min-height: 100px !important;
+        max-height: calc(60vh - 280px) !important;
+    }
+    
+    .cart-item {
+        padding: 8px !important;
+        gap: 8px !important;
+    }
+    
+    .cart-item-name {
+        font-size: 12px !important;
+    }
+    
+    .cart-item-price {
+        font-size: 11px !important;
+    }
+    
+    .pos-cart-summary {
+        padding: 10px !important;
+    }
+    
+    .cart-total-row {
+        font-size: 12px !important;
+    }
+    
+    .cart-total-row.grand-total {
+        font-size: 14px !important;
+    }
+    
+    .pos-checkout-btn {
+        padding: 10px !important;
+        font-size: 13px !important;
+    }
+    
+    /* Table management in landscape */
+    .table-management-header {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    
+    .tables-grid {
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)) !important;
+        gap: 10px !important;
+    }
+    
+    .table-card {
+        padding: 12px !important;
+    }
+    
+    .table-number {
+        font-size: 18px !important;
+    }
+    
+    /* Order type selector compact */
+    .order-type-selector {
+        gap: 8px !important;
+    }
+    
+    .order-type-btn {
+        padding: 8px 12px !important;
+        font-size: 11px !important;
+    }
 }
 
 /* Navigation Panel - EZCubic Theme */
