@@ -408,7 +408,18 @@ function deleteBill(billId) {
         const deletedBill = bill ? { ...bill } : { id: billId, name: 'Unknown Bill' };
         
         businessData.bills = businessData.bills.filter(b => String(b.id) !== String(billId));
+        
+        // Save directly to tenant storage (bypass smartMerge for deletions)
+        const tenantId = localStorage.getItem('currentTenantId');
+        if (tenantId) {
+            localStorage.setItem(`tenant_${tenantId}_data`, JSON.stringify(businessData));
+        }
         saveData();
+        
+        // Force cloud sync for deletion
+        if (typeof CloudSync !== 'undefined' && CloudSync.uploadToCloud) {
+            CloudSync.uploadToCloud().catch(err => console.warn('Cloud sync after bill delete:', err));
+        }
         
         // Record audit log for bill deletion
         if (typeof recordAuditLog === 'function') {
