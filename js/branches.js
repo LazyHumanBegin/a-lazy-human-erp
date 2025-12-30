@@ -297,6 +297,13 @@ function saveBranchData() {
         window.branches = branches;
         window.branchTransfers = branchTransfers;
         
+        // Trigger cloud sync for deletions
+        if (typeof window.fullCloudSync === 'function') {
+            setTimeout(() => {
+                window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+            }, 100);
+        }
+        
         console.log('saveBranchData: saved', branchTransfers.length, 'transfers');
     } catch (e) {
         console.error('Error saving branch data:', e);

@@ -74,7 +74,12 @@ function saveCRMCustomers() {
         console.log('✅ CRM Customers saved directly to tenant:', crmCustomers.length);
     }
     
-    // Note: Don't call saveToUserTenant - it would overwrite with stale data
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
+    }
 }
 
 // ==================== CRM STATS ====================

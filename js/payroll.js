@@ -179,9 +179,23 @@ function saveEmployeesData() {
     // Update window.employees to ensure tenant save gets latest data
     window.employees = employees;
     localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(employees));
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.employees = employees;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Employees saved directly to tenant:', employees.length);
+    }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
 }
 
@@ -196,9 +210,23 @@ function savePayrollData() {
     // Update window.payrollRecords to ensure tenant save gets latest data
     window.payrollRecords = payrollRecords;
     localStorage.setItem(PAYROLL_KEY, JSON.stringify(payrollRecords));
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.payrollRecords = payrollRecords;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Payroll saved directly to tenant:', payrollRecords.length);
+    }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
 }
 

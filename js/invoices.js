@@ -67,6 +67,13 @@ function saveInvoices() {
         localStorage.setItem(tenantKey, JSON.stringify(tenantData));
         console.log('✅ Invoices saved directly to tenant:', invoices.length);
     }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
+    }
 }
 
 // ==================== GENERATE INVOICE NUMBER ====================

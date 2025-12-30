@@ -55,9 +55,22 @@ function saveDeliveryOrders() {
     localStorage.setItem(DELIVERY_ORDERS_KEY, JSON.stringify(deliveryOrders));
     window.deliveryOrders = deliveryOrders; // Keep window in sync
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.deliveryOrders = deliveryOrders;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Delivery Orders saved directly to tenant:', deliveryOrders.length);
+    }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
 }
 

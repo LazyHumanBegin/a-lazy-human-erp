@@ -54,10 +54,23 @@ function saveProducts() {
     updateInventoryStats();
     updateLowStockBadge();
     
-    // Also save to tenant storage for data isolation
-    if (typeof saveToUserTenant === 'function') {
-        window.products = products;
-        saveToUserTenant();
+    // DIRECT tenant save
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.products = products;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Products saved directly to tenant:', products.length);
+    }
+    window.products = products;
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
 }
 
