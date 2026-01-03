@@ -1204,6 +1204,18 @@ function handleRegisterPage(event) {
             setTimeout(() => {
                 autoEnableCloudSync(newUser, password);
                 console.log('☁️ Cloud sync auto-enabled for new registration');
+                
+                // CRITICAL: Also sync the global users list to cloud
+                // This ensures founder/admin on other devices can see new users
+                setTimeout(() => {
+                    if (typeof forceSyncUsersToCloud === 'function') {
+                        forceSyncUsersToCloud().then(() => {
+                            console.log('☁️ Global users list synced to cloud after registration');
+                        }).catch(err => {
+                            console.warn('Could not sync users to cloud:', err);
+                        });
+                    }
+                }, 1000);
             }, 500);
         } catch (err) {
             console.error('Error during post-registration setup:', err);

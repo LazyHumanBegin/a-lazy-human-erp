@@ -257,6 +257,102 @@ function checkSubscriptionStatus(tenantId) {
     return { valid: true, reason: 'active', daysLeft, subscription: sub };
 }
 
+// ==================== AUTO-SYNC USERS FOR FOUNDER ====================
+// Tracks last sync to prevent excessive API calls
+let lastPlatformUserSync = 0;
+const PLATFORM_SYNC_INTERVAL = 30000; // 30 seconds minimum between syncs
+
+async function autoSyncPlatformUsers() {
+    const currentUser = window.currentUser || JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+    
+    // Only auto-sync for founder/erp_assistant
+    if (currentUser.role !== 'founder' && currentUser.role !== 'erp_assistant') {
+        return;
+    }
+    
+    // Rate limit: only sync once every 30 seconds
+    const now = Date.now();
+    if (now - lastPlatformUserSync < PLATFORM_SYNC_INTERVAL) {
+        console.log('☁️ Platform sync skipped (rate limited)');
+        return;
+    }
+    lastPlatformUserSync = now;
+    
+    console.log('☁️ Auto-syncing platform users for founder...');
+    
+    try {
+        // Silent download - no alerts
+        if (window.supabase?.createClient && typeof getUsersSupabaseClient === 'function') {
+            const client = getUsersSupabaseClient();
+            
+            // Get users from cloud
+            const { data, error } = await client.from('tenant_data')
+                .select('*')
+                .eq('tenant_id', 'global');
+            
+            if (error) {
+                console.warn('☁️ Auto-sync failed:', error.message);
+                return;
+            }
+            
+            let usersUpdated = false;
+            let tenantsUpdated = false;
+            
+            for (const record of data || []) {
+                if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                    const cloudUsers = record.data.value;
+                    const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                    
+                    // Merge: Add cloud users not in local, update existing ones
+                    let newUsersCount = 0;
+                    cloudUsers.forEach(cu => {
+                        const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
+                        if (existingIdx === -1) {
+                            localUsers.push(cu);
+                            newUsersCount++;
+                        } else {
+                            // Update existing user with cloud data (cloud is source of truth)
+                            localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+                        }
+                    });
+                    
+                    if (newUsersCount > 0 || cloudUsers.length !== localUsers.length) {
+                        localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
+                        usersUpdated = true;
+                        console.log(`☁️ Users synced: ${newUsersCount} new, ${localUsers.length} total`);
+                    }
+                }
+                
+                if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
+                    const cloudTenants = record.data.value;
+                    const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+                    
+                    // Merge all tenants for founder
+                    const beforeCount = Object.keys(localTenants).length;
+                    Object.assign(localTenants, cloudTenants);
+                    const afterCount = Object.keys(localTenants).length;
+                    
+                    if (afterCount > beforeCount) {
+                        localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+                        tenantsUpdated = true;
+                        console.log(`☁️ Tenants synced: ${afterCount - beforeCount} new`);
+                    }
+                }
+            }
+            
+            // Only show toast if something was updated
+            if (usersUpdated || tenantsUpdated) {
+                if (typeof showToast === 'function') {
+                    showToast('☁️ Platform data synced from cloud', 'info');
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('☁️ Auto-sync error:', err.message);
+    }
+}
+window.autoSyncPlatformUsers = autoSyncPlatformUsers;
+
 // ==================== PLATFORM SETTINGS ====================
 function getPlatformSettings() {
     const stored = localStorage.getItem(PLATFORM_SETTINGS_KEY);
@@ -1535,6 +1631,10 @@ function renderPlatformControl() {
     if (!container) return;
     
     console.log('🎨 renderPlatformControl called');
+    
+    // AUTO-SYNC: Founder automatically downloads latest users from cloud
+    // This ensures Platform Control always shows the most up-to-date user list
+    autoSyncPlatformUsers();
     
     const settings = getPlatformSettings();
     const tenants = getTenants();
