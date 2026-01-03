@@ -80,10 +80,83 @@ body {
     }
 }
 
-/* Landscape mode on phones - show desktop layout */
-@media (max-width: 991px) and (min-width: 568px) and (orientation: landscape) {
+/* ==================== SIDEBAR TOGGLE BUTTONS ==================== */
+/* Hidden by default - only show in tablet/phone landscape mode */
+.sidebar-toggle-btn,
+.sidebar-show-btn {
+    display: none;
+}
+
+/* Landscape mode on phones & tablets (up to iPad Pro 12.9") */
+@media (max-width: 1366px) and (min-width: 568px) and (orientation: landscape) {
+    /* Sidebar Toggle Button (inside nav-panel) */
+    .sidebar-toggle-btn {
+        display: flex;
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 28px;
+        height: 28px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        color: #94a3b8;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 10;
+        transition: all 0.2s ease;
+    }
+    
+    .sidebar-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+    }
+    
+    /* Sidebar Show Button (in main-content, when sidebar hidden) */
+    .sidebar-show-btn {
+        display: none;
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        width: 36px;
+        height: 36px;
+        background: linear-gradient(135deg, #1e3a5f 0%, #0c1f33 100%);
+        border: 1px solid #2563eb;
+        border-radius: 8px;
+        color: white;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        z-index: 1000;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
+    }
+    
+    .sidebar-show-btn:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1e3a5f 100%);
+        transform: scale(1.05);
+    }
+    
+    /* When sidebar is hidden */
+    .app-container.sidebar-hidden {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .app-container.sidebar-hidden .nav-panel {
+        display: none !important;
+    }
+    
+    .app-container.sidebar-hidden .sidebar-show-btn {
+        display: flex !important;
+    }
+}
+
+/* Landscape mode layout for phones & tablets */
+@media (max-width: 1366px) and (min-width: 568px) and (orientation: landscape) {
     .app-container {
         grid-template-columns: 220px 1fr;
+        transition: grid-template-columns 0.3s ease;
     }
     
     .nav-panel {
@@ -94,6 +167,7 @@ body {
         max-height: calc(100vh - 30px);
         overflow-y: auto;
         padding: 12px;
+        padding-top: 40px; /* Space for toggle button */
         font-size: 13px;
     }
     
@@ -373,13 +447,84 @@ body {
 
 .logo .version {
     display: inline-block;
-    margin-top: 8px;
     padding: 2px 8px;
     background: #fef3c7;
     color: #92400e;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 600;
+}
+
+/* Cloud Sync Badge - Inline next to version */
+.cloud-sync-badge-inline {
+    display: inline-flex;
+    align-items: center;
+    color: #10b981;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.cloud-sync-badge-inline:hover {
+    color: #059669;
+    transform: scale(1.1);
+}
+
+.cloud-sync-badge-inline.syncing {
+    color: #3b82f6;
+}
+
+.cloud-sync-badge-inline.syncing i {
+    animation: spin 1s linear infinite;
+}
+
+.cloud-sync-badge-inline.offline {
+    color: #f59e0b;
+}
+
+.cloud-sync-badge-inline.error {
+    color: #ef4444;
+}
+
+/* Legacy cloud-sync-badge for backwards compatibility */
+.cloud-sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: white;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.cloud-sync-badge:hover {
+    background: linear-gradient(135deg, #047857, #059669);
+    transform: scale(1.05);
+}
+
+.cloud-sync-badge.syncing {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.cloud-sync-badge.syncing i {
+    animation: spin 1s linear infinite;
+}
+
+.cloud-sync-badge.offline {
+    background: linear-gradient(135deg, #d97706, #f59e0b);
+}
+
+.cloud-sync-badge.error {
+    background: linear-gradient(135deg, #dc2626, #ef4444);
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 /* Navigation Menu */
@@ -6471,6 +6616,567 @@ td.negative {
     border-top: 1px solid #f1f5f9;
 }
 
+/* ==================== CRM VIEW TOGGLE ==================== */
+.crm-view-btn {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.crm-view-btn:hover {
+    background: #334155;
+    color: white;
+}
+
+.crm-view-btn.active {
+    background: #2563eb;
+    color: white;
+}
+
+/* ==================== CRM TABLE VIEW ==================== */
+.crm-table-wrapper {
+    overflow-x: auto;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.crm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.crm-table th {
+    background: #f8fafc;
+    padding: 12px 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.crm-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.crm-table tr {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.crm-table tbody tr:hover {
+    background: #f8fafc;
+}
+
+.crm-table tr.inactive-row {
+    opacity: 0.6;
+}
+
+.crm-avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.crm-badge-sm {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+}
+
+/* ==================== MEMBERSHIP TIER BADGES ==================== */
+.crm-tier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+}
+
+.crm-tier-badge-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+}
+
+.crm-membership-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.crm-points-display {
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.crm-tier-discount {
+    font-size: 11px;
+    font-weight: 600;
+    color: #10b981;
+    background: #d1fae5;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* ==================== POS CUSTOMER SEARCH ==================== */
+.pos-customer-search-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.pos-customer-search-wrapper input[type="text"] {
+    width: 100%;
+    padding: 10px 70px 10px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.pos-customer-search-wrapper input[type="text"]:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    outline: none;
+}
+
+.pos-customer-search-wrapper input[type="text"].has-customer {
+    border-color: #10b981;
+    background: #f0fdf4;
+    font-weight: 600;
+}
+
+.pos-customer-clear-btn {
+    position: absolute;
+    right: 8px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s;
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.pos-customer-clear-btn:hover {
+    background: #fecaca;
+}
+
+.pos-customer-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.pos-customer-dropdown-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: background 0.15s;
+}
+
+.pos-customer-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.pos-customer-dropdown-item:hover,
+.pos-customer-dropdown-item.highlighted {
+    background: #fef3c7;
+}
+
+.pos-customer-dropdown-item.walk-in {
+    background: #f8fafc;
+    color: #64748b;
+    font-style: italic;
+}
+
+.pos-customer-dropdown-item.walk-in:hover {
+    background: #f1f5f9;
+}
+
+.pos-customer-item-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.pos-customer-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.pos-customer-item-name {
+    font-weight: 600;
+    font-size: 13px;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pos-customer-item-details {
+    font-size: 11px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pos-customer-item-tier {
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 600;
+    color: white;
+    white-space: nowrap;
+}
+
+.pos-customer-item-points {
+    font-size: 11px;
+    color: #f59e0b;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.pos-customer-no-results {
+    padding: 20px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.pos-customer-no-results i {
+    display: block;
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+/* ==================== POS MEMBERSHIP DISPLAY ==================== */
+.pos-membership-info {
+    margin-bottom: 10px;
+}
+
+.pos-membership-card {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border-radius: 10px;
+    padding: 12px;
+    border: 1px solid #f59e0b;
+}
+
+.pos-membership-tier {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.pos-tier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: white;
+}
+
+.pos-tier-discount {
+    font-size: 11px;
+    font-weight: 600;
+    color: #10b981;
+    background: #d1fae5;
+    padding: 3px 8px;
+    border-radius: 10px;
+}
+
+.pos-membership-points {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.pos-points-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #92400e;
+}
+
+.pos-points-worth {
+    font-size: 12px;
+    color: #78716c;
+}
+
+.pos-membership-progress {
+    font-size: 11px;
+    color: #78716c;
+    text-align: center;
+    padding-top: 6px;
+    border-top: 1px dashed #d97706;
+}
+
+/* POS Points Redemption Styles */
+.pos-redeem-section {
+    text-align: center;
+    margin: 8px 0;
+}
+
+.pos-redeem-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pos-redeem-btn:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.pos-redeem-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    font-style: italic;
+}
+
+.pos-points-redeemed {
+    background: #d1fae5;
+    border: 1px solid #6ee7b7;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.pos-points-redeemed span {
+    color: #047857;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.pos-cancel-redeem {
+    background: transparent;
+    border: 1px solid #6ee7b7;
+    color: #047857;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.pos-cancel-redeem:hover {
+    background: #fef2f2;
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.btn-icon-sm {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #e2e8f0;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+
+.btn-icon-sm:hover {
+    background: #f1f5f9;
+    color: #2563eb;
+    border-color: #2563eb;
+}
+
+.btn-icon-sm.danger:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #dc2626;
+}
+
+.crm-table-footer {
+    padding: 10px 15px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 12px;
+    text-align: right;
+    border-radius: 0 0 10px 10px;
+}
+
+/* ==================== CRM COMPACT VIEW ==================== */
+.crm-compact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e2e8f0;
+}
+
+.crm-compact-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    background: white;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.crm-compact-item:hover {
+    background: #f8fafc;
+}
+
+.crm-compact-item.inactive {
+    opacity: 0.6;
+}
+
+.crm-compact-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.crm-compact-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.crm-compact-name {
+    font-weight: 600;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.crm-compact-details {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.crm-compact-details i {
+    margin-right: 4px;
+    font-size: 10px;
+}
+
+.crm-compact-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.crm-compact-spent {
+    font-weight: 600;
+    color: #10b981;
+    font-size: 13px;
+}
+
+.crm-compact-actions {
+    display: flex;
+    gap: 4px;
+}
+
+/* View mode container adjustments */
+.crm-view-card .crm-customer-grid {
+    display: grid;
+}
+
+.crm-view-table,
+.crm-view-compact {
+    display: block !important;
+}
+
 /* CRM Detail Modal */
 .crm-detail-header {
     display: flex;
@@ -6543,6 +7249,180 @@ td.negative {
 
 .crm-detail-section h4 i {
     color: #2563eb;
+}
+
+/* CRM Membership Detail Section */
+.crm-membership-section {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #fbbf24;
+}
+
+.crm-membership-detail {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.crm-membership-tier-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.crm-tier-badge-lg {
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: white;
+    font-weight: 700;
+    font-size: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.crm-tier-discount-lg {
+    background: rgba(255, 255, 255, 0.9);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #92400e;
+}
+
+.crm-membership-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.crm-stat-box {
+    background: rgba(255, 255, 255, 0.8);
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.crm-stat-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.crm-stat-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.crm-stat-label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.crm-tier-progress-section {
+    background: rgba(255, 255, 255, 0.8);
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.crm-tier-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.crm-tier-progress-bar {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.crm-tier-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.crm-tier-max-reached {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.crm-tier-max-reached i {
+    margin-right: 6px;
+}
+
+.crm-points-history h5 {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.crm-points-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.crm-points-history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    border-left: 3px solid #e5e7eb;
+}
+
+.crm-points-history-item.earn {
+    border-left-color: #10b981;
+}
+
+.crm-points-history-item.redeem {
+    border-left-color: #ef4444;
+}
+
+.crm-points-history-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.crm-points-history-type {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.crm-points-history-item.earn .crm-points-history-type {
+    color: #10b981;
+}
+
+.crm-points-history-item.redeem .crm-points-history-type {
+    color: #ef4444;
+}
+
+.crm-points-history-ref {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.crm-points-history-date {
+    font-size: 11px;
+    color: #94a3b8;
 }
 
 .crm-detail-grid {

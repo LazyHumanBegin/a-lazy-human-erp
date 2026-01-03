@@ -267,24 +267,36 @@ function canAccessModule(moduleId) {
         return planFeatures.includes(moduleId);
     }
     
-    // For Staff/Manager - check BOTH their assigned permissions AND the owner's plan
+    // For Staff/Manager - STRICT permission check
     if (['staff', 'manager'].includes(currentUser.role)) {
-        const hasUserPermission = currentUser.permissions.includes('all') || currentUser.permissions.includes(moduleId);
-        
-        console.log(`canAccessModule(${moduleId}): user perms=[${currentUser.permissions.join(',')}], hasUserPerm=${hasUserPermission}`);
-        
-        if (!hasUserPermission) {
-            console.log(`  -> DENIED: User doesn't have permission for ${moduleId}`);
+        // Check if user has empty/no permissions array
+        if (!currentUser.permissions || !Array.isArray(currentUser.permissions)) {
+            console.log(`canAccessModule(${moduleId}): DENIED - no permissions array`);
             return false;
         }
         
-        const ownerPlanFeatures = getOwnerPlanFeatures();
-        const ownerHasAll = ownerPlanFeatures.includes('all');
-        const ownerAllows = ownerHasAll || ownerPlanFeatures.includes(moduleId);
-        console.log(`  -> Owner plan allows ${moduleId}: ${ownerAllows}`);
+        // Dashboard is always accessible
+        if (moduleId === 'dashboard') {
+            return true;
+        }
         
-        if (!ownerAllows) {
-            console.log(`  -> DENIED: Owner plan doesn't include ${moduleId}`);
+        // Check if user has 'all' permission
+        if (currentUser.permissions.includes('all')) {
+            return true;
+        }
+        
+        // STRICT: Check if user has this specific module permission
+        const hasPermission = currentUser.permissions.includes(moduleId);
+        console.log(`canAccessModule(${moduleId}): permissions=[${currentUser.permissions.join(',')}], result=${hasPermission}`);
+        
+        if (!hasPermission) {
+            return false;
+        }
+        
+        // Also check owner's plan
+        const ownerPlanFeatures = getOwnerPlanFeatures();
+        if (ownerPlanFeatures.length > 0 && !ownerPlanFeatures.includes('all') && !ownerPlanFeatures.includes(moduleId)) {
+            console.log(`canAccessModule(${moduleId}): DENIED by owner plan`);
             return false;
         }
         
@@ -304,8 +316,8 @@ function canAccessModule(moduleId) {
     }
     
     // Fallback to permission check
-    if (currentUser.permissions.includes('all')) return true;
-    return currentUser.permissions.includes(moduleId);
+    if (currentUser.permissions && currentUser.permissions.includes('all')) return true;
+    return currentUser.permissions && currentUser.permissions.includes(moduleId);
 }
 
 /**
@@ -376,8 +388,13 @@ function applyUserPermissions() {
     const currentUser = window.currentUser;
     console.log('applyUserPermissions called. currentUser:', currentUser?.email, 'role:', currentUser?.role);
     
+    // Check if there's a valid session in localStorage (user might not be loaded yet)
+    const sessionData = localStorage.getItem('ezcubic_currentUser');
+    const hasValidSession = sessionData && JSON.parse(sessionData)?.id;
+    
     // Guest mode: Show personal plan features but require login to use
-    if (!currentUser) {
+    // Only apply guest mode if there's NO session at all (not just currentUser not loaded yet)
+    if (!currentUser && !hasValidSession) {
         if (typeof applyGuestPreviewMode === 'function') {
             applyGuestPreviewMode();
         } else {
@@ -398,6 +415,18 @@ function applyUserPermissions() {
             }
         }
         return;
+    }
+    
+    // If we have session but no currentUser yet, wait for it to load
+    if (!currentUser && hasValidSession) {
+        console.log('⏳ Session exists but currentUser not loaded yet, skipping permissions for now');
+        return;
+    }
+    
+    // CRITICAL: Remove guest preview mode if user is logged in
+    // This fixes the issue where preview banner persists after hard refresh
+    if (currentUser && typeof removeViewOnlyMode === 'function') {
+        removeViewOnlyMode();
     }
     
     // Show/hide navigation buttons based on permissions
@@ -439,6 +468,90 @@ function applyUserPermissions() {
     } else {
         showAllNavSeparators();
     }
+    
+    // CRITICAL: Reset nav-category collapsed states to fix UI alignment
+    resetNavCategoryStates();
+}
+
+/**
+ * Reset all nav-category elements to ensure proper alignment
+ * This fixes the issue where all nav buttons appear combined without category separators
+ */
+function resetNavCategoryStates() {
+    console.log('🎨 resetNavCategoryStates called');
+    
+    // First, ensure all nav-separators are visible (unless for personal users)
+    const currentUser = window.currentUser;
+    const isPersonal = currentUser?.role === 'personal';
+    
+    const separators = document.querySelectorAll('.nav-separator');
+    separators.forEach(sep => {
+        // Don't show platform admin for non-founders
+        if (sep.id === 'platformAdminNav') return;
+        
+        // For personal users, hide business-specific separators
+        if (isPersonal) {
+            const text = sep.textContent.trim().toLowerCase();
+            if (text.includes('sales') || text.includes('crm') || 
+                text.includes('operations') || text.includes('purchasing') || 
+                text.includes('hr') || text.includes('payroll') ||
+                text.includes('multi-branch') || text.includes('branch')) {
+                sep.style.display = 'none';
+            } else {
+                sep.style.display = '';
+            }
+        } else {
+            sep.style.display = '';
+        }
+    });
+    
+    // Reset all categories to be visible and properly styled
+    const categories = document.querySelectorAll('.nav-category');
+    console.log('🎨 Total nav-categories:', categories.length);
+    
+    categories.forEach((cat, index) => {
+        // Remove collapsed class
+        cat.classList.remove('collapsed');
+        
+        // Force proper display style - reset all inline styles that might break layout
+        cat.style.display = 'flex';
+        cat.style.flexDirection = 'column';
+        cat.style.gap = '8px';
+        cat.style.maxHeight = ''; // Clear any max-height that might have been set
+        cat.style.overflow = ''; // Clear any overflow setting
+        
+        // Check if all buttons inside are hidden (by permission check)
+        const buttons = cat.querySelectorAll('.nav-btn');
+        const visibleButtons = Array.from(buttons).filter(btn => {
+            // Check both display style and computed style
+            const isHidden = btn.style.display === 'none' || 
+                window.getComputedStyle(btn).display === 'none';
+            return !isHidden;
+        });
+        
+        console.log(`🎨 Category ${index}: ${buttons.length} buttons, ${visibleButtons.length} visible`);
+        
+        // If no visible buttons, hide the entire category and its separator
+        if (visibleButtons.length === 0) {
+            cat.style.display = 'none';
+            const prevSep = cat.previousElementSibling;
+            if (prevSep && prevSep.classList.contains('nav-separator')) {
+                prevSep.style.display = 'none';
+            }
+        }
+    });
+    
+    // Also reset all nav-separators to visible (permissions will re-hide what's needed)
+    const allSeparators = document.querySelectorAll('.nav-separator:not(#platformAdminNav)');
+    allSeparators.forEach(sep => {
+        sep.style.display = '';
+    });
+    
+    // Reset collapse icons
+    const icons = document.querySelectorAll('.nav-separator .collapse-icon');
+    icons.forEach(icon => icon.classList.remove('rotated'));
+    
+    console.log('🎨 resetNavCategoryStates complete');
 }
 
 /**
@@ -514,6 +627,7 @@ window.canManageRole = canManageRole;
 window.applyUserPermissions = applyUserPermissions;
 window.hideBusinessNavSeparators = hideBusinessNavSeparators;
 window.showAllNavSeparators = showAllNavSeparators;
+window.resetNavCategoryStates = resetNavCategoryStates;
 window.getOwnerPlanFeatures = getOwnerPlanFeatures;
 window.applyOwnerPlanRestrictions = applyOwnerPlanRestrictions;
 

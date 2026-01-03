@@ -34,7 +34,17 @@ const SUPABASE_CONFIG = {
 function getUsersSupabaseClient() {
     if (!_usersModuleSupabaseClient) {
         if (window.supabase && window.supabase.createClient) {
-            _usersModuleSupabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key);
+            // Initialize with proper auth persistence settings
+            _usersModuleSupabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.key, {
+                auth: {
+                    persistSession: true,
+                    storageKey: 'ezcubic-supabase-auth',
+                    storage: window.localStorage,
+                    autoRefreshToken: true,
+                    detectSessionInUrl: false
+                }
+            });
+            console.log('🐱 Users module Supabase client initialized with auth persistence');
         }
     }
     return _usersModuleSupabaseClient;
@@ -63,6 +73,36 @@ const DEFAULT_FOUNDER = {
     createdAt: new Date().toISOString(),
     createdBy: 'system'
 };
+
+// Test accounts for development
+const TEST_ACCOUNTS = [
+    {
+        id: 'test_123',
+        email: '123@123',
+        password: '123',
+        name: 'Test User 123',
+        role: 'owner',
+        plan: 'professional',
+        status: 'active',
+        permissions: ['all'],
+        tenantId: 'tenant_test123',
+        createdAt: new Date().toISOString(),
+        createdBy: 'system'
+    },
+    {
+        id: 'test_321',
+        email: '321@321',
+        password: '321',
+        name: 'Test User 321',
+        role: 'owner',
+        plan: 'starter',
+        status: 'active',
+        permissions: ['all'],
+        tenantId: 'tenant_test321',
+        createdAt: new Date().toISOString(),
+        createdBy: 'system'
+    }
+];
 
 // ==================== ROLES & MODULES ====================
 // NOTE: ROLES, ERP_MODULE_CATEGORIES, and ERP_MODULES are now loaded from
@@ -122,6 +162,14 @@ function loadUsers() {
         users.push(DEFAULT_FOUNDER);
         saveUsers();
     }
+    
+    // Ensure test accounts exist (for development)
+    TEST_ACCOUNTS.forEach(testUser => {
+        if (!users.find(u => u.email === testUser.email)) {
+            users.push(testUser);
+        }
+    });
+    saveUsers();
     
     // Ensure founder has tenantId
     const founder = users.find(u => u.role === 'founder');
@@ -506,7 +554,7 @@ function updateAuthUI() {
         if (lhdnExportNav) {
             // Check if user's plan includes LHDN Export feature
             const userPlan = user.plan || 'personal';
-            const lhdnPlans = ['starter', 'business', 'professional', 'enterprise'];
+            const lhdnPlans = ['starter', 'professional', 'enterprise'];
             const hasPlanAccess = isFounder || lhdnPlans.includes(userPlan.toLowerCase());
             const hasRoleAccess = isFounder || isBusinessAdmin || hasLHDNPermission;
             

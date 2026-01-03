@@ -224,6 +224,60 @@ function toggleDarkMode() {
     showNotification(isDark ? 'Dark mode enabled' : 'Light mode enabled', 'success');
 }
 
+// Toggle sidebar in landscape mode (mobile/tablet)
+function toggleSidebarLandscape() {
+    const appContainer = document.getElementById('appContainer');
+    if (!appContainer) return;
+    
+    const isHidden = appContainer.classList.toggle('sidebar-hidden');
+    
+    // Save preference
+    localStorage.setItem('ezcubic_sidebar_hidden', isHidden);
+    
+    // Update button icon
+    const toggleBtn = document.getElementById('sidebarToggleBtn');
+    if (toggleBtn) {
+        toggleBtn.innerHTML = isHidden ? '<i class="fas fa-chevron-right"></i>' : '<i class="fas fa-chevron-left"></i>';
+        toggleBtn.title = isHidden ? 'Show Sidebar' : 'Hide Sidebar';
+    }
+}
+
+// Restore sidebar state on load (for landscape mode)
+function restoreSidebarState() {
+    const isLandscape = window.matchMedia('(max-width: 1366px) and (min-width: 568px) and (orientation: landscape)').matches;
+    if (!isLandscape) return;
+    
+    const appContainer = document.getElementById('appContainer');
+    const wasHidden = localStorage.getItem('ezcubic_sidebar_hidden') === 'true';
+    
+    if (appContainer && wasHidden) {
+        appContainer.classList.add('sidebar-hidden');
+        const toggleBtn = document.getElementById('sidebarToggleBtn');
+        if (toggleBtn) {
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            toggleBtn.title = 'Show Sidebar';
+        }
+    }
+}
+
+// Listen for orientation changes
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        const isLandscape = window.matchMedia('(max-width: 1366px) and (min-width: 568px) and (orientation: landscape)').matches;
+        const appContainer = document.getElementById('appContainer');
+        
+        if (!isLandscape && appContainer) {
+            // Reset sidebar when leaving landscape mode
+            appContainer.classList.remove('sidebar-hidden');
+        } else if (isLandscape) {
+            restoreSidebarState();
+        }
+    }, 100);
+});
+
+// Initialize on DOM ready
+document.addEventListener('DOMContentLoaded', restoreSidebarState);
+
 // Add dark mode CSS
 function addDarkModeStyles() {
     if (document.getElementById('darkModeStyles')) return;

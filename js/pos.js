@@ -91,6 +91,24 @@ function loadPOSTables() {
 
 function savePOSTables() {
     localStorage.setItem(POS_TABLES_KEY, JSON.stringify(posTables));
+    
+    // DIRECT tenant save for deletion persistence
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.posTables = posTables;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ POS Tables saved directly to tenant:', posTables.length);
+    }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
+    }
 }
 
 function savePOSMode() {
@@ -279,7 +297,7 @@ function selectTable(tableId) {
         
         // Recall the table's order
         currentCart = [...heldSale.items];
-        document.getElementById('posCustomer').value = heldSale.customerId || '';
+        restorePOSCustomer(heldSale.customerId);
         document.getElementById('posSalesperson').value = heldSale.salesperson || '';
         document.getElementById('cartDiscount').value = heldSale.discount || 0;
         
@@ -675,31 +693,75 @@ function ensureHQBranchExists() {
 }
 
 function loadHeldSales() {
+    // First check if window.heldSales was set by tenant loader (most up-to-date)
+    if (window.heldSales && Array.isArray(window.heldSales)) {
+        heldSales = window.heldSales;
+        console.log('Loaded held sales from window.heldSales:', heldSales.length);
+        updateHeldCount();
+        return;
+    }
+    
+    // Then try localStorage (should be synced from tenant data on login)
     const stored = localStorage.getItem('ezcubic_held_sales');
     if (stored) {
         heldSales = JSON.parse(stored);
-        console.log('Loaded held sales from ezcubic_held_sales:', heldSales.length, heldSales.map(s => ({ id: s.id?.slice(0,8), tableId: s.tableId, tableName: s.tableName })));
+        console.log('Loaded held sales from ezcubic_held_sales:', heldSales.length);
     } else {
-        console.log('No held sales in ezcubic_held_sales');
-    }
-    
-    // Debug: Check all localStorage for held sales
-    console.log('DEBUG: Checking all localStorage keys for held sales...');
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.includes('tenant') || key.includes('held')) {
-            const val = localStorage.getItem(key);
-            if (val && val.includes('tableId')) {
-                console.log('  Found held sale data in:', key);
+        // Fallback: Try loading from tenant storage directly
+        const user = window.currentUser;
+        if (user && user.tenantId) {
+            const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+            const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            if (tenantData.heldSales && tenantData.heldSales.length > 0) {
+                heldSales = tenantData.heldSales;
+                // Sync to localStorage for consistency
+                localStorage.setItem('ezcubic_held_sales', JSON.stringify(heldSales));
+                console.log('Loaded held sales from tenant storage:', heldSales.length);
+            } else {
+                console.log('No held sales in tenant storage');
             }
+        } else {
+            console.log('No held sales found');
         }
     }
+    
+    // CRITICAL: Update the held count badge after loading
+    updateHeldCount();
 }
 
 function saveHeldSales() {
     localStorage.setItem('ezcubic_held_sales', JSON.stringify(heldSales));
     updateHeldCount();
-    console.log('Saved held sales:', heldSales.length, 'occupied tables:', getOccupiedTables());
+    console.log('💾 Saved held sales to localStorage:', heldSales.length);
+    
+    // Sync to window for cross-module access
+    window.heldSales = heldSales;
+    
+    // DIRECT tenant save for deletion persistence
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.heldSales = heldSales;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('💾 Held sales saved to tenant storage:', heldSales.length, 'updatedAt:', tenantData.updatedAt);
+    }
+    
+    // CRITICAL: Save timestamp AFTER tenant save (must be newer than tenantData.updatedAt)
+    const timestamp = Date.now();
+    localStorage.setItem('ezcubic_last_save_timestamp', timestamp.toString());
+    console.log('💾 Saved timestamp:', timestamp);
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        console.log('💾 Triggering cloud sync...');
+        setTimeout(() => {
+            window.fullCloudSync().then(() => {
+                console.log('💾 Cloud sync completed');
+            }).catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
+    }
     
     // Always refresh table selector when held sales change
     if (posMode === 'restaurant') {
@@ -796,9 +858,12 @@ function loadPOSCategories() {
     `;
 }
 
+// Store all customers for search
+let allPOSCustomers = [];
+
 function loadPOSCustomers() {
-    const select = document.getElementById('posCustomer');
-    if (!select) return;
+    const searchInput = document.getElementById('posCustomerSearch');
+    if (!searchInput) return;
     
     // Get CRM customers if available
     const crmList = typeof getCRMCustomersForSelect === 'function' ? getCRMCustomersForSelect() : [];
@@ -812,32 +877,281 @@ function loadPOSCustomers() {
         } catch (e) {}
     }
     
-    select.innerHTML = `<option value="">Walk-in Customer</option>`;
+    // Build combined customer list
+    allPOSCustomers = [];
     
-    // Show CRM customers first (they support credit terms)
-    if (crmList.length > 0) {
-        select.innerHTML += `<optgroup label="CRM Customers (Credit Available)">`;
-        select.innerHTML += crmList.map(c => `
-            <option value="${c.id}" data-type="crm">${escapeHtml(c.name)}${c.company ? ` (${escapeHtml(c.company)})` : ''}</option>
-        `).join('');
-        select.innerHTML += `</optgroup>`;
+    // Add CRM customers (they support membership/credit)
+    crmList.forEach(c => {
+        const membership = typeof getCustomerMembership === 'function' ? getCustomerMembership(c.id) : null;
+        allPOSCustomers.push({
+            id: c.id,
+            name: c.name,
+            company: c.company || '',
+            phone: c.phone || '',
+            email: c.email || '',
+            type: 'crm',
+            tier: membership?.tierInfo || null,
+            points: membership?.points || 0
+        });
+    });
+    
+    // Add regular customers (no membership)
+    const crmNames = crmList.map(c => c.name.toLowerCase());
+    regularCustomers.forEach(c => {
+        if (!crmNames.includes(c.name?.toLowerCase())) {
+            allPOSCustomers.push({
+                id: c.id,
+                name: c.name,
+                company: '',
+                phone: c.phone || '',
+                email: c.email || '',
+                type: 'regular',
+                tier: null,
+                points: 0
+            });
+        }
+    });
+    
+    // Setup search input events
+    setupPOSCustomerSearch();
+}
+
+// Setup customer search functionality
+function setupPOSCustomerSearch() {
+    const searchInput = document.getElementById('posCustomerSearch');
+    const dropdown = document.getElementById('posCustomerDropdown');
+    
+    if (!searchInput || !dropdown) return;
+    
+    // Remove existing listeners by cloning
+    const newSearchInput = searchInput.cloneNode(true);
+    searchInput.parentNode.replaceChild(newSearchInput, searchInput);
+    
+    let highlightIndex = -1;
+    
+    // Input event for search
+    newSearchInput.addEventListener('input', function() {
+        const query = this.value.trim().toLowerCase();
+        highlightIndex = -1;
+        
+        if (query.length === 0) {
+            // Show all customers or recent ones
+            showCustomerDropdown(allPOSCustomers.slice(0, 20), '');
+        } else {
+            // Filter customers
+            const filtered = allPOSCustomers.filter(c => {
+                return c.name.toLowerCase().includes(query) ||
+                       c.phone.toLowerCase().includes(query) ||
+                       c.email.toLowerCase().includes(query) ||
+                       c.company.toLowerCase().includes(query);
+            });
+            showCustomerDropdown(filtered, query);
+        }
+    });
+    
+    // Focus event
+    newSearchInput.addEventListener('focus', function() {
+        if (!document.getElementById('posCustomer').value) {
+            const query = this.value.trim().toLowerCase();
+            if (query.length === 0) {
+                showCustomerDropdown(allPOSCustomers.slice(0, 20), '');
+            } else {
+                const filtered = allPOSCustomers.filter(c => {
+                    return c.name.toLowerCase().includes(query) ||
+                           c.phone.toLowerCase().includes(query) ||
+                           c.email.toLowerCase().includes(query);
+                });
+                showCustomerDropdown(filtered, query);
+            }
+        }
+    });
+    
+    // Keyboard navigation
+    newSearchInput.addEventListener('keydown', function(e) {
+        const items = dropdown.querySelectorAll('.pos-customer-dropdown-item:not(.walk-in)');
+        
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            highlightIndex = Math.min(highlightIndex + 1, items.length - 1);
+            updateDropdownHighlight(items, highlightIndex);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            highlightIndex = Math.max(highlightIndex - 1, -1);
+            updateDropdownHighlight(items, highlightIndex);
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightIndex >= 0 && items[highlightIndex]) {
+                items[highlightIndex].click();
+            } else if (items.length === 1) {
+                items[0].click();
+            }
+        } else if (e.key === 'Escape') {
+            hideCustomerDropdown();
+            this.blur();
+        }
+    });
+    
+    // Click outside to close
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.pos-customer-select')) {
+            hideCustomerDropdown();
+        }
+    });
+}
+
+function updateDropdownHighlight(items, index) {
+    items.forEach((item, i) => {
+        item.classList.toggle('highlighted', i === index);
+        if (i === index) {
+            item.scrollIntoView({ block: 'nearest' });
+        }
+    });
+}
+
+function showCustomerDropdown(customers, query) {
+    const dropdown = document.getElementById('posCustomerDropdown');
+    if (!dropdown) return;
+    
+    let html = '';
+    
+    // Walk-in option always first
+    html += `
+        <div class="pos-customer-dropdown-item walk-in" onclick="selectPOSCustomer(null)">
+            <div class="pos-customer-item-avatar" style="background: #e2e8f0; color: #64748b;">
+                <i class="fas fa-user"></i>
+            </div>
+            <div class="pos-customer-item-info">
+                <div class="pos-customer-item-name">Walk-in Customer</div>
+                <div class="pos-customer-item-details">No membership / Guest checkout</div>
+            </div>
+        </div>
+    `;
+    
+    if (customers.length === 0 && query) {
+        html += `
+            <div class="pos-customer-no-results">
+                <i class="fas fa-search"></i>
+                No members found for "${escapeHtml(query)}"<br>
+                <small>Try searching by name, phone or email</small>
+            </div>
+        `;
+    } else {
+        customers.forEach(c => {
+            const initials = c.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+            const tierColor = c.tier?.color || '#94a3b8';
+            const tierLabel = c.tier ? `${c.tier.icon} ${c.tier.label}` : '';
+            
+            // Highlight matching text
+            let displayName = escapeHtml(c.name);
+            let displayDetails = escapeHtml([c.phone, c.email, c.company].filter(Boolean).join(' • '));
+            
+            if (query) {
+                const regex = new RegExp(`(${escapeRegex(query)})`, 'gi');
+                displayName = displayName.replace(regex, '<mark>$1</mark>');
+                displayDetails = displayDetails.replace(regex, '<mark>$1</mark>');
+            }
+            
+            html += `
+                <div class="pos-customer-dropdown-item" onclick="selectPOSCustomer('${c.id}')">
+                    <div class="pos-customer-item-avatar" style="background: ${tierColor}20; color: ${tierColor};">
+                        ${initials}
+                    </div>
+                    <div class="pos-customer-item-info">
+                        <div class="pos-customer-item-name">${displayName}</div>
+                        <div class="pos-customer-item-details">${displayDetails || 'No contact info'}</div>
+                    </div>
+                    ${tierLabel ? `<span class="pos-customer-item-tier" style="background: ${tierColor};">${tierLabel}</span>` : ''}
+                    ${c.points > 0 ? `<span class="pos-customer-item-points">⭐ ${c.points.toLocaleString()}</span>` : ''}
+                </div>
+            `;
+        });
     }
     
-    // Also show regular customers (no credit terms)
-    if (regularCustomers.length > 0) {
-        // Filter out customers that are already in CRM list (by name match to avoid duplicates)
-        const crmNames = crmList.map(c => c.name.toLowerCase());
-        const uniqueRegularCustomers = regularCustomers.filter(c => !crmNames.includes(c.name?.toLowerCase()));
-        
-        if (uniqueRegularCustomers.length > 0) {
-            select.innerHTML += `<optgroup label="Customers">`;
-            select.innerHTML += uniqueRegularCustomers.map(c => `
-                <option value="${c.id}" data-type="regular">${escapeHtml(c.name)}</option>
-            `).join('');
-            select.innerHTML += `</optgroup>`;
+    dropdown.innerHTML = html;
+    dropdown.style.display = 'block';
+}
+
+function hideCustomerDropdown() {
+    const dropdown = document.getElementById('posCustomerDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+}
+
+function escapeRegex(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function selectPOSCustomer(customerId) {
+    const searchInput = document.getElementById('posCustomerSearch');
+    const hiddenInput = document.getElementById('posCustomer');
+    const clearBtn = document.getElementById('posCustomerClearBtn');
+    
+    if (!searchInput || !hiddenInput) return;
+    
+    if (customerId) {
+        const customer = allPOSCustomers.find(c => c.id === customerId);
+        if (customer) {
+            searchInput.value = customer.name + (customer.company ? ` (${customer.company})` : '');
+            searchInput.classList.add('has-customer');
+            hiddenInput.value = customerId;
+            if (clearBtn) clearBtn.style.display = 'flex';
+        }
+    } else {
+        // Walk-in customer
+        searchInput.value = '';
+        searchInput.placeholder = '🔍 Search member by name, phone, email...';
+        searchInput.classList.remove('has-customer');
+        hiddenInput.value = '';
+        if (clearBtn) clearBtn.style.display = 'none';
+    }
+    
+    hideCustomerDropdown();
+    updatePOSCustomerMembership();
+}
+window.selectPOSCustomer = selectPOSCustomer;
+
+function clearPOSCustomer() {
+    selectPOSCustomer(null);
+    document.getElementById('posCustomerSearch')?.focus();
+}
+window.clearPOSCustomer = clearPOSCustomer;
+
+// Restore customer selection by ID (for held sales, table recalls)
+function restorePOSCustomer(customerId) {
+    if (!customerId) {
+        selectPOSCustomer(null);
+        return;
+    }
+    
+    // Make sure customer list is loaded
+    if (allPOSCustomers.length === 0) {
+        loadPOSCustomers();
+    }
+    
+    // Find and select the customer
+    const customer = allPOSCustomers.find(c => c.id === customerId);
+    if (customer) {
+        selectPOSCustomer(customerId);
+    } else {
+        // Customer not found in list, try to find from CRM directly
+        if (typeof window.crmCustomers !== 'undefined') {
+            const crmCustomer = window.crmCustomers.find(c => c.id === customerId);
+            if (crmCustomer) {
+                const searchInput = document.getElementById('posCustomerSearch');
+                const hiddenInput = document.getElementById('posCustomer');
+                const clearBtn = document.getElementById('posCustomerClearBtn');
+                
+                if (searchInput && hiddenInput) {
+                    searchInput.value = crmCustomer.name + (crmCustomer.company ? ` (${crmCustomer.company})` : '');
+                    searchInput.classList.add('has-customer');
+                    hiddenInput.value = customerId;
+                    if (clearBtn) clearBtn.style.display = 'flex';
+                    updatePOSCustomerMembership();
+                }
+            }
         }
     }
 }
+window.restorePOSCustomer = restorePOSCustomer;
 
 function loadPOSSalespersons() {
     const select = document.getElementById('posSalesperson');
@@ -1233,6 +1547,14 @@ function clearCart() {
         currentCart = [];
         renderCart();
         updateCartTotals();
+        
+        // Reset points redemption and member discount when cart is cleared
+        if (typeof resetPointsRedemption === 'function') {
+            window.posRedeemedPoints = 0;
+            window.posRedeemCustomerId = null;
+            window.posMemberDiscount = 0;
+            updatePOSCustomerMembership();
+        }
     }
 }
 
@@ -1296,6 +1618,29 @@ function showItemMemo(productId) {
 
 function updateCartTotals() {
     const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Recalculate member discount if customer has tier discount
+    const customerId = document.getElementById('posCustomer')?.value;
+    if (customerId && typeof getCustomerMembership === 'function') {
+        const membership = getCustomerMembership(customerId);
+        if (membership && membership.tierInfo.discount > 0) {
+            const newMemberDiscount = Math.round((subtotal * membership.tierInfo.discount / 100) * 100) / 100;
+            const discountInput = document.getElementById('cartDiscount');
+            if (discountInput && window.posMemberDiscount !== newMemberDiscount) {
+                const currentDiscount = parseFloat(discountInput.value) || 0;
+                const otherDiscounts = currentDiscount - (window.posMemberDiscount || 0);
+                discountInput.value = Math.max(0, otherDiscounts + newMemberDiscount).toFixed(2);
+                window.posMemberDiscount = newMemberDiscount;
+                
+                // Update membership card to show new discount amount
+                const memberDiscountDisplay = document.querySelector('.pos-tier-discount');
+                if (memberDiscountDisplay) {
+                    memberDiscountDisplay.textContent = `${membership.tierInfo.discount}% member discount${newMemberDiscount > 0 ? ` (-RM${newMemberDiscount.toFixed(2)})` : ''}`;
+                }
+            }
+        }
+    }
+    
     const discount = parseFloat(document.getElementById('cartDiscount')?.value) || 0;
     
     // Calculate tax per item based on product's tax rate
@@ -1440,7 +1785,7 @@ function recallSale(index) {
     }
     
     currentCart = [...sale.items];
-    document.getElementById('posCustomer').value = sale.customerId || '';
+    restorePOSCustomer(sale.customerId);
     document.getElementById('posSalesperson').value = sale.salesperson || '';
     document.getElementById('cartDiscount').value = sale.discount || 0;
     
@@ -1489,6 +1834,13 @@ function deleteHeldSale(index) {
         heldSales.splice(index, 1);
         saveHeldSales();
         showHeldSales();
+        
+        // Show success message
+        if (typeof showToast === 'function') {
+            showToast('Held sale deleted', 'success');
+        } else if (typeof showNotification === 'function') {
+            showNotification('Held sale deleted', 'success');
+        }
         
         // Refresh table selector to update occupied status
         if (posMode === 'restaurant') {
@@ -1976,8 +2328,57 @@ function processPayment(event) {
         localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
     }
     
-    // Update customer loyalty points
-    if (customer && settings.enableLoyaltyPoints) {
+    // ===== CRM MEMBERSHIP: REDEEM POINTS =====
+    // Deduct redeemed points from customer account
+    if (customerId && window.posRedeemedPoints > 0 && window.posRedeemCustomerId === customerId) {
+        const redeemResult = redeemCustomerPoints(customerId, window.posRedeemedPoints, sale.receiptNo);
+        if (redeemResult.success) {
+            sale.pointsRedeemed = window.posRedeemedPoints;
+            sale.pointsDiscount = window.posRedeemedPoints / 100; // RM value
+            console.log(`✅ Redeemed ${window.posRedeemedPoints} points for customer ${customerId}`);
+        }
+        // Reset redemption state after checkout
+        window.posRedeemedPoints = 0;
+        window.posRedeemCustomerId = null;
+    }
+    
+    // ===== CRM MEMBERSHIP: EARN POINTS =====
+    // Add membership points for CRM customers (new system)
+    if (customerId && typeof addCustomerPoints === 'function') {
+        const pointsResult = addCustomerPoints(customerId, total, sale.receiptNo);
+        if (pointsResult.success) {
+            // Store points info in sale record for receipt
+            sale.pointsEarned = pointsResult.pointsEarned;
+            sale.totalPoints = pointsResult.totalPoints;
+            sale.membershipTier = pointsResult.tierInfo?.label;
+            
+            // Show points earned notification
+            setTimeout(() => {
+                let pointsMsg = `⭐ ${pointsResult.pointsEarned} points earned! (Total: ${pointsResult.totalPoints})`;
+                if (pointsResult.tierUpgraded) {
+                    pointsMsg = `🎉 UPGRADED to ${pointsResult.tierInfo.icon} ${pointsResult.tierInfo.label}! +${pointsResult.pointsEarned} pts`;
+                    showToast(pointsMsg, 'success');
+                } else {
+                    showToast(pointsMsg, 'info');
+                }
+                
+                // Refresh membership card display with new points
+                if (typeof updatePOSCustomerMembership === 'function') {
+                    updatePOSCustomerMembership();
+                }
+            }, 2000);
+            
+            // Update sale record in storage with points info
+            const saleIndex = sales.findIndex(s => s.id === sale.id);
+            if (saleIndex !== -1) {
+                sales[saleIndex] = sale;
+                localStorage.setItem(SALES_KEY, JSON.stringify(sales));
+            }
+        }
+    }
+    
+    // Legacy loyalty points (fallback for non-CRM customers)
+    if (customer && settings.enableLoyaltyPoints && !customerId) {
         const pointsEarned = Math.floor(total * settings.pointsPerRM);
         const customerIndex = customers.findIndex(c => c.id === customerId);
         if (customerIndex !== -1) {
@@ -2068,6 +2469,13 @@ function processPayment(event) {
         console.log('POS: Sales and products saved to tenant');
     }
     
+    // Trigger cloud sync to persist sales
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('POS Cloud sync failed:', e));
+        }, 100);
+    }
+    
     // Update order stats if function exists
     if (typeof updateOrderStats === 'function') {
         updateOrderStats();
@@ -2094,6 +2502,9 @@ function processPayment(event) {
     
     // Reset order type
     resetOrderType();
+    
+    // Reset customer selection
+    clearPOSCustomer();
     
     // Reset payment form
     const paymentForm = document.getElementById('paymentForm');
@@ -2256,6 +2667,15 @@ function showReceipt(sale) {
                 <div>Change: RM ${sale.change.toFixed(2)}</div>
                 ` : ''}
             </div>
+            ${(sale.pointsEarned || sale.pointsRedeemed || sale.membershipTier) ? `
+            <div class="receipt-divider">--------------------------------</div>
+            <div class="receipt-membership" style="text-align: center; padding: 8px 0;">
+                ${sale.membershipTier ? `<div style="font-weight: bold; color: #f59e0b;">⭐ ${sale.membershipTier} Member</div>` : ''}
+                ${sale.pointsRedeemed ? `<div style="color: #10b981;">🎁 Points Redeemed: -${sale.pointsRedeemed} pts (-RM${sale.pointsDiscount?.toFixed(2) || (sale.pointsRedeemed/100).toFixed(2)})</div>` : ''}
+                ${sale.pointsEarned ? `<div style="color: #2563eb;">✨ Points Earned: +${sale.pointsEarned} pts</div>` : ''}
+                ${sale.totalPoints ? `<div style="font-size: 11px; color: #64748b;">Total Points: ${sale.totalPoints}</div>` : ''}
+            </div>
+            ` : ''}
             <div class="receipt-divider">================================</div>
             <div class="receipt-footer">
                 <p>Thank you for your purchase!</p>
@@ -2344,6 +2764,14 @@ TOTAL: RM ${sale.total.toFixed(2)}
 
 Payment Method: ${sale.paymentMethod.charAt(0).toUpperCase() + sale.paymentMethod.slice(1)}
 ${sale.paymentMethod === 'cash' ? `Amount Received: RM ${sale.amountReceived.toFixed(2)}\nChange: RM ${sale.change.toFixed(2)}` : ''}
+${(sale.pointsEarned || sale.pointsRedeemed || sale.membershipTier) ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+MEMBERSHIP REWARDS
+${sale.membershipTier ? `⭐ ${sale.membershipTier} Member` : ''}
+${sale.pointsRedeemed ? `🎁 Points Redeemed: -${sale.pointsRedeemed} pts` : ''}
+${sale.pointsEarned ? `✨ Points Earned: +${sale.pointsEarned} pts` : ''}
+${sale.totalPoints ? `Total Points Balance: ${sale.totalPoints}` : ''}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━` : ''}
 
 Thank you for your purchase!
 Terima kasih atas pembelian anda!
@@ -2422,6 +2850,26 @@ function loadPOSBranchSelector() {
             canUseMultiBranch = branchLimit === -1 || branchLimit > 1;
         }
     }
+    
+    // ========== BRANCH ACCESS RESTRICTION ==========
+    // Filter branches by user's allowedBranches (for staff/manager roles)
+    if (currentUser && currentUser.allowedBranches && Array.isArray(currentUser.allowedBranches)) {
+        // Only Admin/Founder/ERP Assistant bypass branch restrictions
+        const bypassRoles = ['founder', 'admin', 'erp_assistant'];
+        if (!bypassRoles.includes(currentUser.role)) {
+            activeBranches = activeBranches.filter(b => currentUser.allowedBranches.includes(b.id));
+            
+            // If no branches left after filtering, show at least the first allowed branch
+            if (activeBranches.length === 0 && currentUser.allowedBranches.length > 0) {
+                const firstAllowedId = currentUser.allowedBranches[0];
+                const fallbackBranch = branchList.find(b => b.id === firstAllowedId);
+                if (fallbackBranch) {
+                    activeBranches = [fallbackBranch];
+                }
+            }
+        }
+    }
+    // ===============================================
     
     // Hide outlet filter if plan doesn't support multi-branch or only 1 branch
     const posOutletContainer = posOutletFilter.closest('.pos-outlet-filter');
@@ -2539,6 +2987,273 @@ window.searchPOSProducts = searchPOSProducts;
 window.calculateChange = calculateChange;
 window.fillExactAmount = fillExactAmount;
 window.generateTransactionRef = generateTransactionRef;
+
+// ==================== POS MEMBERSHIP DISPLAY ====================
+function updatePOSCustomerMembership() {
+    const container = document.getElementById('posMembershipInfo');
+    if (!container) return;
+    
+    const customerId = document.getElementById('posCustomer')?.value;
+    const discountInput = document.getElementById('cartDiscount');
+    
+    // Track previous member discount to remove it
+    const previousMemberDiscount = window.posMemberDiscount || 0;
+    
+    // If customer changed, reset any pending redemption and member discount
+    if (window.posRedeemCustomerId && window.posRedeemCustomerId !== customerId && window.posRedeemedPoints > 0) {
+        // Cancel the previous redemption discount
+        const discountValue = window.posRedeemedPoints / 100;
+        if (discountInput) {
+            const currentDiscount = parseFloat(discountInput.value) || 0;
+            discountInput.value = Math.max(0, currentDiscount - discountValue).toFixed(2);
+        }
+        window.posRedeemedPoints = 0;
+        window.posRedeemCustomerId = null;
+    }
+    
+    // Remove previous member discount when customer changes
+    if (previousMemberDiscount > 0 && discountInput) {
+        const currentDiscount = parseFloat(discountInput.value) || 0;
+        discountInput.value = Math.max(0, currentDiscount - previousMemberDiscount).toFixed(2);
+        window.posMemberDiscount = 0;
+    }
+    
+    if (!customerId || typeof getCustomerMembership !== 'function') {
+        container.style.display = 'none';
+        window.posMemberDiscount = 0;
+        updateCartTotals();
+        return;
+    }
+    
+    // Reload CRM customers to get fresh data
+    if (typeof loadCRMCustomers === 'function') {
+        loadCRMCustomers();
+    }
+    
+    const membership = getCustomerMembership(customerId);
+    if (!membership) {
+        container.style.display = 'none';
+        window.posMemberDiscount = 0;
+        updateCartTotals();
+        return;
+    }
+    
+    const tierInfo = membership.tierInfo;
+    const nextTierText = membership.nextTier ? 
+        `Spend RM${membership.spentToNextTier.toFixed(0)} more for ${membership.nextTier}` : 
+        'Maximum tier reached!';
+    
+    // Auto-apply tier discount
+    let memberDiscountAmount = 0;
+    if (tierInfo.discount > 0 && currentCart.length > 0) {
+        const subtotal = currentCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        memberDiscountAmount = Math.round((subtotal * tierInfo.discount / 100) * 100) / 100; // Round to 2 decimal
+        
+        // Apply member discount if not already applied
+        if (discountInput && window.posMemberDiscount !== memberDiscountAmount) {
+            const currentDiscount = parseFloat(discountInput.value) || 0;
+            // Remove old member discount, add new one
+            const newDiscount = currentDiscount - (window.posMemberDiscount || 0) + memberDiscountAmount;
+            discountInput.value = Math.max(0, newDiscount).toFixed(2);
+            window.posMemberDiscount = memberDiscountAmount;
+            updateCartTotals();
+        }
+    }
+    
+    // Check if points already redeemed in this session
+    const redeemedPoints = window.posRedeemedPoints || 0;
+    const availablePoints = membership.points;
+    const canRedeem = availablePoints >= 100 && redeemedPoints === 0; // Min 100 pts to redeem
+    
+    container.innerHTML = `
+        <div class="pos-membership-card">
+            <div class="pos-membership-tier">
+                <span class="pos-tier-badge" style="background: ${tierInfo.color};">${tierInfo.icon} ${tierInfo.label}</span>
+                ${tierInfo.discount > 0 ? `<span class="pos-tier-discount">${tierInfo.discount}% member discount${memberDiscountAmount > 0 ? ` (-RM${memberDiscountAmount.toFixed(2)})` : ''}</span>` : ''}
+            </div>
+            <div class="pos-membership-points">
+                <div class="pos-points-value">⭐ ${availablePoints.toLocaleString()} pts</div>
+                <div class="pos-points-worth">Worth RM${membership.pointsValue.toFixed(2)}</div>
+            </div>
+            ${redeemedPoints > 0 ? `
+                <div class="pos-points-redeemed">
+                    <span>✅ Redeemed: ${redeemedPoints} pts = -RM${(redeemedPoints / 100).toFixed(2)}</span>
+                    <button class="pos-cancel-redeem" onclick="cancelPointsRedemption()">✕</button>
+                </div>
+            ` : `
+                <div class="pos-redeem-section">
+                    ${canRedeem ? `
+                        <button class="pos-redeem-btn" onclick="showRedeemPointsDialog('${customerId}', ${availablePoints})">
+                            <i class="fas fa-gift"></i> Redeem Points
+                        </button>
+                    ` : availablePoints < 100 ? `
+                        <span class="pos-redeem-hint">Need ${100 - availablePoints} more pts to redeem</span>
+                    ` : ''}
+                </div>
+            `}
+            <div class="pos-membership-progress">${nextTierText}</div>
+        </div>
+    `;
+    container.style.display = 'block';
+    
+    // Check if today is customer's birthday
+    checkCustomerBirthday(customerId);
+}
+
+// Check if it's the customer's birthday and show notification
+function checkCustomerBirthday(customerId) {
+    if (!customerId || !window.crmCustomers) return;
+    
+    const customer = window.crmCustomers.find(c => c.id === customerId);
+    if (!customer || !customer.birthday) return;
+    
+    const today = new Date();
+    const [year, month, day] = customer.birthday.split('-').map(Number);
+    
+    // Check if today is birthday (ignore year)
+    if (month === today.getMonth() + 1 && day === today.getDate()) {
+        // Show birthday notification only once per session per customer
+        const sessionKey = `birthday_notified_${customerId}_${today.toDateString()}`;
+        if (sessionStorage.getItem(sessionKey)) return;
+        
+        sessionStorage.setItem(sessionKey, 'true');
+        
+        showToast(`🎂 Happy Birthday ${customer.name}! Bonus points awarded!`, 'success');
+    }
+}
+window.updatePOSCustomerMembership = updatePOSCustomerMembership;
+
+// Track member discount applied
+window.posMemberDiscount = 0;
+
+// Points redemption state
+window.posRedeemedPoints = 0;
+window.posRedeemCustomerId = null;
+
+// Close redeem points modal
+function closeRedeemPointsModal() {
+    const modal = document.getElementById('redeemPointsModal');
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => modal.remove(), 200);
+    }
+}
+window.closeRedeemPointsModal = closeRedeemPointsModal;
+
+// Show redeem points dialog
+function showRedeemPointsDialog(customerId, availablePoints) {
+    const maxRedeem = Math.min(availablePoints, 10000); // Cap at 10000 pts (RM100)
+    const maxValue = (maxRedeem / 100).toFixed(2);
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal show';
+    modal.id = 'redeemPointsModal';
+    modal.dataset.dynamic = 'true';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h3>🎁 Redeem Points</h3>
+                <button class="modal-close" onclick="closeRedeemPointsModal()">✕</button>
+            </div>
+            <div class="modal-body" style="padding: 20px;">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <div style="font-size: 24px; color: #f59e0b;">⭐ ${availablePoints.toLocaleString()}</div>
+                    <div style="color: #64748b;">Available Points</div>
+                </div>
+                <div class="form-group">
+                    <label>Points to Redeem</label>
+                    <input type="number" id="redeemPointsAmount" class="form-control" 
+                           value="${Math.min(availablePoints, 500)}" min="100" max="${maxRedeem}" step="100"
+                           oninput="updateRedeemPreview()">
+                    <small style="color: #64748b;">Min: 100 pts | Max: ${maxRedeem.toLocaleString()} pts</small>
+                </div>
+                <div style="background: #d1fae5; padding: 15px; border-radius: 8px; text-align: center; margin-top: 15px;">
+                    <div style="font-size: 12px; color: #047857;">Discount Value</div>
+                    <div id="redeemPreviewValue" style="font-size: 24px; font-weight: 700; color: #10b981;">
+                        -RM ${(Math.min(availablePoints, 500) / 100).toFixed(2)}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-outline" onclick="closeRedeemPointsModal()">Cancel</button>
+                <button class="btn-primary" onclick="applyPointsRedemption('${customerId}')">
+                    <i class="fas fa-check"></i> Apply Discount
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+window.showRedeemPointsDialog = showRedeemPointsDialog;
+
+// Update preview in redeem dialog
+function updateRedeemPreview() {
+    const points = parseInt(document.getElementById('redeemPointsAmount')?.value) || 0;
+    const value = (points / 100).toFixed(2);
+    const preview = document.getElementById('redeemPreviewValue');
+    if (preview) preview.textContent = `-RM ${value}`;
+}
+window.updateRedeemPreview = updateRedeemPreview;
+
+// Apply points redemption as discount
+function applyPointsRedemption(customerId) {
+    const pointsInput = document.getElementById('redeemPointsAmount');
+    const points = parseInt(pointsInput?.value) || 0;
+    
+    if (points < 100) {
+        showToast('Minimum 100 points required', 'error');
+        return;
+    }
+    
+    // Store redemption for this session (actual deduction happens on checkout)
+    window.posRedeemedPoints = points;
+    window.posRedeemCustomerId = customerId;
+    
+    // Apply as cart discount
+    const discountValue = points / 100; // 100 pts = RM1
+    const discountInput = document.getElementById('cartDiscount');
+    if (discountInput) {
+        const currentDiscount = parseFloat(discountInput.value) || 0;
+        discountInput.value = (currentDiscount + discountValue).toFixed(2);
+        updateCartTotals();
+    }
+    
+    // Close modal and refresh membership display
+    closeRedeemPointsModal();
+    updatePOSCustomerMembership();
+    
+    showToast(`🎁 ${points} points applied as RM${discountValue.toFixed(2)} discount!`, 'success');
+}
+window.applyPointsRedemption = applyPointsRedemption;
+
+// Cancel points redemption
+function cancelPointsRedemption() {
+    if (window.posRedeemedPoints > 0) {
+        // Remove from cart discount
+        const discountValue = window.posRedeemedPoints / 100;
+        const discountInput = document.getElementById('cartDiscount');
+        if (discountInput) {
+            const currentDiscount = parseFloat(discountInput.value) || 0;
+            discountInput.value = Math.max(0, currentDiscount - discountValue).toFixed(2);
+            updateCartTotals();
+        }
+        
+        showToast('Points redemption cancelled', 'info');
+    }
+    
+    window.posRedeemedPoints = 0;
+    window.posRedeemCustomerId = null;
+    updatePOSCustomerMembership();
+}
+window.cancelPointsRedemption = cancelPointsRedemption;
+
+// Reset redemption when cart is cleared or customer changes
+function resetPointsRedemption() {
+    if (window.posRedeemedPoints > 0) {
+        cancelPointsRedemption();
+    }
+}
+window.resetPointsRedemption = resetPointsRedemption;
 
 // Restaurant mode / Table management
 window.togglePOSMode = togglePOSMode;

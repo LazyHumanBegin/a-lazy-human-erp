@@ -405,17 +405,33 @@
     // ==================== FULL CLOUD SYNC ====================
     /**
      * Full sync - users, tenants, and all tenant data
+     * Handles offline gracefully by queuing for later
      */
     window.fullCloudSync = async function() {
         console.log('☁️ Starting FULL cloud sync...');
         
-        // 1. Sync users
-        await window.forceSyncUsersToCloud();
+        // Check if cloud is available first
+        const isOnline = await window.checkCloudHealth();
+        if (!isOnline) {
+            console.log('☁️ Cloud offline - queuing sync for later');
+            window.queueCloudSync();
+            return { success: false, offline: true };
+        }
         
-        // 2. Sync all tenant data
-        await window.syncAllTenantDataToCloud();
-        
-        console.log('✅ FULL sync complete!');
+        try {
+            // 1. Sync users
+            await window.forceSyncUsersToCloud();
+            
+            // 2. Sync all tenant data
+            await window.syncAllTenantDataToCloud();
+            
+            console.log('✅ FULL sync complete!');
+            return { success: true };
+        } catch (e) {
+            console.warn('⚠️ Sync failed:', e.message);
+            window.queueCloudSync();
+            return { success: false, error: e.message };
+        }
     };
     
     // ==================== MOBILE DOWNLOAD FROM CLOUD ====================
@@ -785,6 +801,136 @@
         
         return tenant.companyCode;
     };
+    
+    // ==================== CLOUD HEALTH CHECK ====================
+    /**
+     * Check if Supabase cloud is available
+     * @returns {Promise<boolean>} true if online, false if offline
+     */
+    window.checkCloudHealth = async function() {
+        try {
+            // Use the existing Supabase client if available (avoids duplicate fetch)
+            if (typeof getUsersSupabaseClient === 'function') {
+                const client = getUsersSupabaseClient();
+                const { error } = await client
+                    .from('tenant_data')
+                    .select('tenant_id')
+                    .limit(1);
+                
+                const isOnline = !error;
+                window._cloudOnline = isOnline;
+                
+                // Update UI indicator if exists
+                const indicator = document.getElementById('cloudStatusIndicator');
+                if (indicator) {
+                    indicator.innerHTML = isOnline 
+                        ? '<i class="fas fa-cloud" style="color: #10b981;"></i>' 
+                        : '<i class="fas fa-cloud-slash" style="color: #ef4444;"></i>';
+                    indicator.title = isOnline ? 'Cloud: Online' : 'Cloud: Offline (data saved locally)';
+                }
+                
+                return isOnline;
+            }
+            
+            // Fallback: simple connectivity check
+            window._cloudOnline = navigator.onLine;
+            return navigator.onLine;
+        } catch (e) {
+            window._cloudOnline = false;
+            return false;
+        }
+    };
+    
+    /**
+     * Queue sync for when cloud comes back online
+     */
+    window.queueCloudSync = function() {
+        const pending = JSON.parse(localStorage.getItem('ezcubic_pending_sync') || '[]');
+        if (!pending.includes(Date.now())) {
+            pending.push(Date.now());
+            localStorage.setItem('ezcubic_pending_sync', JSON.stringify(pending.slice(-10))); // Keep last 10
+        }
+        console.log('📋 Sync queued for when cloud is back online');
+    };
+    
+    /**
+     * Process pending syncs when cloud is available
+     */
+    window.processPendingSyncs = async function() {
+        const pending = JSON.parse(localStorage.getItem('ezcubic_pending_sync') || '[]');
+        if (pending.length === 0) return;
+        
+        const isOnline = await window.checkCloudHealth();
+        if (!isOnline) {
+            console.log('☁️ Cloud still offline, will retry later');
+            return;
+        }
+        
+        console.log('☁️ Processing', pending.length, 'pending syncs...');
+        
+        // Update UI to show syncing
+        if (typeof window.updateCloudSyncUI === 'function') {
+            window.updateCloudSyncUI(true, 'syncing');
+        }
+        
+        try {
+            await window.fullCloudSync();
+            localStorage.setItem('ezcubic_pending_sync', '[]');
+            console.log('✅ Pending syncs processed!');
+            
+            // Update UI back to connected
+            if (typeof window.updateCloudSyncUI === 'function') {
+                window.updateCloudSyncUI(true);
+            }
+            
+            if (typeof showToast === 'function') {
+                showToast('Cloud sync completed ✓', 'success');
+            }
+        } catch (e) {
+            console.warn('⚠️ Sync failed, will retry:', e.message);
+            if (typeof window.updateCloudSyncUI === 'function') {
+                window.updateCloudSyncUI(true, 'pending');
+            }
+        }
+    };
+    
+    // Check cloud health on load and periodically
+    setTimeout(() => {
+        window.checkCloudHealth().then(online => {
+            console.log('☁️ Cloud status:', online ? 'Online' : 'Offline');
+            
+            // Update UI based on cloud availability
+            if (!online && typeof window.updateCloudSyncUI === 'function') {
+                window.updateCloudSyncUI(false, 'service-down');
+            }
+            
+            if (online) {
+                window.processPendingSyncs();
+            }
+        });
+    }, 3000);
+    
+    // Check every 5 minutes
+    setInterval(() => {
+        window.checkCloudHealth().then(async online => {
+            if (online && window._cloudWasOffline) {
+                console.log('☁️ Cloud back online! Processing pending syncs...');
+                
+                // Check if signed in
+                const session = await supabaseGetSession?.() || null;
+                if (session && typeof window.updateCloudSyncUI === 'function') {
+                    window.updateCloudSyncUI(true);
+                }
+                
+                window.processPendingSyncs();
+            } else if (!online) {
+                if (typeof window.updateCloudSyncUI === 'function') {
+                    window.updateCloudSyncUI(false, 'service-down');
+                }
+            }
+            window._cloudWasOffline = !online;
+        });
+    }, 5 * 60 * 1000);
     
     // ==================== MODULE INITIALIZATION ====================
     console.log('☁️ Cloud Sync Utils module loaded');

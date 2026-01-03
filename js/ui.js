@@ -61,6 +61,11 @@ function showSection(sectionId) {
         if (typeof initializeInventory === 'function') initializeInventory();
     } else if (sectionId === 'pos') {
         if (typeof initializePOS === 'function') initializePOS();
+    } else if (sectionId === 'crm') {
+        // Reload CRM customers from localStorage to get fresh data (e.g., after POS sale)
+        if (typeof loadCRMCustomers === 'function') loadCRMCustomers();
+        if (typeof renderCRMCustomers === 'function') renderCRMCustomers();
+        if (typeof updateCRMStats === 'function') updateCRMStats();
     } else if (sectionId === 'customers') {
         if (typeof initializeCustomers === 'function') initializeCustomers();
     } else if (sectionId === 'stock') {

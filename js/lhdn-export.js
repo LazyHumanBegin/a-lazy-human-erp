@@ -57,9 +57,9 @@ function initializeLHDNExport() {
         return;
     }
     
-    // Check plan access (Starter, Business, Professional, Enterprise)
+    // Check plan access (Starter, Professional, Enterprise)
     const userPlan = (currentUser.plan || 'personal').toLowerCase();
-    const allowedPlans = ['starter', 'business', 'professional', 'enterprise'];
+    const allowedPlans = ['starter', 'professional', 'enterprise'];
     const hasPlanAccess = isFounder || allowedPlans.includes(userPlan);
     
     if (!hasPlanAccess) {

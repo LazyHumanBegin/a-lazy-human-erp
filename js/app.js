@@ -97,6 +97,30 @@ function initializeApp() {
             if (welcomeBanner) welcomeBanner.style.display = 'block';
         }
         
+        // CRITICAL: Re-apply user permissions and fix sidebar on page load/refresh
+        // Use multiple attempts to ensure it happens after all async loads complete
+        const applyPermissionsAndFixSidebar = () => {
+            // Safety: Remove preview mode if session exists
+            const sessionData = localStorage.getItem('ezcubic_currentUser');
+            if (sessionData && typeof removeViewOnlyMode === 'function') {
+                removeViewOnlyMode();
+            }
+            
+            if (typeof applyUserPermissions === 'function') {
+                console.log('🎨 Applying user permissions on app init...');
+                applyUserPermissions();
+            }
+            if (typeof resetNavCategoryStates === 'function') {
+                console.log('🎨 Resetting nav category states on app init...');
+                resetNavCategoryStates();
+            }
+        };
+        
+        // Apply immediately, then again after delays to catch late-loading async data
+        setTimeout(applyPermissionsAndFixSidebar, 100);
+        setTimeout(applyPermissionsAndFixSidebar, 500);
+        setTimeout(applyPermissionsAndFixSidebar, 1000);
+        
         console.log('A Lazy Human ERP initialized successfully');
     } catch (error) {
         console.error('Error initializing app:', error);

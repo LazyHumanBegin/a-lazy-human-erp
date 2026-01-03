@@ -99,8 +99,18 @@ function checkSession() {
                 window.currentUser = user;
                 
                 // Load user's tenant data on session restore
+                // MUST await to ensure data is loaded before UI renders
                 if (typeof window.loadUserTenantData === 'function') {
-                    window.loadUserTenantData(user);
+                    window.loadUserTenantData(user).then(() => {
+                        console.log('✅ Tenant data loaded for session restore');
+                        // Apply permissions AFTER data is loaded
+                        if (typeof applyUserPermissions === 'function') {
+                            applyUserPermissions();
+                        }
+                        if (typeof resetNavCategoryStates === 'function') {
+                            setTimeout(() => resetNavCategoryStates(), 100);
+                        }
+                    });
                 }
                 
                 // Check session token for single-device login (async, non-blocking)
@@ -268,6 +278,136 @@ async function verifyPassword(inputPassword, storedPassword) {
     
     const inputHash = await hashPassword(inputPassword);
     return inputHash === storedPassword;
+}
+
+// ==================== AUTO CLOUD SYNC ====================
+
+/**
+ * Automatically enable cloud sync when user logs in
+ * Works for ALL roles (founder, admin, staff, manager) in the same tenant
+ * No separate Supabase auth needed - uses tenant ID for data isolation
+ */
+async function autoEnableCloudSync(user, password) {
+    // Skip if no supabase SDK
+    if (!window.supabase?.createClient) {
+        console.log('☁️ Supabase not available, skipping auto cloud sync');
+        return;
+    }
+    
+    const tenantId = user.tenantId;
+    if (!tenantId) {
+        console.log('☁️ No tenant ID, skipping cloud sync');
+        return;
+    }
+    
+    console.log('☁️ Auto-enabling cloud sync for tenant:', tenantId, 'user:', user.email, 'role:', user.role);
+    
+    // Enable cloud mode for this device (tenant-based, no auth required)
+    if (typeof enableCloudMode === 'function') {
+        enableCloudMode();
+    } else {
+        localStorage.setItem('cloudModeEnabled', 'true');
+    }
+    localStorage.setItem('ezcubic_cloud_tenant_mode', tenantId);
+    
+    // Update UI
+    if (typeof window.updateCloudSyncUI === 'function') {
+        window.updateCloudSyncUI(true);
+    }
+    
+    // SMART SYNC: Check cloud vs local timestamps to decide sync direction
+    // This ensures:
+    // - Admin enables sync, adds products → uploads to cloud
+    // - Staff logs in on Device B → downloads Admin's products
+    // - Staff adds new SKU → uploads to cloud  
+    // - Admin logs in again → downloads Staff's new SKU
+    setTimeout(async () => {
+        try {
+            const tenantKey = 'ezcubic_tenant_' + tenantId;
+            const localTenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            const localTimestamp = localTenantData.updatedAt ? new Date(localTenantData.updatedAt).getTime() : 0;
+            const hasLocalData = localTenantData.products?.length > 0 || 
+                                localTenantData.customers?.length > 0 ||
+                                localTenantData.transactions?.length > 0 ||
+                                localTenantData.quotations?.length > 0;
+            
+            // Step 1: Check cloud timestamp first
+            let cloudTimestamp = 0;
+            let cloudHasData = false;
+            try {
+                if (window.supabase?.createClient && typeof getUsersSupabaseClient === 'function') {
+                    const client = getUsersSupabaseClient();
+                    const { data, error } = await client
+                        .from('tenant_data')
+                        .select('updated_at, data')
+                        .eq('tenant_id', tenantId)
+                        .eq('data_key', 'tenant_full_data')
+                        .single();
+                    
+                    if (!error && data) {
+                        cloudTimestamp = new Date(data.updated_at).getTime();
+                        cloudHasData = data.data?.value?.products?.length > 0 || 
+                                      data.data?.value?.customers?.length > 0;
+                        console.log('☁️ Cloud check:', { cloudTimestamp, localTimestamp, cloudNewer: cloudTimestamp > localTimestamp });
+                    }
+                }
+            } catch (e) {
+                console.warn('☁️ Cloud timestamp check failed:', e.message);
+            }
+            
+            // Step 2: Decide sync direction based on timestamps
+            if (cloudTimestamp > localTimestamp && cloudHasData) {
+                // CLOUD IS NEWER - download first (another device made changes)
+                console.log('☁️ Cloud is newer - downloading latest data... (role:', user.role, ')');
+                if (typeof window.downloadTenantFromCloud === 'function') {
+                    try {
+                        await window.downloadTenantFromCloud(tenantId);
+                        console.log('☁️ Downloaded newer data from cloud!');
+                        // Reload tenant data into memory
+                        if (typeof window.loadUserTenantData === 'function') {
+                            await window.loadUserTenantData(user);
+                        }
+                        // Refresh UI
+                        if (typeof updateDashboard === 'function') updateDashboard();
+                        if (typeof showToast === 'function') {
+                            showToast('✓ Synced latest data from cloud', 'success');
+                        }
+                    } catch (e) {
+                        console.warn('☁️ Cloud download failed:', e.message);
+                    }
+                }
+            } else if (hasLocalData) {
+                // LOCAL IS NEWER OR SAME - upload local changes
+                console.log('☁️ Local data is current - uploading to cloud... (role:', user.role, ')');
+                if (typeof window.fullCloudSync === 'function') {
+                    window.fullCloudSync().then(() => {
+                        console.log('☁️ Cloud sync complete');
+                    }).catch(e => console.warn('☁️ Sync warning:', e.message));
+                }
+            } else if (!hasLocalData && cloudHasData) {
+                // No local data but cloud has data - download
+                console.log('☁️ No local data - downloading from cloud... (role:', user.role, ')');
+                if (typeof window.downloadTenantFromCloud === 'function') {
+                    try {
+                        await window.downloadTenantFromCloud(tenantId);
+                        if (typeof window.loadUserTenantData === 'function') {
+                            await window.loadUserTenantData(user);
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast('✓ Data synced from cloud', 'success');
+                        }
+                    } catch (e) {
+                        console.warn('☁️ Cloud download failed:', e.message);
+                    }
+                }
+            } else {
+                // New tenant - nothing to sync yet
+                console.log('☁️ New tenant - no data to sync yet (role:', user.role, ')');
+            }
+        } catch (err) {
+            console.warn('☁️ Auto cloud sync error:', err.message);
+        }
+    }, 2000);
 }
 
 // ==================== LOGIN FUNCTION ====================
@@ -467,9 +607,10 @@ async function tryLoginWithCloudSync(email, password) {
             removeViewOnlyMode();
         }
         
-        // Load user's tenant data
+        // Load user's tenant data (async - auto-downloads from cloud if needed for new devices)
         if (typeof window.loadUserTenantData === 'function') {
-            window.loadUserTenantData(user);
+            // Await to ensure data is ready before showing UI
+            await window.loadUserTenantData(user);
         }
         
         // Show app container
@@ -510,9 +651,18 @@ async function tryLoginWithCloudSync(email, password) {
         setTimeout(() => {
             console.log('Post-login UI refresh...');
             if (typeof applyUserPermissions === 'function') applyUserPermissions();
+            if (typeof resetNavCategoryStates === 'function') resetNavCategoryStates();
             if (typeof updateCompanyNameInUI === 'function') updateCompanyNameInUI();
             if (typeof updateDashboard === 'function') updateDashboard();
+            
+            // AUTO CLOUD SYNC: Automatically enable cloud backup on login
+            autoEnableCloudSync(user, password);
         }, 300);
+        
+        // Additional nav fix after longer delay
+        setTimeout(() => {
+            if (typeof resetNavCategoryStates === 'function') resetNavCategoryStates();
+        }, 800);
         
         return true;
     } else {
@@ -895,11 +1045,26 @@ function hideLoginPage() {
     const appContainer = document.querySelector('.app-container');
     if (appContainer) {
         appContainer.classList.remove('logged-out');
+        appContainer.style.display = '';
     }
+    
+    // Also show by ID
+    const appContainerById = document.getElementById('appContainer');
+    if (appContainerById) {
+        appContainerById.style.display = '';
+    }
+    
     document.body.classList.remove('logged-out');
     
     const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
     if (mobileMenuBtn) mobileMenuBtn.style.display = '';
+    
+    // Reset nav categories after showing app
+    setTimeout(() => {
+        if (typeof resetNavCategoryStates === 'function') {
+            resetNavCategoryStates();
+        }
+    }, 100);
 }
 
 /**
@@ -1033,6 +1198,13 @@ function handleRegisterPage(event) {
             if (typeof showSection === 'function') showSection('dashboard');
             if (typeof updateDisplay === 'function') updateDisplay();
             if (typeof renderDashboard === 'function') renderDashboard();
+            
+            // AUTO CLOUD SYNC: Enable cloud backup immediately after registration
+            // This ensures new users' data is backed up from day 1
+            setTimeout(() => {
+                autoEnableCloudSync(newUser, password);
+                console.log('☁️ Cloud sync auto-enabled for new registration');
+            }, 500);
         } catch (err) {
             console.error('Error during post-registration setup:', err);
         }
@@ -1324,6 +1496,7 @@ window.verifyPassword = verifyPassword;
 // Login/Logout
 window.login = login;
 window.tryLoginWithCloudSync = tryLoginWithCloudSync;
+window.autoEnableCloudSync = autoEnableCloudSync;
 window.logout = logout;
 window.logSession = logSession;
 

@@ -33,8 +33,17 @@ function initSupabase() {
     }
     
     try {
-        _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        console.log('🐱 Supabase initialized successfully');
+        // Initialize with proper auth persistence settings
+        _supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+            auth: {
+                persistSession: true,
+                storageKey: 'ezcubic-supabase-auth',
+                storage: window.localStorage,
+                autoRefreshToken: true,
+                detectSessionInUrl: false
+            }
+        });
+        console.log('🐱 Supabase initialized successfully with auth persistence');
         return true;
     } catch (err) {
         console.error('❌ Supabase init error:', err);
@@ -173,7 +182,8 @@ async function supabaseResetPassword(email) {
 async function saveTenantData(tenantId, tableName, data) {
     try {
         // Extract data_key from data object for proper upsert
-        const dataKey = data.key || 'default';
+        // Handle both {key: 'x', value: y} format and direct data
+        const dataKey = (data && typeof data === 'object' && data.key) ? data.key : 'default';
         
         const { data: result, error } = await getSupabase()
             .from(tableName)
@@ -191,8 +201,8 @@ async function saveTenantData(tenantId, tableName, data) {
         console.log(`✅ Saved ${tableName}/${dataKey} for tenant ${tenantId}`);
         return { success: true, data: result };
     } catch (error) {
-        console.error(`❌ Save ${tableName} error:`, error.message);
-        return { success: false, error: error.message };
+        console.error(`❌ Save ${tableName} error:`, error?.message || error);
+        return { success: false, error: error?.message || String(error) };
     }
 }
 
@@ -330,104 +340,201 @@ window.SupabaseConfig = {
 // UI FUNCTIONS FOR CLOUD SYNC
 // ============================================
 
-// Show cloud sign-in modal
+// Enable cloud sync - simplified (no password needed)
 async function cloudSignIn() {
-    const email = prompt('Enter your email for cloud sync:');
-    if (!email) return;
+    // Get current logged-in user from app session
+    const session = JSON.parse(localStorage.getItem('erpSession') || '{}');
+    const currentUser = session.user;
     
-    const password = prompt('Enter your password (or create one for new account):');
-    if (!password) return;
+    if (!currentUser || !currentUser.email) {
+        showNotification('⚠️ Please login to the app first before enabling cloud sync', 'warning');
+        return;
+    }
     
-    // Try to sign in first
-    showNotification('Connecting to cloud...', 'info');
-    let result = await supabaseSignIn(email, password);
+    const tenantId = getCurrentTenantIdForCloud();
     
-    if (!result.success) {
-        // If sign in fails, try to sign up
-        if (result.error.includes('Invalid login credentials')) {
-            const confirmSignUp = confirm('Account not found. Create a new cloud account with this email?');
-            if (confirmSignUp) {
-                result = await supabaseSignUp(email, password, {
-                    tenant_id: getCurrentTenantIdForCloud()
-                });
-                
-                if (result.success) {
-                    showNotification('✅ Cloud account created! Please check your email to verify.', 'success');
-                    updateCloudSyncUI(true);
-                    enableCloudMode();
-                } else {
-                    showNotification('❌ Sign up failed: ' + result.error, 'error');
-                }
-            }
-        } else {
-            showNotification('❌ Sign in failed: ' + result.error, 'error');
+    if (!tenantId || tenantId === 'default') {
+        showNotification('⚠️ Invalid tenant. Please re-login.', 'warning');
+        return;
+    }
+    
+    // Simple confirmation
+    const confirm = window.confirm(
+        `Enable Cloud Sync?\n\n` +
+        `Account: ${currentUser.email}\n` +
+        `Tenant: ${tenantId.substring(0, 20)}...\n\n` +
+        `Your data will sync across all your devices automatically.`
+    );
+    
+    if (!confirm) return;
+    
+    showNotification('🔄 Enabling cloud sync...', 'info');
+    console.log('☁️ Enabling tenant-based cloud sync for:', tenantId);
+    
+    // Enable cloud mode
+    enableCloudMode();
+    localStorage.setItem('ezcubic_cloud_tenant_mode', tenantId);
+    
+    // Test connection
+    try {
+        const client = getSupabase();
+        const { error } = await client
+            .from('tenant_data')
+            .select('tenant_id')
+            .eq('tenant_id', tenantId)
+            .limit(1);
+        
+        if (error) {
+            console.warn('☁️ Cloud test warning:', error.message);
+            // Still enable - might just be empty table
         }
-    } else {
-        showNotification('✅ Connected to cloud!', 'success');
+        
+        console.log('☁️ Cloud sync enabled successfully!');
+        showNotification('✅ Cloud sync enabled!', 'success');
         updateCloudSyncUI(true);
-        enableCloudMode();
         
         // Trigger initial sync
-        if (window.CloudSync) {
-            setTimeout(() => window.CloudSync.syncBidirectional(), 1000);
+        if (typeof window.fullCloudSync === 'function') {
+            setTimeout(() => {
+                window.fullCloudSync().then(() => {
+                    showNotification('✅ Data synced to cloud!', 'success');
+                }).catch(e => console.warn('Initial sync warning:', e.message));
+            }, 1000);
         }
+        
+    } catch (e) {
+        console.error('☁️ Cloud enable error:', e);
+        showNotification('⚠️ Cloud connection issue - will retry automatically', 'warning');
+        // Still enable mode - will sync when connection available
+        updateCloudSyncUI(true);
     }
 }
 
-// Sign out of cloud
+// Disable cloud sync
 async function cloudSignOut() {
-    const confirmed = confirm('Sign out of cloud sync? Your local data will be kept.');
+    const confirmed = confirm('Disable cloud sync?\n\nYour local data will be kept.\nYou can re-enable anytime.');
     if (!confirmed) return;
     
-    const result = await supabaseSignOut();
-    if (result.success) {
-        showNotification('Signed out of cloud', 'info');
-        updateCloudSyncUI(false);
-        disableCloudMode();
-    }
+    // Clear cloud mode settings
+    localStorage.removeItem('ezcubic_cloud_tenant_mode');
+    disableCloudMode();
+    
+    // Also sign out of Supabase auth if any
+    await supabaseSignOut();
+    
+    showNotification('☁️ Cloud sync disabled', 'info');
+    updateCloudSyncUI(false);
 }
 
 // Manual sync trigger
 async function cloudSyncNow() {
-    if (!window.CloudSync) {
-        showNotification('Cloud sync module not loaded', 'error');
+    // Check if cloud mode is enabled
+    const tenantMode = localStorage.getItem('ezcubic_cloud_tenant_mode');
+    const cloudEnabled = localStorage.getItem('cloudModeEnabled') === 'true';
+    
+    if (!tenantMode && !cloudEnabled) {
+        showNotification('⚠️ Please enable cloud sync first', 'warning');
         return;
     }
     
     showNotification('🔄 Syncing with cloud...', 'info');
-    const result = await window.CloudSync.syncBidirectional();
+    updateCloudSyncUI(true, 'syncing');
     
-    if (result.success) {
-        // Silent sync - no notification
-        // showNotification('✅ Cloud sync complete!', 'success');
-        updateLastSyncTime();
-    } else {
-        showNotification('❌ Sync failed: ' + (result.error || result.reason), 'error');
+    try {
+        if (typeof window.fullCloudSync === 'function') {
+            const result = await window.fullCloudSync();
+            if (result.success) {
+                showNotification('✅ Cloud sync complete!', 'success');
+                updateLastSyncTime();
+            } else if (result.offline) {
+                showNotification('⚠️ Offline - will sync when connected', 'warning');
+            } else {
+                showNotification('⚠️ Sync issue: ' + (result.error || 'Unknown'), 'warning');
+            }
+        } else if (window.CloudSync) {
+            const result = await window.CloudSync.syncBidirectional();
+            if (result.success) {
+                updateLastSyncTime();
+            }
+        } else {
+            showNotification('⚠️ Cloud sync module not ready', 'warning');
+        }
+    } catch (e) {
+        console.error('Cloud sync error:', e);
+        showNotification('⚠️ Sync error - will retry', 'warning');
     }
+    
+    updateCloudSyncUI(true);
 }
 
 // Update cloud sync UI based on auth state
-function updateCloudSyncUI(isSignedIn) {
+// state: 'connected', 'offline', 'service-down', 'syncing', 'pending'
+function updateCloudSyncUI(isSignedIn, state = null) {
     const statusEl = document.getElementById('cloudSyncStatus');
     const signInBtn = document.getElementById('cloudSignInBtn');
     const syncBtn = document.getElementById('cloudSyncBtn');
     const signOutBtn = document.getElementById('cloudSignOutBtn');
     const infoEl = document.getElementById('cloudSyncInfo');
+    const badge = document.getElementById('cloudSyncBadge');
+    
+    // Update sidebar badge (inline cloud icon next to version)
+    if (badge) {
+        if (state === 'syncing') {
+            badge.style.display = 'inline-flex';
+            badge.className = 'cloud-sync-badge-inline syncing';
+            badge.innerHTML = '<i class="fas fa-sync"></i>';
+            badge.title = 'Syncing data to cloud...';
+        } else if (state === 'service-down' || state === 'error') {
+            badge.style.display = 'inline-flex';
+            badge.className = 'cloud-sync-badge-inline error';
+            badge.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
+            badge.title = 'Cloud sync error - data saved locally';
+        } else if (isSignedIn) {
+            badge.style.display = 'inline-flex';
+            badge.className = 'cloud-sync-badge-inline';
+            badge.innerHTML = '<i class="fas fa-cloud"></i>';
+            badge.title = 'Cloud Backup Active';
+            badge.onclick = () => showSection('settings');
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    
+    // Handle special states
+    if (state === 'service-down') {
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i> Cloud Unavailable';
+            statusEl.style.background = '#7f1d1d';
+        }
+        if (infoEl) infoEl.textContent = 'Cloud service temporarily unavailable. Data saved locally.';
+        return;
+    }
+    
+    if (state === 'syncing') {
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-sync fa-spin" style="color: #3b82f6;"></i> Syncing...';
+            statusEl.style.background = '#1e40af';
+        }
+        return;
+    }
+    
+    if (state === 'pending') {
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fas fa-clock" style="color: #f59e0b;"></i> Sync Pending';
+            statusEl.style.background = '#92400e';
+        }
+        if (infoEl) infoEl.textContent = 'Changes will sync when cloud is available';
+        return;
+    }
     
     if (isSignedIn) {
         if (statusEl) statusEl.innerHTML = '<i class="fas fa-circle" style="color: #10b981;"></i> Connected';
         if (statusEl) statusEl.style.background = '#065f46';
-        if (signInBtn) signInBtn.style.display = 'none';
-        if (syncBtn) syncBtn.style.display = 'inline-flex';
-        if (signOutBtn) signOutBtn.style.display = 'inline-flex';
         updateLastSyncTime();
     } else {
         if (statusEl) statusEl.innerHTML = '<i class="fas fa-circle" style="color: #fbbf24;"></i> Offline';
         if (statusEl) statusEl.style.background = '#475569';
-        if (signInBtn) signInBtn.style.display = 'inline-flex';
-        if (syncBtn) syncBtn.style.display = 'none';
-        if (signOutBtn) signOutBtn.style.display = 'none';
-        if (infoEl) infoEl.textContent = 'Sign in to sync data across devices';
+        if (infoEl) infoEl.textContent = 'Login to enable cloud backup';
     }
 }
 
@@ -485,8 +592,24 @@ async function initCloudSyncUI() {
         return;
     }
     
+    // Check for Supabase auth session first
     const session = await supabaseGetSession();
-    updateCloudSyncUI(!!session);
+    if (session) {
+        updateCloudSyncUI(true);
+        return;
+    }
+    
+    // Also check for tenant-mode cloud sync (no auth required)
+    const tenantMode = localStorage.getItem('ezcubic_cloud_tenant_mode');
+    const cloudModeEnabled = localStorage.getItem('cloudModeEnabled') === 'true';
+    
+    if (tenantMode || cloudModeEnabled) {
+        console.log('☁️ Tenant-mode cloud sync active');
+        updateCloudSyncUI(true);
+        return;
+    }
+    
+    updateCloudSyncUI(false);
 }
 
 // Initialize UI when DOM is ready

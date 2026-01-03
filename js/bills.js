@@ -409,16 +409,25 @@ function deleteBill(billId) {
         
         businessData.bills = businessData.bills.filter(b => String(b.id) !== String(billId));
         
-        // Save directly to tenant storage (bypass smartMerge for deletions)
-        const tenantId = localStorage.getItem('currentTenantId');
-        if (tenantId) {
-            localStorage.setItem(`tenant_${tenantId}_data`, JSON.stringify(businessData));
-        }
+        // Save data first
         saveData();
+        
+        // CRITICAL: Also save directly to tenant storage to ensure deletion persists
+        const user = window.currentUser;
+        if (user && user.tenantId) {
+            const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+            let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            tenantData.bills = businessData.bills;
+            tenantData.updatedAt = new Date().toISOString();
+            localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+            console.log('✅ Bill deletion saved directly to tenant storage');
+        }
         
         // Force cloud sync for deletion
         if (typeof CloudSync !== 'undefined' && CloudSync.uploadToCloud) {
-            CloudSync.uploadToCloud().catch(err => console.warn('Cloud sync after bill delete:', err));
+            CloudSync.uploadToCloud().then(() => {
+                console.log('☁️ Bill deletion synced to cloud');
+            }).catch(err => console.warn('Cloud sync after bill delete:', err));
         }
         
         // Record audit log for bill deletion

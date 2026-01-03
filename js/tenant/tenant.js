@@ -124,11 +124,11 @@ function getUsersSupabaseClient() {
     if (typeof window.getUsersSupabaseClient === 'function') {
         return window.getUsersSupabaseClient();
     }
-    // Fallback: Create client directly
+    // Fallback: Create client directly with main Supabase config
     if (window.supabase?.createClient) {
         return window.supabase.createClient(
-            'https://cfwvxvogrkbntfrnwpkl.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNmd3Z4dm9ncmtibnRmcm53cGtsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzU1NTg4OTIsImV4cCI6MjA1MTEzNDg5Mn0.kpPWiXqn8cq0PXn5Qql6vfXmvsjGpTSjM-jfM-Tp_PE'
+            'https://tctpmizdcksdxngtozwe.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRjdHBtaXpkY2tzZHhuZ3RvendlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjYyOTE1NzAsImV4cCI6MjA4MTg2NzU3MH0.-BL0NoQxVfFA3MXEuIrC24G6mpkn7HGIyyoRBVFu300'
         );
     }
     console.warn('⚠️ Supabase not available');
@@ -175,6 +175,7 @@ window.downloadTenantInfoFromCloud = downloadTenantInfoFromCloud;
 
 /**
  * Download full tenant data from cloud (transactions, products, etc.)
+ * IMPORTANT: Uses timestamp-based merge to preserve local deletions/additions
  */
 async function downloadTenantFromCloud(tenantId) {
     
@@ -195,59 +196,117 @@ async function downloadTenantFromCloud(tenantId) {
             .single();
         
         if (!error && data?.data?.value) {
-            const tenantData = data.data.value;
-            localStorage.setItem('ezcubic_tenant_' + tenantId, JSON.stringify(tenantData));
-            console.log('☁️ Downloaded full tenant data:', tenantId);
+            const cloudData = data.data.value;
+            const tenantKey = 'ezcubic_tenant_' + tenantId;
+            
+            // Check if we have newer local data (user made changes since last sync)
+            const localUpdatedAt = parseInt(localStorage.getItem('ezcubic_last_save_timestamp') || '0');
+            const cloudUpdatedAt = cloudData.updatedAt ? new Date(cloudData.updatedAt).getTime() : 0;
+            
+            console.log('☁️ Cloud download - timestamp check:', {
+                localTimestamp: localUpdatedAt,
+                cloudTimestamp: cloudUpdatedAt,
+                localNewer: localUpdatedAt > cloudUpdatedAt
+            });
+            
+            // If local data is newer, DON'T overwrite - preserve local changes (deletions, additions)
+            if (localUpdatedAt > cloudUpdatedAt) {
+                console.log('☁️ LOCAL DATA IS NEWER - preserving local changes, skipping cloud overwrite');
+                // Still save to tenant storage but merge with local data taking priority
+                const existingTenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+                
+                // Merge: cloudData as base, but keep local arrays if they exist
+                const mergedData = { ...cloudData };
+                
+                // For arrays, prefer local (which has deletions/additions)
+                const arrayKeys = ['customers', 'products', 'crmCustomers', 'suppliers', 'quotations', 
+                                   'projects', 'transactions', 'sales', 'orders', 'stockMovements', 
+                                   'employees', 'branches', 'heldSales', 'kpiTemplates', 'kpiAssignments', 'kpiScores'];
+                
+                arrayKeys.forEach(key => {
+                    const localKey = key === 'crmCustomers' ? 'ezcubic_crm_customers' : 
+                                    key === 'stockMovements' ? 'ezcubic_stock_movements' :
+                                    key === 'heldSales' ? 'ezcubic_held_sales' :
+                                    key === 'kpiTemplates' ? 'ezcubic_kpi_templates' :
+                                    key === 'kpiAssignments' ? 'ezcubic_kpi_assignments' :
+                                    key === 'kpiScores' ? 'ezcubic_kpi_scores' :
+                                    'ezcubic_' + key;
+                    const localArray = JSON.parse(localStorage.getItem(localKey) || '[]');
+                    if (localArray.length > 0 || localStorage.getItem(localKey)) {
+                        mergedData[key] = localArray;
+                        console.log(`  ↳ Keeping local ${key}:`, localArray.length, 'items');
+                    }
+                });
+                
+                // Update tenant storage with merged data
+                mergedData.updatedAt = new Date().toISOString();
+                localStorage.setItem(tenantKey, JSON.stringify(mergedData));
+                console.log('☁️ Merged cloud + local (local priority) for tenant:', tenantId);
+                return;
+            }
+            
+            // Cloud is newer - use cloud data (normal case: no local changes since last sync)
+            localStorage.setItem(tenantKey, JSON.stringify(cloudData));
+            console.log('☁️ Downloaded full tenant data (cloud newer):', tenantId);
             
             // Also extract to individual localStorage keys for immediate availability
             // This ensures customers, products, etc. are ready when modules initialize
-            if (tenantData.customers?.length) {
-                localStorage.setItem('ezcubic_customers', JSON.stringify(tenantData.customers));
-                console.log('  ↳ Extracted', tenantData.customers.length, 'customers');
+            if (cloudData.customers?.length) {
+                localStorage.setItem('ezcubic_customers', JSON.stringify(cloudData.customers));
+                console.log('  ↳ Extracted', cloudData.customers.length, 'customers');
             }
-            if (tenantData.products?.length) {
-                localStorage.setItem('ezcubic_products', JSON.stringify(tenantData.products));
-                console.log('  ↳ Extracted', tenantData.products.length, 'products');
+            if (cloudData.products?.length) {
+                localStorage.setItem('ezcubic_products', JSON.stringify(cloudData.products));
+                console.log('  ↳ Extracted', cloudData.products.length, 'products');
             }
-            if (tenantData.crmCustomers?.length) {
-                localStorage.setItem('ezcubic_crm_customers', JSON.stringify(tenantData.crmCustomers));
-                console.log('  ↳ Extracted', tenantData.crmCustomers.length, 'CRM customers');
+            if (cloudData.crmCustomers?.length) {
+                localStorage.setItem('ezcubic_crm_customers', JSON.stringify(cloudData.crmCustomers));
+                console.log('  ↳ Extracted', cloudData.crmCustomers.length, 'CRM customers');
             }
-            if (tenantData.suppliers?.length) {
-                localStorage.setItem('ezcubic_suppliers', JSON.stringify(tenantData.suppliers));
-                console.log('  ↳ Extracted', tenantData.suppliers.length, 'suppliers');
+            if (cloudData.suppliers?.length) {
+                localStorage.setItem('ezcubic_suppliers', JSON.stringify(cloudData.suppliers));
+                console.log('  ↳ Extracted', cloudData.suppliers.length, 'suppliers');
             }
-            if (tenantData.quotations?.length) {
-                localStorage.setItem('ezcubic_quotations', JSON.stringify(tenantData.quotations));
-                console.log('  ↳ Extracted', tenantData.quotations.length, 'quotations');
+            if (cloudData.quotations?.length) {
+                localStorage.setItem('ezcubic_quotations', JSON.stringify(cloudData.quotations));
+                console.log('  ↳ Extracted', cloudData.quotations.length, 'quotations');
             }
-            if (tenantData.projects?.length) {
-                localStorage.setItem('ezcubic_projects', JSON.stringify(tenantData.projects));
-                console.log('  ↳ Extracted', tenantData.projects.length, 'projects');
+            if (cloudData.projects?.length) {
+                localStorage.setItem('ezcubic_projects', JSON.stringify(cloudData.projects));
+                console.log('  ↳ Extracted', cloudData.projects.length, 'projects');
             }
-            if (tenantData.transactions?.length) {
-                localStorage.setItem('ezcubic_transactions', JSON.stringify(tenantData.transactions));
-                console.log('  ↳ Extracted', tenantData.transactions.length, 'transactions');
+            if (cloudData.transactions?.length) {
+                localStorage.setItem('ezcubic_transactions', JSON.stringify(cloudData.transactions));
+                console.log('  ↳ Extracted', cloudData.transactions.length, 'transactions');
             }
-            if (tenantData.sales?.length) {
-                localStorage.setItem('ezcubic_sales', JSON.stringify(tenantData.sales));
-                console.log('  ↳ Extracted', tenantData.sales.length, 'sales');
+            if (cloudData.sales?.length) {
+                localStorage.setItem('ezcubic_sales', JSON.stringify(cloudData.sales));
+                console.log('  ↳ Extracted', cloudData.sales.length, 'sales');
             }
-            if (tenantData.orders?.length) {
-                localStorage.setItem('ezcubic_orders', JSON.stringify(tenantData.orders));
-                console.log('  ↳ Extracted', tenantData.orders.length, 'orders');
+            if (cloudData.orders?.length) {
+                localStorage.setItem('ezcubic_orders', JSON.stringify(cloudData.orders));
+                console.log('  ↳ Extracted', cloudData.orders.length, 'orders');
             }
-            if (tenantData.stockMovements?.length) {
-                localStorage.setItem('ezcubic_stock_movements', JSON.stringify(tenantData.stockMovements));
-                console.log('  ↳ Extracted', tenantData.stockMovements.length, 'stock movements');
+            if (cloudData.stockMovements?.length) {
+                localStorage.setItem('ezcubic_stock_movements', JSON.stringify(cloudData.stockMovements));
+                console.log('  ↳ Extracted', cloudData.stockMovements.length, 'stock movements');
             }
-            if (tenantData.employees?.length) {
-                localStorage.setItem('ezcubic_employees', JSON.stringify(tenantData.employees));
-                console.log('  ↳ Extracted', tenantData.employees.length, 'employees');
+            if (cloudData.employees?.length) {
+                localStorage.setItem('ezcubic_employees', JSON.stringify(cloudData.employees));
+                console.log('  ↳ Extracted', cloudData.employees.length, 'employees');
             }
-            if (tenantData.branches?.length) {
-                localStorage.setItem('ezcubic_branches', JSON.stringify(tenantData.branches));
-                console.log('  ↳ Extracted', tenantData.branches.length, 'branches');
+            if (cloudData.branches?.length) {
+                localStorage.setItem('ezcubic_branches', JSON.stringify(cloudData.branches));
+                console.log('  ↳ Extracted', cloudData.branches.length, 'branches');
+            }
+            // Also extract held sales and KPI data
+            if (cloudData.heldSales) {
+                localStorage.setItem('ezcubic_held_sales', JSON.stringify(cloudData.heldSales));
+                console.log('  ↳ Extracted', (cloudData.heldSales || []).length, 'held sales');
+            }
+            if (cloudData.kpiTemplates) {
+                localStorage.setItem('ezcubic_kpi_templates', JSON.stringify(cloudData.kpiTemplates));
+                console.log('  ↳ Extracted', (cloudData.kpiTemplates || []).length, 'KPI templates');
             }
         }
         
@@ -301,9 +360,12 @@ window.syncTenantDataToCloud = syncTenantDataToCloud;
 /**
  * Load user's isolated tenant data
  * Handles both same tenant (refresh) and different tenant (user switch)
+ * AUTO-DOWNLOADS from cloud if local data is empty (for staff on new devices)
  */
-function loadUserTenantData(user) {
-    console.log('loadUserTenantData called for user:', user?.email, 'tenantId:', user?.tenantId);
+async function loadUserTenantData(user) {
+    console.log('========================================');
+    console.log('🔄 loadUserTenantData called for user:', user?.email, 'tenantId:', user?.tenantId);
+    console.log('========================================');
     
     // Set flag to prevent saveData from overwriting tenant data during load
     window._isLoadingUserData = true;
@@ -318,12 +380,10 @@ function loadUserTenantData(user) {
     
     if (!user || !user.tenantId) {
         console.log('No tenant ID for user, creating new tenant...');
-        // Create tenant for existing user without one
         if (user) {
             const tenantId = 'tenant_' + Date.now();
             user.tenantId = tenantId;
             initializeEmptyTenantData(tenantId, user.name);
-            // Save users - call window.saveUsers if available
             if (typeof window.saveUsers === 'function') {
                 window.saveUsers();
             }
@@ -332,280 +392,226 @@ function loadUserTenantData(user) {
         return;
     }
     
-    // Check if we're loading the SAME tenant (page refresh) vs DIFFERENT tenant (user switch)
-    const lastLoadedTenant = localStorage.getItem('ezcubic_last_tenant_id');
-    const isSameTenant = lastLoadedTenant === user.tenantId;
+    // Track last loaded user for comparison
+    const lastLoadedUserId = localStorage.getItem('ezcubic_last_user_id');
+    const isSameUser = lastLoadedUserId === user.id;
     
-    // Store current tenant ID for future comparisons
+    console.log('👤 User check: lastUser=' + lastLoadedUserId + ', currentUser=' + user.id + ', isSameUser=' + isSameUser);
+    
+    // Save current user ID for next time
     localStorage.setItem('ezcubic_last_tenant_id', user.tenantId);
+    localStorage.setItem('ezcubic_last_user_id', user.id);
     
+    // Load tenant data from tenant-specific storage
     const tenantKey = 'ezcubic_tenant_' + user.tenantId;
-    const tenantData = JSON.parse(localStorage.getItem(tenantKey) || 'null');
+    let tenantData = JSON.parse(localStorage.getItem(tenantKey) || 'null');
     
-    console.log('Loading tenant data from key:', tenantKey);
-    console.log('Is same tenant (page refresh):', isSameTenant);
-    console.log('Tenant data found:', tenantData ? 'Yes' : 'No');
+    console.log('📦 Tenant storage key:', tenantKey);
+    console.log('📦 Tenant data exists:', !!tenantData);
     if (tenantData) {
-        console.log('Tenant data products:', tenantData.products?.length || 0);
-        console.log('Tenant data customers:', tenantData.customers?.length || 0);
-        console.log('Tenant data CRM customers:', tenantData.crmCustomers?.length || 0);
-        console.log('Tenant data suppliers:', tenantData.suppliers?.length || 0);
-        console.log('Tenant data quotations:', tenantData.quotations?.length || 0);
+        console.log('📦 Products in tenant:', tenantData.products?.length || 0);
+        console.log('📦 Branches in tenant:', tenantData.branches?.length || 0);
     }
     
-    // ONLY reset data if switching to a DIFFERENT tenant
-    // If same tenant (page refresh), preserve localStorage data
-    if (!isSameTenant) {
-        console.log('Different tenant - resetting data');
-        resetToEmptyData();
-    } else {
-        console.log('Same tenant (page refresh) - preserving localStorage, only resetting window arrays');
-        // Just reset window arrays but NOT localStorage
-        resetWindowArraysOnly();
+    // Auto-download from cloud if no local tenant data
+    if (!tenantData && typeof downloadTenantFromCloud === 'function') {
+        console.log('☁️ No local tenant data - attempting cloud download...');
+        try {
+            await downloadTenantFromCloud(user.tenantId);
+            tenantData = JSON.parse(localStorage.getItem(tenantKey) || 'null');
+            if (tenantData) {
+                console.log('✅ Downloaded from cloud!');
+            }
+        } catch (err) {
+            console.warn('⚠️ Cloud download failed:', err.message);
+        }
     }
     
-    if (tenantData) {
-        console.log('Loading tenant data for:', user.tenantId);
-        
-        // SMART MERGE: For page refresh, localStorage might have newer data
-        // Prefer localStorage if it has more items than tenant data
-        const mergeWithLocalStorage = (tenantArray, localStorageKey) => {
-            const localData = JSON.parse(localStorage.getItem(localStorageKey) || '[]');
-            const tenantLen = (tenantArray || []).length;
-            const localLen = localData.length;
-            console.log(`🔀 Merge ${localStorageKey}: tenant=${tenantLen}, localStorage=${localLen}`);
-            // If localStorage has more data OR tenant is empty, use localStorage
-            if (localLen > tenantLen || tenantLen === 0) {
-                console.log(`🔀 Using localStorage for ${localStorageKey}: ${localLen} items (tenant had ${tenantLen})`);
+    // CRITICAL: Always reset window arrays before loading
+    resetWindowArraysOnly();
+    
+    if (!tenantData) {
+        console.log('⚠️ No tenant data found, initializing empty...');
+        initializeEmptyTenantData(user.tenantId, user.name || 'User');
+        window._isLoadingUserData = false;
+        return;
+    }
+    
+    // ============================================================
+    // FIX: ALWAYS prefer tenant storage as source of truth
+    // localStorage is only a cache - tenant storage is the real data
+    // ============================================================
+    
+    // Compare timestamps to determine which is newer
+    const tenantUpdatedAt = tenantData.updatedAt ? new Date(tenantData.updatedAt).getTime() : 0;
+    const localSaveTimestamp = parseInt(localStorage.getItem('ezcubic_last_save_timestamp') || '0');
+    
+    // Use localStorage ONLY if same user AND local timestamp is actually newer than tenant
+    const useLocalStorage = isSameUser && localSaveTimestamp > tenantUpdatedAt;
+    console.log('📊 Data source decision: useLocalStorage=' + useLocalStorage);
+    console.log('📊 Timestamps: tenant=' + tenantUpdatedAt + ', local=' + localSaveTimestamp + ', isSameUser=' + isSameUser);
+    
+    // Helper to get data from the correct source
+    const getData = (tenantArray, localStorageKey) => {
+        if (useLocalStorage) {
+            // Same user with newer local timestamp - prefer localStorage
+            // IMPORTANT: localStorage might have 0 items (user deleted everything)
+            // That's valid - don't fall back to tenant in that case
+            const localRaw = localStorage.getItem(localStorageKey);
+            if (localRaw !== null) {
+                const localData = JSON.parse(localRaw);
+                console.log(`  ✓ Using localStorage for ${localStorageKey}: ${localData.length} items`);
                 return localData;
             }
-            console.log(`🔀 Using tenant for ${localStorageKey}: ${tenantLen} items (localStorage had ${localLen})`);
-            return tenantArray || [];
-        };
-        
-        // Get merged data - prefer localStorage when it has more items
-        const mergedProducts = mergeWithLocalStorage(tenantData.products, 'ezcubic_products');
-        const mergedCustomers = mergeWithLocalStorage(tenantData.customers, 'ezcubic_customers');
-        const mergedSuppliers = mergeWithLocalStorage(tenantData.suppliers, 'ezcubic_suppliers');
-        const mergedBranches = mergeWithLocalStorage(tenantData.branches, 'ezcubic_branches');
-        const mergedQuotations = mergeWithLocalStorage(tenantData.quotations, 'ezcubic_quotations');
-        const mergedProjects = mergeWithLocalStorage(tenantData.projects, 'ezcubic_projects');
-        const mergedCRMCustomers = mergeWithLocalStorage(tenantData.crmCustomers, 'ezcubic_crm_customers');
-        const mergedEmployees = mergeWithLocalStorage(tenantData.employees, 'ezcubic_employees');
-        const mergedStockMovements = mergeWithLocalStorage(tenantData.stockMovements, 'ezcubic_stock_movements');
-        const mergedSales = mergeWithLocalStorage(tenantData.sales, 'ezcubic_sales');
-        const mergedOrders = mergeWithLocalStorage(tenantData.orders, 'ezcubic_orders');
-        const mergedPurchaseOrders = mergeWithLocalStorage(tenantData.purchaseOrders, 'ezcubic_purchase_orders');
-        
-        // CRITICAL: Also check ezcubicDataMY for transactions - this is where saveData() saves them
-        const ezcubicDataMY = JSON.parse(localStorage.getItem('ezcubicDataMY') || '{}');
-        const localTransactions = ezcubicDataMY.transactions || [];
-        const tenantTransactions = tenantData.transactions || [];
-        // Use whichever has more transactions (newer data)
-        const mergedTransactions = localTransactions.length > tenantTransactions.length ? localTransactions : tenantTransactions;
-        console.log(`🔵 Transactions merge: local=${localTransactions.length}, tenant=${tenantTransactions.length}, using=${mergedTransactions.length}`);
-        
-        // DEBUG: Show actual transaction data
-        if (mergedTransactions.length > 0) {
-            console.log('🔵 First transaction:', mergedTransactions[0]);
         }
-        
-        const localBills = ezcubicDataMY.bills || [];
-        const tenantBills = tenantData.bills || [];
-        const mergedBills = localBills.length > tenantBills.length ? localBills : tenantBills;
-        
-        // Map merged data to global businessData - use window.businessData for cross-module access
-        console.log('🔵 loadUserTenantData: Setting businessData.transactions to', mergedTransactions.length, 'items');
-        console.log('🔵 window.businessData exists?', typeof window.businessData !== 'undefined');
-        
-        // FORCE create window.businessData if it doesn't exist
-        if (typeof window.businessData === 'undefined' || !window.businessData) {
-            console.log('🔵 Creating window.businessData');
-            window.businessData = {
-                transactions: [],
-                bills: [],
-                settings: {}
-            };
-        }
-        
-        // Now set the data
-        window.businessData.transactions = mergedTransactions;
-        window.businessData.bills = mergedBills;
-        window.businessData.products = mergedProducts;
-        window.businessData.customers = mergedCustomers;
-        window.businessData.stockMovements = mergedStockMovements;
-        window.businessData.sales = mergedSales;
-        window.businessData.suppliers = mergedSuppliers;
-        window.businessData.branches = mergedBranches;
-        window.businessData.quotations = mergedQuotations;
-        window.businessData.projects = mergedProjects;
-        window.businessData.purchaseOrders = mergedPurchaseOrders;
-        window.businessData.deliveryOrders = tenantData.deliveryOrders || [];
-        
-        // Get default settings function
-        const getDefaultSettings = typeof window.getDefaultSettings === 'function' 
-            ? window.getDefaultSettings 
-            : () => ({ businessName: 'My Business', currency: 'MYR', defaultTaxRate: 0 });
-        
-        if (tenantData.settings) {
-            window.businessData.settings = { ...getDefaultSettings(), ...tenantData.settings };
-        }
-        
-        // Also update the local businessData reference if it exists
-        if (typeof businessData !== 'undefined') {
-            businessData = window.businessData;
-        }
-        
-        console.log('🔵 After setting window.businessData.transactions:', window.businessData.transactions.length);
-        
-        // Update global arrays with merged data
-        window.transactions = mergedTransactions;
-        window.products = mergedProducts;
-        window.customers = mergedCustomers;
-        window.stockMovements = mergedStockMovements;
-        window.sales = mergedSales;
-        window.suppliers = mergedSuppliers;
-        window.branches = mergedBranches;
-        console.log('🔵 SET window.branches to', mergedBranches.length, 'items');
-        window.branchTransfers = tenantData.branchTransfers || [];
-        window.quotations = mergedQuotations;
-        window.projects = mergedProjects;
-        window.purchaseOrders = mergedPurchaseOrders;
-        window.goodsReceipts = tenantData.goodsReceipts || [];
-        window.deliveryOrders = tenantData.deliveryOrders || [];
-        window.crmCustomers = mergedCRMCustomers;
-        window.employees = mergedEmployees;
-        window.orders = mergedOrders;
-        
-        // Also update local module variables directly
-        if (typeof products !== 'undefined') products = mergedProducts;
-        if (typeof customers !== 'undefined') customers = mergedCustomers;
-        if (typeof stockMovements !== 'undefined') stockMovements = mergedStockMovements;
-        if (typeof sales !== 'undefined') sales = mergedSales;
-        if (typeof transactions !== 'undefined') transactions = mergedTransactions;
-        if (typeof suppliers !== 'undefined') suppliers = mergedSuppliers;
-        if (typeof branches !== 'undefined') branches = mergedBranches;
-        if (typeof branchTransfers !== 'undefined') branchTransfers = tenantData.branchTransfers || [];
-        if (typeof quotations !== 'undefined') quotations = mergedQuotations;
-        if (typeof projects !== 'undefined') projects = mergedProjects;
-        if (typeof purchaseOrders !== 'undefined') purchaseOrders = mergedPurchaseOrders;
-        if (typeof goodsReceipts !== 'undefined') goodsReceipts = tenantData.goodsReceipts || [];
-        if (typeof deliveryOrders !== 'undefined') deliveryOrders = tenantData.deliveryOrders || [];
-        if (typeof crmCustomers !== 'undefined') crmCustomers = mergedCRMCustomers;
-        if (typeof orders !== 'undefined') orders = mergedOrders;
-        
-        // HR & Payroll module variables
-        // Check if localStorage has data but tenant doesn't - recover from localStorage
-        const localEmployees = JSON.parse(localStorage.getItem('ezcubic_employees') || '[]');
-        const localPayroll = JSON.parse(localStorage.getItem('ezcubic_payroll') || '[]');
-        
-        // Use tenant data if available, otherwise fall back to localStorage (data recovery)
-        const employeesToUse = (tenantData.employees && tenantData.employees.length > 0) 
-            ? tenantData.employees 
-            : localEmployees;
-        const payrollToUse = (tenantData.payrollRecords && tenantData.payrollRecords.length > 0) 
-            ? tenantData.payrollRecords 
-            : localPayroll;
-        
-        window.employees = employeesToUse;
-        window.payrollRecords = payrollToUse;
-        if (typeof employees !== 'undefined') employees = employeesToUse;
-        if (typeof payrollRecords !== 'undefined') payrollRecords = payrollToUse;
-        if (typeof kpiTemplates !== 'undefined') kpiTemplates = tenantData.kpiTemplates || [];
-        if (typeof kpiAssignments !== 'undefined') kpiAssignments = tenantData.kpiAssignments || [];
-        if (typeof kpiScores !== 'undefined') kpiScores = tenantData.kpiScores || [];
-        if (typeof leaveRequests !== 'undefined') leaveRequests = tenantData.leaveRequests || [];
-        if (typeof leaveBalances !== 'undefined') leaveBalances = tenantData.leaveBalances || [];
-        if (typeof attendanceRecords !== 'undefined') attendanceRecords = tenantData.attendanceRecords || [];
-        
-        // If we recovered data from localStorage, save it to tenant storage
-        if (localEmployees.length > 0 && (!tenantData.employees || tenantData.employees.length === 0)) {
-            console.log('🔄 Recovered', localEmployees.length, 'employees from localStorage - saving to tenant');
-            tenantData.employees = localEmployees;
-            // Will be saved later
-        }
-        if (localPayroll.length > 0 && (!tenantData.payrollRecords || tenantData.payrollRecords.length === 0)) {
-            console.log('🔄 Recovered', localPayroll.length, 'payroll records from localStorage - saving to tenant');
-            tenantData.payrollRecords = localPayroll;
-        }
-        
-        // Save to legacy storage keys for compatibility with modules
-        // Use merged data (which already prefers localStorage when it has more items)
-        localStorage.setItem('ezcubic_products', JSON.stringify(mergedProducts));
-        localStorage.setItem('ezcubic_customers', JSON.stringify(mergedCustomers));
-        localStorage.setItem('ezcubic_suppliers', JSON.stringify(mergedSuppliers));
-        localStorage.setItem('ezcubic_branches', JSON.stringify(mergedBranches));
-        localStorage.setItem('ezcubic_branch_transfers', JSON.stringify(tenantData.branchTransfers || []));
-        localStorage.setItem('ezcubic_quotations', JSON.stringify(mergedQuotations));
-        localStorage.setItem('ezcubic_projects', JSON.stringify(mergedProjects));
-        localStorage.setItem('ezcubic_purchase_orders', JSON.stringify(mergedPurchaseOrders));
-        localStorage.setItem('ezcubic_goods_receipts', JSON.stringify(tenantData.goodsReceipts || []));
-        window.goodsReceipts = tenantData.goodsReceipts || [];
-        localStorage.setItem('ezcubic_stock_movements', JSON.stringify(mergedStockMovements));
-        localStorage.setItem('ezcubic_sales', JSON.stringify(mergedSales));
-        localStorage.setItem('ezcubic_delivery_orders', JSON.stringify(tenantData.deliveryOrders || []));
-        localStorage.setItem('ezcubic_crm_customers', JSON.stringify(mergedCRMCustomers));
-        localStorage.setItem('ezcubic_orders', JSON.stringify(mergedOrders));
-        
-        // HR & Payroll storage keys - use the recovered/merged data
-        localStorage.setItem('ezcubic_employees', JSON.stringify(employeesToUse));
-        localStorage.setItem('ezcubic_payroll', JSON.stringify(payrollToUse));
-        localStorage.setItem('ezcubic_kpi_templates', JSON.stringify(tenantData.kpiTemplates || []));
-        localStorage.setItem('ezcubic_kpi_assignments', JSON.stringify(tenantData.kpiAssignments || []));
-        localStorage.setItem('ezcubic_kpi_scores', JSON.stringify(tenantData.kpiScores || []));
-        localStorage.setItem('ezcubic_leave_requests', JSON.stringify(tenantData.leaveRequests || []));
-        localStorage.setItem('ezcubic_leave_balances', JSON.stringify(tenantData.leaveBalances || []));
-        localStorage.setItem('ezcubic_attendance', JSON.stringify(tenantData.attendanceRecords || []));
-        
-        // If we recovered employees from localStorage, save updated tenant data immediately
-        if (localEmployees.length > 0 && (!tenantData.employees || tenantData.employees.length === 0)) {
-            tenantData.employees = localEmployees;
-            localStorage.setItem(tenantKey, JSON.stringify(tenantData));
-            console.log('✅ Saved recovered employee data to tenant storage');
-        }
-        
-        // Accounting & Finance storage keys
-        localStorage.setItem('ezcubic_transactions', JSON.stringify(tenantData.transactions || []));
-        localStorage.setItem('ezcubic_bills', JSON.stringify(tenantData.bills || []));
-        localStorage.setItem('ezcubic_orders', JSON.stringify(tenantData.orders || []));
-        localStorage.setItem('ezcubic_invoices', JSON.stringify(tenantData.invoices || []));
-        localStorage.setItem('ezcubic_bank_accounts', JSON.stringify(tenantData.bankAccounts || []));
-        localStorage.setItem('ezcubic_credit_cards', JSON.stringify(tenantData.creditCards || []));
-        localStorage.setItem('ezcubic_manual_balances', JSON.stringify(tenantData.manualBalances || {}));
-        
-        // Chart of Accounts & Journal Entries
-        localStorage.setItem('ezcubic_chart_of_accounts', JSON.stringify(tenantData.chartOfAccounts || []));
-        localStorage.setItem('ezcubic_journal_entries', JSON.stringify(tenantData.journalEntries || []));
-        localStorage.setItem('ezcubic_journal_sequence', JSON.stringify(tenantData.journalSequence || { year: new Date().getFullYear(), sequence: 0 }));
-        
-        // POS
-        localStorage.setItem('ezcubic_held_sales', JSON.stringify(tenantData.heldSales || []));
-        localStorage.setItem('ezcubic_pos_receipts', JSON.stringify(tenantData.posReceipts || []));
-        
-        // E-Invoice
-        localStorage.setItem('ezcubic_einvoice_settings', JSON.stringify(tenantData.einvoiceSettings || {}));
-        
-        // Outlets
-        localStorage.setItem('ezcubic_outlets', JSON.stringify(tenantData.outlets || []));
-        
-        // AI Assistant
-        localStorage.setItem('ezcubic_ai_state', JSON.stringify(tenantData.aiState || {}));
-        
-        // Save ezcubicDataMY with transactions and bills
-        const ezcubicData = {
-            transactions: mergedTransactions,
-            bills: mergedBills,
-            settings: tenantData.settings || {},
-            version: '2.0',
-            lastSaved: new Date().toISOString()
-        };
-        localStorage.setItem('ezcubicDataMY', JSON.stringify(ezcubicData));
-        
-    } else {
-        // No tenant data found - initialize empty tenant
-        console.log('No tenant data found - initializing empty tenant');
-        initializeEmptyTenantData(user.tenantId, user.name);
+        // Different user OR localStorage key doesn't exist - use tenant data
+        console.log(`  ✓ Using tenant for ${localStorageKey}: ${(tenantArray || []).length} items`);
+        return tenantArray || [];
+    };
+    
+    // Load all data from tenant storage (or localStorage for same user)
+    const products = getData(tenantData.products, 'ezcubic_products');
+    const customers = getData(tenantData.customers, 'ezcubic_customers');
+    const suppliers = getData(tenantData.suppliers, 'ezcubic_suppliers');
+    const branches = getData(tenantData.branches, 'ezcubic_branches');
+    const quotations = getData(tenantData.quotations, 'ezcubic_quotations');
+    const projects = getData(tenantData.projects, 'ezcubic_projects');
+    const crmCustomers = getData(tenantData.crmCustomers, 'ezcubic_crm_customers');
+    const employees = getData(tenantData.employees, 'ezcubic_employees');
+    const stockMovements = getData(tenantData.stockMovements, 'ezcubic_stock_movements');
+    const sales = getData(tenantData.sales, 'ezcubic_sales');
+    const orders = getData(tenantData.orders, 'ezcubic_orders');
+    const purchaseOrders = getData(tenantData.purchaseOrders, 'ezcubic_purchase_orders');
+    const transactions = tenantData.transactions || [];
+    const bills = tenantData.bills || [];
+    const heldSales = getData(tenantData.heldSales, 'ezcubic_held_sales');
+    
+    console.log('📊 Final data counts:');
+    console.log('  - Products:', products.length);
+    console.log('  - Branches:', branches.length);
+    console.log('  - Customers:', customers.length);
+    console.log('  - Sales:', sales.length);
+    
+    // Gather remaining data from tenant storage
+    const kpiTemplates = tenantData.kpiTemplates || [];
+    const kpiAssignments = tenantData.kpiAssignments || [];
+    const kpiScores = tenantData.kpiScores || [];
+    
+    // Create businessData object
+    if (typeof window.businessData === 'undefined' || !window.businessData) {
+        window.businessData = { transactions: [], bills: [], settings: {} };
     }
+    
+    // Get default settings function
+    const getDefaultSettings = typeof window.getDefaultSettings === 'function' 
+        ? window.getDefaultSettings 
+        : () => ({ businessName: 'My Business', currency: 'MYR', defaultTaxRate: 0 });
+    
+    // Set all businessData properties
+    window.businessData.transactions = transactions;
+    window.businessData.bills = bills;
+    window.businessData.products = products;
+    window.businessData.customers = customers;
+    window.businessData.stockMovements = stockMovements;
+    window.businessData.sales = sales;
+    window.businessData.suppliers = suppliers;
+    window.businessData.branches = branches;
+    window.businessData.quotations = quotations;
+    window.businessData.projects = projects;
+    window.businessData.purchaseOrders = purchaseOrders;
+    window.businessData.deliveryOrders = tenantData.deliveryOrders || [];
+    if (tenantData.settings) {
+        window.businessData.settings = { ...getDefaultSettings(), ...tenantData.settings };
+    }
+    
+    // Update global arrays
+    window.transactions = transactions;
+    window.products = products;
+    window.customers = customers;
+    window.stockMovements = stockMovements;
+    window.sales = sales;
+    window.suppliers = suppliers;
+    window.branches = branches;
+    window.branchTransfers = tenantData.branchTransfers || [];
+    window.quotations = quotations;
+    window.projects = projects;
+    window.purchaseOrders = purchaseOrders;
+    window.goodsReceipts = tenantData.goodsReceipts || [];
+    window.deliveryOrders = tenantData.deliveryOrders || [];
+    window.crmCustomers = crmCustomers;
+    window.employees = employees;
+    window.orders = orders;
+    window.heldSales = heldSales;
+    window.payrollRecords = tenantData.payrollRecords || [];
+    window.kpiTemplates = kpiTemplates;
+    window.kpiAssignments = kpiAssignments;
+    window.kpiScores = kpiScores;
+    
+    console.log('📦 SET window.branches to', branches.length, 'items');
+    console.log('📦 SET window.products to', products.length, 'items');
+    
+    // CRITICAL: Save to legacy storage keys for compatibility with modules
+    // This updates localStorage with the tenant's data (on user switch) or keeps as is (same user refresh)
+    localStorage.setItem('ezcubic_products', JSON.stringify(products));
+    localStorage.setItem('ezcubic_customers', JSON.stringify(customers));
+    localStorage.setItem('ezcubic_suppliers', JSON.stringify(suppliers));
+    localStorage.setItem('ezcubic_branches', JSON.stringify(branches));
+    localStorage.setItem('ezcubic_branch_transfers', JSON.stringify(tenantData.branchTransfers || []));
+    localStorage.setItem('ezcubic_quotations', JSON.stringify(quotations));
+    localStorage.setItem('ezcubic_projects', JSON.stringify(projects));
+    localStorage.setItem('ezcubic_purchase_orders', JSON.stringify(purchaseOrders));
+    localStorage.setItem('ezcubic_goods_receipts', JSON.stringify(tenantData.goodsReceipts || []));
+    localStorage.setItem('ezcubic_stock_movements', JSON.stringify(stockMovements));
+    localStorage.setItem('ezcubic_sales', JSON.stringify(sales));
+    localStorage.setItem('ezcubic_delivery_orders', JSON.stringify(tenantData.deliveryOrders || []));
+    localStorage.setItem('ezcubic_crm_customers', JSON.stringify(crmCustomers));
+    localStorage.setItem('ezcubic_orders', JSON.stringify(orders));
+    
+    // HR & Payroll storage keys
+    localStorage.setItem('ezcubic_employees', JSON.stringify(employees));
+    localStorage.setItem('ezcubic_payroll', JSON.stringify(tenantData.payrollRecords || []));
+    localStorage.setItem('ezcubic_kpi_templates', JSON.stringify(kpiTemplates));
+    localStorage.setItem('ezcubic_kpi_assignments', JSON.stringify(kpiAssignments));
+    localStorage.setItem('ezcubic_kpi_scores', JSON.stringify(kpiScores));
+    localStorage.setItem('ezcubic_leave_requests', JSON.stringify(tenantData.leaveRequests || []));
+    localStorage.setItem('ezcubic_leave_balances', JSON.stringify(tenantData.leaveBalances || []));
+    localStorage.setItem('ezcubic_attendance', JSON.stringify(tenantData.attendanceRecords || []));
+    
+    // Accounting & Finance storage keys
+    localStorage.setItem('ezcubic_transactions', JSON.stringify(transactions));
+    localStorage.setItem('ezcubic_bills', JSON.stringify(bills));
+    localStorage.setItem('ezcubic_invoices', JSON.stringify(tenantData.invoices || []));
+    localStorage.setItem('ezcubic_bank_accounts', JSON.stringify(tenantData.bankAccounts || []));
+    localStorage.setItem('ezcubic_credit_cards', JSON.stringify(tenantData.creditCards || []));
+    localStorage.setItem('ezcubic_manual_balances', JSON.stringify(tenantData.manualBalances || {}));
+    
+    // Chart of Accounts & Journal Entries
+    localStorage.setItem('ezcubic_chart_of_accounts', JSON.stringify(tenantData.chartOfAccounts || []));
+    localStorage.setItem('ezcubic_journal_entries', JSON.stringify(tenantData.journalEntries || []));
+    localStorage.setItem('ezcubic_journal_sequence', JSON.stringify(tenantData.journalSequence || { year: new Date().getFullYear(), sequence: 0 }));
+    
+    // POS
+    localStorage.setItem('ezcubic_held_sales', JSON.stringify(heldSales));
+    localStorage.setItem('ezcubic_pos_receipts', JSON.stringify(tenantData.posReceipts || []));
+    
+    // E-Invoice
+    localStorage.setItem('ezcubic_einvoice_settings', JSON.stringify(tenantData.einvoiceSettings || {}));
+    
+    // Outlets
+    localStorage.setItem('ezcubic_outlets', JSON.stringify(tenantData.outlets || []));
+    
+    // AI Assistant
+    localStorage.setItem('ezcubic_ai_state', JSON.stringify(tenantData.aiState || {}));
+    
+    // Save ezcubicDataMY with transactions and bills
+    const ezcubicData = {
+        transactions: transactions,
+        bills: bills,
+        settings: tenantData.settings || {},
+        version: '2.0',
+        lastSaved: new Date().toISOString()
+    };
+    localStorage.setItem('ezcubicDataMY', JSON.stringify(ezcubicData));
     
     // Clear the loading flag
     window._isLoadingUserData = false;

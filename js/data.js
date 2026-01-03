@@ -4,7 +4,7 @@
 // ==================== APP VERSION ====================
 // Single source of truth for version number
 // Update this when releasing new versions
-const APP_VERSION = '2.2.2';
+const APP_VERSION = '2.3.2';
 window.APP_VERSION = APP_VERSION;
 
 // Update version display in UI
@@ -357,6 +357,9 @@ function saveData() {
         
         // Also save to user's tenant storage if logged in
         saveToUserTenant();
+        
+        // CRITICAL: Save timestamp AFTER tenant save (must be newer than tenantData.updatedAt)
+        localStorage.setItem('ezcubic_last_save_timestamp', Date.now().toString());
         
         console.log('EZCubic Malaysia data saved successfully');
         return true;

@@ -179,7 +179,11 @@
         let ownerPlan = 'starter';
         let ownerFeatures = [];
         
-        if (window.currentUser?.role === 'business_admin' || window.currentUser?.role === 'founder') {
+        if (window.currentUser?.role === 'founder') {
+            // Founder ALWAYS has ALL features regardless of plan
+            ownerPlan = 'enterprise';
+            ownerFeatures = ['all'];
+        } else if (window.currentUser?.role === 'business_admin') {
             ownerPlan = window.currentUser?.plan || 'starter';
             const ownerPlanConfig = platformSettings?.plans?.[ownerPlan] || plans[ownerPlan];
             ownerFeatures = ownerPlanConfig?.features || [];
@@ -259,6 +263,8 @@
                         
                         ${showPlanSelector ? generatePlanSelectorHTML(plans) : ''}
                         
+                        ${showERPModules ? generateBranchAccessHTML() : ''}
+                        
                         ${showERPModules ? generatePermissionsHTML(filteredCategories, role, totalAvailableModules, permissionLabelText, hasAllFeatures, ownerPlanConfig) : ''}
                         
                         <div class="modal-footer">
@@ -278,12 +284,169 @@
         setTimeout(() => {
             if (showERPModules) {
                 filteredCategories.forEach(cat => updateCategoryCount(cat.id));
+                initBranchAccessCheckboxes();
             }
             if (showPlanSelector) {
                 const checkedPlan = document.querySelector('input[name="userPlan"]:checked');
                 if (checkedPlan) highlightSelectedPlan(checkedPlan);
             }
         }, 50);
+    }
+    
+    /**
+     * Generate branch access selector HTML (only shows if 2+ branches exist)
+     */
+    function generateBranchAccessHTML() {
+        // Get branches from window.branches OR localStorage
+        let branches = window.branches || [];
+        if (!Array.isArray(branches) || branches.length === 0) {
+            branches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
+        }
+        
+        console.log('🏢 generateBranchAccessHTML - branches found:', branches.length, branches.map(b => b.name));
+        
+        // Only show if admin has 2 or more branches
+        if (branches.length < 2) {
+            console.log('🏢 Branch access section hidden - less than 2 branches');
+            return '';
+        }
+        
+        const branchCheckboxes = branches.map(branch => `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; cursor: pointer; border: 1px solid #e2e8f0;">
+                <input type="checkbox" name="branchAccess" value="${branch.id}" checked 
+                    style="width: 16px; height: 16px;" onchange="updateBranchAccessCount()">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; font-size: 13px;">${branch.name}</div>
+                    <div style="font-size: 11px; color: #64748b;">${branch.type === 'headquarters' ? 'HQ' : branch.code || branch.type}</div>
+                </div>
+                ${branch.type === 'headquarters' ? '<i class="fas fa-building" style="color: #6366f1;"></i>' : '<i class="fas fa-store" style="color: #10b981;"></i>'}
+            </label>
+        `).join('');
+        
+        return `
+            <div class="form-group" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label class="form-label" style="margin: 0;">
+                        <i class="fas fa-store-alt" style="color: #6366f1;"></i> Branch Access
+                    </label>
+                    <span id="branchAccessCount" style="font-size: 12px; background: #6366f1; color: white; padding: 2px 8px; border-radius: 10px;">
+                        ${branches.length} / ${branches.length}
+                    </span>
+                </div>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+                    Select which branches this user can access in POS and reports
+                </p>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #6366f1; font-weight: 500;">
+                        <input type="checkbox" id="branchAccessAll" checked onchange="toggleAllBranchAccess(this.checked)">
+                        All Branches
+                    </label>
+                </div>
+                <div id="branchAccessList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                    ${branchCheckboxes}
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * Initialize branch access checkboxes event handlers
+     */
+    function initBranchAccessCheckboxes() {
+        updateBranchAccessCount();
+    }
+    
+    /**
+     * Toggle all branch access checkboxes
+     */
+    function toggleAllBranchAccess(checked) {
+        const checkboxes = document.querySelectorAll('input[name="branchAccess"]');
+        checkboxes.forEach(cb => cb.checked = checked);
+        updateBranchAccessCount();
+    }
+    window.toggleAllBranchAccess = toggleAllBranchAccess;
+    
+    /**
+     * Update branch access count display
+     */
+    function updateBranchAccessCount() {
+        const total = document.querySelectorAll('input[name="branchAccess"]').length;
+        const checked = document.querySelectorAll('input[name="branchAccess"]:checked').length;
+        const countEl = document.getElementById('branchAccessCount');
+        const allCheckbox = document.getElementById('branchAccessAll');
+        
+        if (countEl) {
+            countEl.textContent = `${checked} / ${total}`;
+            countEl.style.background = checked === total ? '#6366f1' : (checked === 0 ? '#ef4444' : '#f59e0b');
+        }
+        
+        if (allCheckbox) {
+            allCheckbox.checked = checked === total;
+        }
+    }
+    window.updateBranchAccessCount = updateBranchAccessCount;
+    
+    /**
+     * Generate branch access HTML for EDIT user modal
+     * Pre-checks branches based on user's existing allowedBranches
+     */
+    function generateEditBranchAccessHTML(user) {
+        // Get branches from window.branches OR localStorage
+        let branches = window.branches || [];
+        if (!Array.isArray(branches) || branches.length === 0) {
+            branches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
+        }
+        
+        // Only show if admin has 2 or more branches
+        if (branches.length < 2) {
+            return '';
+        }
+        
+        // Get user's allowed branches (default to all if not set)
+        const userAllowedBranches = user.allowedBranches || branches.map(b => b.id);
+        const allSelected = userAllowedBranches.length === branches.length;
+        
+        const branchCheckboxes = branches.map(branch => {
+            const isChecked = userAllowedBranches.includes(branch.id);
+            return `
+            <label style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border-radius: 6px; cursor: pointer; border: 1px solid #e2e8f0;">
+                <input type="checkbox" name="branchAccess" value="${branch.id}" ${isChecked ? 'checked' : ''} 
+                    style="width: 16px; height: 16px;" onchange="updateBranchAccessCount()">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500; font-size: 13px;">${branch.name}</div>
+                    <div style="font-size: 11px; color: #64748b;">${branch.type === 'headquarters' ? 'HQ' : branch.code || branch.type}</div>
+                </div>
+                ${branch.type === 'headquarters' ? '<i class="fas fa-building" style="color: #6366f1;"></i>' : '<i class="fas fa-store" style="color: #10b981;"></i>'}
+            </label>
+        `}).join('');
+        
+        const checkedCount = userAllowedBranches.length;
+        const badgeColor = checkedCount === branches.length ? '#6366f1' : (checkedCount === 0 ? '#ef4444' : '#f59e0b');
+        
+        return `
+            <div class="form-group" style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <label class="form-label" style="margin: 0;">
+                        <i class="fas fa-store-alt" style="color: #6366f1;"></i> Branch Access
+                    </label>
+                    <span id="branchAccessCount" style="font-size: 12px; background: ${badgeColor}; color: white; padding: 2px 8px; border-radius: 10px;">
+                        ${checkedCount} / ${branches.length}
+                    </span>
+                </div>
+                <p style="font-size: 12px; color: #64748b; margin-bottom: 12px;">
+                    Select which branches this user can access in POS and reports
+                </p>
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; color: #6366f1; font-weight: 500;">
+                        <input type="checkbox" id="branchAccessAll" ${allSelected ? 'checked' : ''} onchange="toggleAllBranchAccess(this.checked)">
+                        All Branches
+                    </label>
+                </div>
+                <div id="branchAccessList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                    ${branchCheckboxes}
+                </div>
+            </div>
+        `;
     }
     
     /**
@@ -632,6 +795,16 @@
             newUser.tenantId = currentUser.tenantId;
             newUser.plan = currentUser.plan || 'starter';
             
+            // Get branch access (if branches exist)
+            const branchCheckboxes = document.querySelectorAll('input[name="branchAccess"]:checked');
+            if (branchCheckboxes.length > 0) {
+                newUser.allowedBranches = Array.from(branchCheckboxes).map(cb => cb.value);
+            } else {
+                // Default: access to all branches
+                const allBranches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
+                newUser.allowedBranches = allBranches.map(b => b.id);
+            }
+            
             if (permissions.length === 0 || !permissions.includes('all')) {
                 const platformSettings = typeof getPlatformSettings === 'function' ? getPlatformSettings() : null;
                 const creatorPlan = currentUser.plan || 'starter';
@@ -729,6 +902,9 @@
             </small>`;
         }
         
+        // Generate branch access HTML for edit modal
+        const editBranchAccessHTML = generateEditBranchAccessHTML(user);
+        
         const modalHTML = `
             <div class="modal show" id="editUserModal">
                 <div class="modal-content" style="max-width: 550px;">
@@ -763,6 +939,8 @@
                                 </select>
                             </div>
                         </div>
+                        
+                        ${editBranchAccessHTML}
                         
                         <div class="form-group">
                             <label class="form-label">ERP Module Access</label>
@@ -829,10 +1007,17 @@
                 .map(cb => cb.value);
         }
         
+        // Get allowed branches (for staff/manager roles)
+        const branchCheckboxes = document.querySelectorAll('input[name="branchAccess"]:checked');
+        const allowedBranches = branchCheckboxes.length > 0 
+            ? Array.from(branchCheckboxes).map(cb => cb.value)
+            : users[userIndex].allowedBranches; // Keep existing if no branch UI shown
+        
         users[userIndex].name = name;
         users[userIndex].email = email;
         users[userIndex].role = role;
         users[userIndex].permissions = permissions;
+        users[userIndex].allowedBranches = allowedBranches;
         users[userIndex].updatedAt = new Date().toISOString();
         
         if (password) {

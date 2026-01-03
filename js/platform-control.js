@@ -37,7 +37,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 storage: 50 // MB
             },
             // Personal only gets basic accounting features - no team management
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'settings'],
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'backup-restore', 'settings'],
             hiddenSections: ['pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'suppliers', 'quotations', 'projects', 'payroll', 'leave-attendance', 'einvoice', 'branches', 'user-management', 'purchase-orders', 'delivery-orders', 'employees', 'kpi', 'lhdn-export', 'bank-reconciliation', 'chart-of-accounts', 'journal-entries', 'aging-reports']
         },
         starter: {
@@ -54,7 +54,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 storage: 500
             },
             // Starter gets basic business features + can add up to 3 users
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'crm', 'bills', 'quotations', 'invoices', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'settings', 'users'],
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'crm', 'bills', 'quotations', 'invoices', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'backup-restore', 'settings', 'users'],
             hiddenSections: ['stock', 'orders', 'suppliers', 'projects', 'payroll', 'leave-attendance', 'einvoice', 'branches', 'purchase-orders', 'delivery-orders', 'employees', 'kpi', 'bank-reconciliation']
         },
         professional: {
@@ -70,8 +70,8 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 branches: 3, // Up to 3 branches/outlets
                 storage: 2000
             },
-            // Professional gets ALL features including branches (up to 3) - 37 modules
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'email-invoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'products', 'settings', 'users'],
+            // Professional gets ALL features including branches (up to 3) - 38 modules
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'email-invoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'products', 'backup-restore', 'settings', 'users'],
             hiddenSections: [] // Professional now has access to branches (limited to 3)
         },
         enterprise: {
@@ -971,7 +971,7 @@ function showUpgradePlanModal() {
     document.getElementById('upgradePlanModal')?.remove();
     
     // Plan order for comparison
-    const planOrder = ['personal', 'starter', 'business', 'professional', 'enterprise'];
+    const planOrder = ['personal', 'starter', 'professional', 'enterprise'];
     const currentPlanIndex = planOrder.indexOf(currentPlan);
     
     // Feature categories for display
@@ -980,33 +980,33 @@ function showUpgradePlanModal() {
             name: 'Core Features',
             icon: 'fa-cube',
             features: [
-                { id: 'dashboard', name: 'Dashboard & Analytics', plans: ['personal', 'starter', 'business', 'professional', 'enterprise'] },
-                { id: 'transactions', name: 'Transaction Management', plans: ['personal', 'starter', 'business', 'professional', 'enterprise'] },
-                { id: 'income', name: 'Income Tracking', plans: ['personal', 'starter', 'business', 'professional', 'enterprise'] },
-                { id: 'expenses', name: 'Expense Tracking', plans: ['personal', 'starter', 'business', 'professional', 'enterprise'] },
-                { id: 'bills', name: 'Bills Management', plans: ['personal', 'starter', 'business', 'professional', 'enterprise'] }
+                { id: 'dashboard', name: 'Dashboard & Analytics', plans: ['personal', 'starter', 'professional', 'enterprise'] },
+                { id: 'transactions', name: 'Transaction Management', plans: ['personal', 'starter', 'professional', 'enterprise'] },
+                { id: 'income', name: 'Income Tracking', plans: ['personal', 'starter', 'professional', 'enterprise'] },
+                { id: 'expenses', name: 'Expense Tracking', plans: ['personal', 'starter', 'professional', 'enterprise'] },
+                { id: 'bills', name: 'Bills Management', plans: ['personal', 'starter', 'professional', 'enterprise'] }
             ]
         },
         accounting: {
             name: 'Accounting',
             icon: 'fa-calculator',
             features: [
-                { id: 'balance-sheet', name: 'Balance Sheet', plans: ['starter', 'business', 'professional', 'enterprise'] },
-                { id: 'monthly-reports', name: 'Monthly Reports', plans: ['starter', 'business', 'professional', 'enterprise'] },
-                { id: 'taxes', name: 'Tax Management', plans: ['business', 'professional', 'enterprise'] },
-                { id: 'bank-reconciliation', name: 'Bank Reconciliation', plans: ['business', 'professional', 'enterprise'] },
-                { id: 'lhdn-export', name: 'LHDN & Audit Export', plans: ['starter', 'business', 'professional', 'enterprise'] }
+                { id: 'balance-sheet', name: 'Balance Sheet', plans: ['starter', 'professional', 'enterprise'] },
+                { id: 'monthly-reports', name: 'Monthly Reports', plans: ['starter', 'professional', 'enterprise'] },
+                { id: 'taxes', name: 'Tax Management', plans: ['professional', 'enterprise'] },
+                { id: 'bank-reconciliation', name: 'Bank Reconciliation', plans: ['professional', 'enterprise'] },
+                { id: 'lhdn-export', name: 'LHDN & Audit Export', plans: ['starter', 'professional', 'enterprise'] }
             ]
         },
         sales: {
             name: 'Sales & CRM',
             icon: 'fa-shopping-cart',
             features: [
-                { id: 'pos', name: 'Point of Sale (POS)', plans: ['starter', 'business', 'professional', 'enterprise'] },
-                { id: 'quotations', name: 'Quotations', plans: ['starter', 'business', 'professional', 'enterprise'] },
-                { id: 'invoices', name: 'Invoices', plans: ['starter', 'business', 'professional', 'enterprise'] },
-                { id: 'orders', name: 'Order Management', plans: ['business', 'professional', 'enterprise'] },
-                { id: 'crm', name: 'Customer Management (CRM)', plans: ['starter', 'business', 'professional', 'enterprise'] },
+                { id: 'pos', name: 'Point of Sale (POS)', plans: ['starter', 'professional', 'enterprise'] },
+                { id: 'quotations', name: 'Quotations', plans: ['starter', 'professional', 'enterprise'] },
+                { id: 'invoices', name: 'Invoices', plans: ['starter', 'professional', 'enterprise'] },
+                { id: 'orders', name: 'Order Management', plans: ['professional', 'enterprise'] },
+                { id: 'crm', name: 'Customer Management (CRM)', plans: ['starter', 'professional', 'enterprise'] },
                 { id: 'einvoice', name: 'E-Invoice (Malaysia)', plans: ['professional', 'enterprise'] },
                 { id: 'email-invoice', name: 'Invoice/Receipt', plans: ['professional', 'enterprise'] }
             ]
@@ -1015,8 +1015,8 @@ function showUpgradePlanModal() {
             name: 'Inventory & Stock',
             icon: 'fa-warehouse',
             features: [
-                { id: 'inventory', name: 'Inventory Management', plans: ['starter', 'business', 'professional', 'enterprise'] },
-                { id: 'stock', name: 'Stock Control', plans: ['business', 'professional', 'enterprise'] },
+                { id: 'inventory', name: 'Inventory Management', plans: ['starter', 'professional', 'enterprise'] },
+                { id: 'stock', name: 'Stock Control', plans: ['professional', 'enterprise'] },
                 { id: 'multi-branch', name: 'Multi-Branch Stock', plans: ['professional', 'enterprise'] }
             ]
         },
@@ -1024,7 +1024,7 @@ function showUpgradePlanModal() {
             name: 'HR & Payroll',
             icon: 'fa-users',
             features: [
-                { id: 'payroll', name: 'Payroll Management', plans: ['business', 'professional', 'enterprise'] },
+                { id: 'payroll', name: 'Payroll Management', plans: ['professional', 'enterprise'] },
                 { id: 'kpi', name: 'KPI Performance', plans: ['professional', 'enterprise'] },
                 { id: 'projects', name: 'Project Management', plans: ['professional', 'enterprise'] }
             ]
@@ -1035,7 +1035,7 @@ function showUpgradePlanModal() {
             features: [
                 { id: 'ai-assistant', name: 'AI Assistant', plans: ['professional', 'enterprise'] },
                 { id: 'chatbot', name: 'AI Chatbot', plans: ['professional', 'enterprise'] },
-                { id: 'backup-restore', name: 'Backup & Restore', plans: ['business', 'professional', 'enterprise'] },
+                { id: 'backup-restore', name: 'Backup & Restore', plans: ['personal', 'starter', 'professional', 'enterprise'] },
                 { id: 'audit-log', name: 'Audit Log', plans: ['enterprise'] },
                 { id: 'api-access', name: 'API Access', plans: ['enterprise'] }
             ]
@@ -1046,7 +1046,6 @@ function showUpgradePlanModal() {
     const planStyles = {
         personal: { color: '#64748b', gradient: 'linear-gradient(135deg, #64748b, #94a3b8)', icon: 'fa-user' },
         starter: { color: '#10b981', gradient: 'linear-gradient(135deg, #047857, #10b981)', icon: 'fa-rocket' },
-        business: { color: '#3b82f6', gradient: 'linear-gradient(135deg, #1e40af, #3b82f6)', icon: 'fa-building' },
         professional: { color: '#8b5cf6', gradient: 'linear-gradient(135deg, #6d28d9, #8b5cf6)', icon: 'fa-briefcase' },
         enterprise: { color: '#f59e0b', gradient: 'linear-gradient(135deg, #0f172a, #1e293b)', icon: 'fa-gem' }
     };
@@ -1339,17 +1338,6 @@ function renderUsageWidget() {
             iconColor: '#c4b5fd',
             title: 'Professional Suite',
             subtitle: 'Advanced features for growing businesses',
-            cardBg: 'rgba(255,255,255,0.1)',
-            textColor: 'white'
-        },
-        business: {
-            gradient: 'linear-gradient(135deg, #1e40af, #3b82f6)',
-            badgeGradient: 'linear-gradient(135deg, #60a5fa, #3b82f6)',
-            badgeText: '#1e40af',
-            icon: 'fa-building',
-            iconColor: '#93c5fd',
-            title: 'Business Suite',
-            subtitle: 'Comprehensive tools for your business',
             cardBg: 'rgba(255,255,255,0.1)',
             textColor: 'white'
         },
@@ -1788,22 +1776,14 @@ function renderPlatformControl() {
         <div class="platform-section">
             <div class="section-header">
                 <h3><i class="fas fa-tags"></i> Pricing Plans</h3>
-                <button class="btn-outline btn-sm" onclick="showAddPlanModal()">
-                    <i class="fas fa-plus"></i> Add Plan
-                </button>
             </div>
             <div class="pricing-plans-grid">
                 ${Object.entries(settings.plans).map(([planId, plan]) => `
                     <div class="pricing-plan-card" style="border-top: 4px solid ${plan.color}">
                         <div class="plan-actions">
-                            <button class="btn-icon" onclick="showEditPlanModal('${planId}')" title="Edit Plan">
+                            <button class="btn-icon" onclick="showEditPlanModal('${planId}')" title="Edit Limits">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            ${planId !== 'free' && planId !== 'starter' ? `
-                            <button class="btn-icon danger" onclick="deletePlan('${planId}')" title="Delete Plan">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            ` : ''}
                         </div>
                         <div class="plan-name" style="color: ${plan.color}">${plan.name}</div>
                         <div class="plan-price">RM ${plan.price}<span>/month</span></div>

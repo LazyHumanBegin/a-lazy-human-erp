@@ -176,23 +176,17 @@ const SCORE_RATINGS = [
 function initializeKPI() {
     loadKPIData();
     
-    // Force load default templates if none exist
+    // Only add default templates if NO templates exist at all
+    // This prevents re-adding defaults that user deleted
     if (kpiTemplates.length === 0) {
         console.log('No KPI templates found, loading defaults...');
         kpiTemplates = [...DEFAULT_KPI_TEMPLATES];
         saveKPITemplates();
     }
     
-    // Ensure all default templates exist (add missing ones)
-    const defaultIds = DEFAULT_KPI_TEMPLATES.map(t => t.id);
-    const existingIds = kpiTemplates.map(t => t.id);
-    
-    DEFAULT_KPI_TEMPLATES.forEach(defaultTemplate => {
-        if (!existingIds.includes(defaultTemplate.id)) {
-            kpiTemplates.push(defaultTemplate);
-        }
-    });
-    saveKPITemplates();
+    // DON'T re-add default templates if user deleted them
+    // The old code was forcing defaults back, undoing user deletions
+    // Now we respect user's choice to delete templates
     
     loadKPITemplates();
     loadKPIOverview();
@@ -261,9 +255,25 @@ function saveKPITemplates() {
     window.kpiTemplates = kpiTemplates;
     localStorage.setItem(KPI_TEMPLATES_KEY, JSON.stringify(kpiTemplates));
     console.log('KPI Templates saved:', kpiTemplates.length);
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    
+    // DIRECT tenant save for deletion persistence
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.kpiTemplates = kpiTemplates;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+    }
+    
+    // CRITICAL: Save timestamp AFTER tenant save (must be newer than tenantData.updatedAt)
+    localStorage.setItem('ezcubic_last_save_timestamp', Date.now().toString());
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
 }
 
@@ -272,9 +282,22 @@ function saveKPIAssignments() {
     window.kpiAssignments = kpiAssignments;
     localStorage.setItem(KPI_ASSIGNMENTS_KEY, JSON.stringify(kpiAssignments));
     console.log('KPI Assignments saved:', kpiAssignments.length);
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    
+    // DIRECT tenant save for deletion persistence
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.kpiAssignments = kpiAssignments;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+    }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
 }
 
@@ -283,9 +306,52 @@ function saveKPIScores() {
     window.kpiScores = kpiScores;
     localStorage.setItem(KPI_SCORES_KEY, JSON.stringify(kpiScores));
     console.log('KPI Scores saved:', kpiScores.length);
-    // Also save to tenant storage for multi-tenant isolation
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    
+    // DIRECT tenant save for deletion persistence
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.kpiScores = kpiScores;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+    }
+    
+    // Trigger cloud sync for deletions
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
+    }
+}
+
+/**
+ * Delete a KPI assignment from overview
+ */
+function deleteKPIAssignment(assignmentId) {
+    const assignment = kpiAssignments.find(a => a.id === assignmentId);
+    if (!assignment) {
+        showNotification('Assignment not found', 'error');
+        return;
+    }
+    
+    if (confirm(`Delete KPI assignment for "${assignment.employeeName}" (${formatPeriod(assignment.period)})?\n\nThis cannot be undone.`)) {
+        // Remove assignment
+        kpiAssignments = kpiAssignments.filter(a => a.id !== assignmentId);
+        saveKPIAssignments();
+        
+        // Also remove related scores
+        kpiScores = kpiScores.filter(s => s.assignmentId !== assignmentId);
+        saveKPIScores();
+        
+        // Update timestamp for merge priority
+        localStorage.setItem('ezcubic_last_save_timestamp', Date.now().toString());
+        
+        // Refresh UI
+        loadKPIOverview();
+        updateKPIStats();
+        
+        showNotification('KPI assignment deleted', 'success');
     }
 }
 
@@ -542,7 +608,15 @@ function loadKPITemplates() {
 
 function deleteKPITemplate(templateId) {
     const template = kpiTemplates.find(t => t.id === templateId);
-    if (!template || template.isDefault) return;
+    if (!template) {
+        showNotification('Template not found', 'error');
+        return;
+    }
+    
+    if (template.isDefault) {
+        showNotification('Cannot delete default templates. Create your own template to customize.', 'warning');
+        return;
+    }
     
     if (confirm(`Delete "${template.name}"? This cannot be undone.`)) {
         kpiTemplates = kpiTemplates.filter(t => t.id !== templateId);
@@ -1380,12 +1454,18 @@ function loadKPIOverview() {
                         <button class="btn-primary" onclick="showScoreKPIModal('${assignment.id}')">
                             <i class="fas fa-edit"></i> Score Now
                         </button>
+                        <button class="btn-icon danger" onclick="deleteKPIAssignment('${assignment.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
                     ` : `
                         <button class="btn-secondary" onclick="showScoreKPIModal('${assignment.id}')">
                             <i class="fas fa-edit"></i> Update
                         </button>
                         <button class="btn-secondary" onclick="viewEmployeePerformance('${assignment.employeeId}')">
                             <i class="fas fa-chart-line"></i> History
+                        </button>
+                        <button class="btn-icon danger" onclick="deleteKPIAssignment('${assignment.id}')" title="Delete">
+                            <i class="fas fa-trash"></i>
                         </button>
                     `}
                 </div>
@@ -2535,6 +2615,7 @@ window.closeKPITemplateModal = closeKPITemplateModal;
 window.saveKPITemplate = saveKPITemplate;
 window.loadKPITemplates = loadKPITemplates;
 window.deleteKPITemplate = deleteKPITemplate;
+window.deleteKPIAssignment = deleteKPIAssignment;
 window.showAssignKPIModal = showAssignKPIModal;
 window.closeAssignKPIModal = closeAssignKPIModal;
 window.assignKPIToEmployee = assignKPIToEmployee;

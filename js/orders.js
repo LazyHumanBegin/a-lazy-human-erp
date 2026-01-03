@@ -30,6 +30,11 @@ function updateOrderStats() {
     
     if (!totalEl) return;
     
+    // CRITICAL: Sync with window.sales to get latest data
+    if (window.sales && window.sales.length > 0) {
+        sales = window.sales;
+    }
+    
     // Exclude voided from completed count
     const completed = sales.filter(s => (s.status === 'completed' || !s.status) && s.status !== 'voided').length;
     const pending = sales.filter(s => s.status === 'pending').length;
@@ -64,6 +69,11 @@ function updatePendingOrdersBadge() {
 function renderOrders() {
     const tbody = document.getElementById('ordersTableBody');
     if (!tbody) return;
+    
+    // CRITICAL: Sync with window.sales to get latest data
+    if (window.sales && window.sales.length > 0) {
+        sales = window.sales;
+    }
     
     const searchTerm = document.getElementById('orderSearch')?.value?.toLowerCase() || '';
     const fromDate = document.getElementById('orderDateFrom')?.value;
@@ -496,10 +506,26 @@ function saveOrderStatus() {
     
     localStorage.setItem(SALES_KEY, JSON.stringify(sales));
     
-    // Sync to tenant storage
+    // DIRECT tenant save for order status updates
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        let tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        tenantData.sales = sales;
+        tenantData.updatedAt = new Date().toISOString();
+        localStorage.setItem(tenantKey, JSON.stringify(tenantData));
+        console.log('✅ Orders saved directly to tenant');
+    }
     window.sales = sales;
-    if (typeof saveToUserTenant === 'function') {
-        saveToUserTenant();
+    
+    // CRITICAL: Save timestamp AFTER tenant save (must be newer than tenantData.updatedAt)
+    localStorage.setItem('ezcubic_last_save_timestamp', Date.now().toString());
+    
+    // Trigger cloud sync
+    if (typeof window.fullCloudSync === 'function') {
+        setTimeout(() => {
+            window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
+        }, 100);
     }
     
     closeModal('updateStatusModal');

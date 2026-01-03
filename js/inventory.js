@@ -66,6 +66,9 @@ function saveProducts() {
     }
     window.products = products;
     
+    // CRITICAL: Save timestamp AFTER tenant save (must be newer than tenantData.updatedAt)
+    localStorage.setItem('ezcubic_last_save_timestamp', Date.now().toString());
+    
     // Trigger cloud sync for deletions
     if (typeof window.fullCloudSync === 'function') {
         setTimeout(() => {
