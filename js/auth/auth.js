@@ -1136,9 +1136,15 @@ function handleRegisterPage(event) {
         
         // Add to users array and save
         users.push(newUser);
-        window.users = users; // Sync back to window
+        window.users = users; // Sync back to window for other modules
         localStorage.setItem('ezcubic_users', JSON.stringify(users));
-        if (typeof saveUsers === 'function') saveUsers();
+        
+        // DEBUG: Verify new user was saved
+        console.log('🔍 [DEBUG] Saved users to localStorage:', users.length, 'users');
+        console.log('🔍 [DEBUG] New user email:', newUser.email);
+        
+        // NOTE: Do NOT call saveUsers() here! It would overwrite our localStorage
+        // with the users.js module's own users array (which doesn't have the new user yet)
         
         // Initialize tenant
         if (typeof window.initializeEmptyTenantData === 'function') {
@@ -1201,22 +1207,49 @@ function handleRegisterPage(event) {
             
             // AUTO CLOUD SYNC: Enable cloud backup immediately after registration
             // This ensures new users' data is backed up from day 1
-            setTimeout(() => {
-                autoEnableCloudSync(newUser, password);
-                console.log('☁️ Cloud sync auto-enabled for new registration');
-                
-                // CRITICAL: Also sync the global users list to cloud
-                // This ensures founder/admin on other devices can see new users
-                setTimeout(() => {
-                    if (typeof forceSyncUsersToCloud === 'function') {
-                        forceSyncUsersToCloud().then(() => {
-                            console.log('☁️ Global users list synced to cloud after registration');
-                        }).catch(err => {
-                            console.warn('Could not sync users to cloud:', err);
-                        });
+            setTimeout(async () => {
+                console.log('🔍 [DEBUG] Starting registration sync flow...');
+                console.log('🔍 [DEBUG] New user:', newUser.username, newUser.email);
+                try {
+                    await autoEnableCloudSync(newUser, password);
+                    console.log('☁️ Cloud sync auto-enabled for new registration');
+                    
+                    // CRITICAL: Also sync the global users list to cloud
+                    // This ensures founder/admin on other devices can see new users
+                    console.log('🔍 [DEBUG] Checking for Supabase SDK...');
+                    console.log('🔍 [DEBUG] window.supabase exists:', !!window.supabase);
+                    console.log('🔍 [DEBUG] window.supabase.createClient exists:', !!window.supabase?.createClient);
+                    
+                    // Wait for Supabase SDK to be ready
+                    let retries = 0;
+                    while (!window.supabase?.createClient && retries < 20) {
+                        console.log('🔍 [DEBUG] Waiting for Supabase SDK, retry', retries + 1);
+                        await new Promise(r => setTimeout(r, 300));
+                        retries++;
                     }
-                }, 1000);
-            }, 500);
+                    
+                    console.log('🔍 [DEBUG] After wait loop - window.supabase.createClient:', !!window.supabase?.createClient);
+                    console.log('🔍 [DEBUG] forceSyncUsersToCloud function exists:', typeof window.forceSyncUsersToCloud);
+                    
+                    if (typeof window.forceSyncUsersToCloud === 'function') {
+                        console.log('🔍 [DEBUG] Calling forceSyncUsersToCloud()...');
+                        try {
+                            const result = await window.forceSyncUsersToCloud();
+                            console.log('🔍 [DEBUG] forceSyncUsersToCloud result:', result);
+                            console.log('☁️ Global users list synced to cloud after registration');
+                        } catch (syncErr) {
+                            console.error('🔍 [DEBUG] forceSyncUsersToCloud error:', syncErr);
+                            console.warn('☁️ Could not sync users to cloud:', syncErr.message);
+                        }
+                    } else {
+                        console.warn('☁️ forceSyncUsersToCloud not available yet');
+                    }
+                } catch (cloudErr) {
+                    console.error('🔍 [DEBUG] Cloud sync error:', cloudErr);
+                    console.warn('☁️ Cloud sync warning:', cloudErr.message);
+                }
+                console.log('🔍 [DEBUG] Registration sync flow completed');
+            }, 1000);
         } catch (err) {
             console.error('Error during post-registration setup:', err);
         }

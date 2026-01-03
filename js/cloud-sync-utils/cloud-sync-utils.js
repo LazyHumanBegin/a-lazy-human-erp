@@ -94,43 +94,164 @@
     // ==================== FORCE SYNC USERS TO CLOUD ====================
     /**
      * Force sync all users to cloud NOW
+     * IMPORTANT: This MERGES local users with cloud users, not replace!
      * Run: forceSyncUsersToCloud()
+     * @param {boolean} silent - If true, suppress alerts (for background sync)
+     * @returns {Object} Result with success status
      */
-    window.forceSyncUsersToCloud = async function() {
-        console.log('☁️ Force syncing users to cloud...');
+    window.forceSyncUsersToCloud = async function(silent = true) {
+        console.log('☁️ Force syncing users to cloud (MERGE mode)...');
+        console.log('🔍 [SYNC DEBUG] Function called, silent:', silent);
         
         try {
-            if (!window.supabase?.createClient) {
-                alert('❌ Supabase SDK not loaded');
-                return;
+            // Wait for Supabase SDK to be ready
+            console.log('🔍 [SYNC DEBUG] Checking Supabase SDK availability...');
+            let retries = 0;
+            while (!window.supabase?.createClient && retries < 20) {
+                console.log('🔍 [SYNC DEBUG] SDK not ready, waiting... retry', retries + 1);
+                await new Promise(r => setTimeout(r, 300));
+                retries++;
             }
             
+            if (!window.supabase?.createClient) {
+                const msg = 'Supabase SDK not loaded';
+                console.error('❌ [SYNC DEBUG]', msg);
+                if (!silent) alert('❌ ' + msg);
+                return { success: false, error: msg };
+            }
+            
+            console.log('🔍 [SYNC DEBUG] Supabase SDK ready, getting client...');
             const client = getUsersSupabaseClient();
-            const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+            console.log('🔍 [SYNC DEBUG] Client obtained:', !!client);
+            console.log('🔍 [SYNC DEBUG] Client from() method:', typeof client?.from);
+            if (!client) {
+                const msg = 'Could not get Supabase client';
+                console.error('❌ [SYNC DEBUG]', msg);
+                if (!silent) alert('❌ ' + msg);
+                return { success: false, error: msg };
+            }
+            
+            // STEP 1: Download existing cloud users first (to merge, not replace!)
+            console.log('🔍 [SYNC DEBUG] STEP 1: Downloading cloud users...');
+            let cloudUsers = [];
+            let cloudTenants = {};
+            
+            try {
+                console.log('🔍 [SYNC DEBUG] Querying tenant_data table...');
+                const queryResult = await client
+                    .from('tenant_data')
+                    .select('*')
+                    .eq('tenant_id', 'global');
+                    
+                console.log('🔍 [SYNC DEBUG] Raw query result:', queryResult);
+                const { data: cloudData, error: downloadError } = queryResult;
+                
+                console.log('🔍 [SYNC DEBUG] Cloud download result:', { dataLength: cloudData?.length, error: downloadError });
+                
+                if (downloadError) {
+                    console.error('🔍 [SYNC DEBUG] Download error:', downloadError);
+                }
+                
+                if (!downloadError && cloudData) {
+                    console.log('🔍 [SYNC DEBUG] Processing', cloudData.length, 'cloud records...');
+                    for (const record of cloudData) {
+                        console.log('🔍 [SYNC DEBUG] Record data_key:', record.data_key);
+                        if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                            cloudUsers = record.data.value;
+                            console.log('  ☁️ Cloud users found:', cloudUsers.length);
+                            console.log('  ☁️ Cloud user emails:', cloudUsers.map(u => u.email));
+                        }
+                        if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
+                            cloudTenants = record.data.value;
+                            console.log('  ☁️ Cloud tenants found:', Object.keys(cloudTenants).length);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('  ⚠️ Could not fetch cloud data for merge:', e);
+                console.warn('  ⚠️ Error message:', e.message);
+            }
+            
+            // STEP 2: Merge local users with cloud users
+            console.log('🔍 [SYNC DEBUG] STEP 2: Merging local and cloud users...');
+            
+            // DEBUG: Check raw localStorage
+            const rawLocalUsers = localStorage.getItem('ezcubic_users');
+            console.log('🔍 [SYNC DEBUG] RAW localStorage ezcubic_users:', rawLocalUsers);
+            
+            const localUsers = JSON.parse(rawLocalUsers || '[]');
             const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
             
-            console.log('  Local users:', localUsers.length);
-            console.log('  Local tenants:', Object.keys(localTenants).length);
+            console.log('  📱 Local users:', localUsers.length);
+            console.log('  📱 Local tenants:', Object.keys(localTenants).length);
+            console.log('🔍 [SYNC DEBUG] Local users FULL DATA:');
+            localUsers.forEach((u, i) => {
+                console.log(`  [${i}] email: ${u.email}, role: ${u.role}, id: ${u.id}`);
+            });
             
-            // Sync users
+            // Create merged users map (use email as unique key)
+            const mergedUsersMap = new Map();
+            
+            // Add cloud users first
+            console.log('🔍 [SYNC DEBUG] Adding cloud users to map...');
+            cloudUsers.forEach(u => {
+                if (u.email) mergedUsersMap.set(u.email, u);
+                else if (u.id) mergedUsersMap.set(u.id, u);
+            });
+            
+            // Add/update with local users (local is newer)
+            console.log('🔍 [SYNC DEBUG] Merging local users into map...');
+            localUsers.forEach(u => {
+                const key = u.email || u.id;
+                const existing = mergedUsersMap.get(key);
+                if (!existing) {
+                    // New user from local - add to cloud
+                    mergedUsersMap.set(key, u);
+                    console.log('  ➕ Adding new user to cloud:', u.email);
+                } else {
+                    // Existing user - merge (prefer local if updated more recently)
+                    const localTime = new Date(u.updatedAt || u.createdAt || 0).getTime();
+                    const cloudTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+                    if (localTime >= cloudTime) {
+                        mergedUsersMap.set(key, { ...existing, ...u });
+                    }
+                }
+            });
+            
+            const mergedUsers = Array.from(mergedUsersMap.values());
+            console.log('  🔄 Merged users total:', mergedUsers.length);
+            console.log('🔍 [SYNC DEBUG] Merged users emails:', mergedUsers.map(u => u.email));
+            
+            // Merge tenants
+            const mergedTenants = { ...cloudTenants, ...localTenants };
+            console.log('  🔄 Merged tenants total:', Object.keys(mergedTenants).length);
+            
+            // STEP 3: Upload merged data to cloud
+            console.log('🔍 [SYNC DEBUG] STEP 3: Uploading to cloud...');
+            console.log('🔍 [SYNC DEBUG] Preparing upsert with', mergedUsers.length, 'users');
+            
             const { error: usersError } = await client.from('tenant_data').upsert({
                 tenant_id: 'global',
                 data_key: 'ezcubic_users',
-                data: { key: 'ezcubic_users', value: localUsers, synced_at: new Date().toISOString() },
+                data: { key: 'ezcubic_users', value: mergedUsers, synced_at: new Date().toISOString() },
                 updated_at: new Date().toISOString()
             }, { onConflict: 'tenant_id,data_key' });
             
+            console.log('🔍 [SYNC DEBUG] Upsert result - error:', usersError);
+            
             if (usersError) {
                 console.error('❌ Users sync failed:', usersError.message);
-                alert('❌ Users sync failed: ' + usersError.message);
-                return;
+                if (!silent) alert('❌ Users sync failed: ' + usersError.message);
+                return { success: false, error: usersError.message };
             }
+            
+            console.log('🔍 [SYNC DEBUG] Users uploaded successfully!');
             
             // Sync tenants
             const { error: tenantsError } = await client.from('tenant_data').upsert({
                 tenant_id: 'global',
                 data_key: 'ezcubic_tenants',
-                data: { key: 'ezcubic_tenants', value: localTenants, synced_at: new Date().toISOString() },
+                data: { key: 'ezcubic_tenants', value: mergedTenants, synced_at: new Date().toISOString() },
                 updated_at: new Date().toISOString()
             }, { onConflict: 'tenant_id,data_key' });
             
@@ -138,15 +259,22 @@
                 console.error('❌ Tenants sync failed:', tenantsError.message);
             }
             
-            console.log('✅ Synced to cloud!');
-            console.log('  Users:', localUsers.length);
-            console.log('  Tenants:', Object.keys(localTenants).length);
-            // Silent sync - no alert
-            // alert('✅ Synced ' + localUsers.length + ' users and ' + Object.keys(localTenants).length + ' tenants to cloud!');
+            // STEP 4: Update local storage with merged data too
+            console.log('🔍 [SYNC DEBUG] STEP 4: Updating local storage...');
+            localStorage.setItem('ezcubic_users', JSON.stringify(mergedUsers));
+            localStorage.setItem('ezcubic_tenants', JSON.stringify(mergedTenants));
+            
+            console.log('✅ Merged & synced to cloud!');
+            console.log('  Users:', mergedUsers.length);
+            console.log('  Tenants:', Object.keys(mergedTenants).length);
+            console.log('🔍 [SYNC DEBUG] Sync completed successfully');
+            
+            return { success: true, users: mergedUsers.length, tenants: Object.keys(mergedTenants).length };
             
         } catch (err) {
             console.error('❌ Sync error:', err);
-            alert('❌ Error: ' + err.message);
+            if (!silent) alert('❌ Error: ' + err.message);
+            return { success: false, error: err.message };
         }
     };
     

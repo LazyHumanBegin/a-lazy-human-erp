@@ -261,21 +261,30 @@ function checkSubscriptionStatus(tenantId) {
 // Tracks last sync to prevent excessive API calls
 let lastPlatformUserSync = 0;
 const PLATFORM_SYNC_INTERVAL = 30000; // 30 seconds minimum between syncs
+let platformSyncInProgress = false; // Prevent concurrent syncs
 
 async function autoSyncPlatformUsers() {
     const currentUser = window.currentUser || JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
     
     // Only auto-sync for founder/erp_assistant
     if (currentUser.role !== 'founder' && currentUser.role !== 'erp_assistant') {
-        return;
+        return false;
+    }
+    
+    // Prevent concurrent syncs
+    if (platformSyncInProgress) {
+        console.log('☁️ Platform sync already in progress');
+        return false;
     }
     
     // Rate limit: only sync once every 30 seconds
     const now = Date.now();
     if (now - lastPlatformUserSync < PLATFORM_SYNC_INTERVAL) {
         console.log('☁️ Platform sync skipped (rate limited)');
-        return;
+        return false;
     }
+    
+    platformSyncInProgress = true;
     lastPlatformUserSync = now;
     
     console.log('☁️ Auto-syncing platform users for founder...');
@@ -292,7 +301,8 @@ async function autoSyncPlatformUsers() {
             
             if (error) {
                 console.warn('☁️ Auto-sync failed:', error.message);
-                return;
+                platformSyncInProgress = false;
+                return false;
             }
             
             let usersUpdated = false;
@@ -340,16 +350,30 @@ async function autoSyncPlatformUsers() {
                 }
             }
             
-            // Only show toast if something was updated
+            // Re-render Platform Control if data was updated
             if (usersUpdated || tenantsUpdated) {
                 if (typeof showToast === 'function') {
-                    showToast('☁️ Platform data synced from cloud', 'info');
+                    showToast('☁️ New users synced from cloud', 'info');
                 }
+                // Important: Schedule re-render after current render completes
+                setTimeout(() => {
+                    const container = document.getElementById('platformControlContent');
+                    if (container) {
+                        // Re-render will not trigger another sync due to rate limiting
+                        renderPlatformControl();
+                    }
+                }, 100);
             }
+            
+            platformSyncInProgress = false;
+            return usersUpdated || tenantsUpdated;
         }
     } catch (err) {
         console.warn('☁️ Auto-sync error:', err.message);
     }
+    
+    platformSyncInProgress = false;
+    return false;
 }
 window.autoSyncPlatformUsers = autoSyncPlatformUsers;
 
