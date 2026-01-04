@@ -2256,15 +2256,30 @@ function executeChangePlan(tenantId) {
 function syncUserToNewPlan(tenantId, newPlanId) {
     const settings = getPlatformSettings();
     const plan = settings.plans[newPlanId];
-    if (!plan) return;
+    if (!plan) {
+        console.error('❌ Plan not found:', newPlanId);
+        return;
+    }
     
+    // Read fresh from localStorage to ensure we have latest data
     const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
     const newFeatures = plan.features.includes('all') ? ['all'] : [...plan.features];
+    
+    // Find users belonging to this tenant
+    const tenantUsers = allUsers.filter(u => u.tenantId === tenantId);
+    console.log('👥 Found', tenantUsers.length, 'users in tenant', tenantId);
+    
+    if (tenantUsers.length === 0) {
+        console.warn('⚠️ No users found for tenant:', tenantId);
+        showToast('No users found for this tenant', 'warning');
+        return;
+    }
     
     // Determine if upgrading TO or FROM personal plan
     const isUpgradingToBusinessPlan = newPlanId !== 'personal' && ['starter', 'professional', 'premium'].includes(newPlanId);
     const isDowngradingToPersonal = newPlanId === 'personal';
     
+    let updatedCount = 0;
     allUsers.forEach(user => {
         if (user.tenantId !== tenantId) return; // Skip users from other tenants
         
@@ -2274,6 +2289,7 @@ function syncUserToNewPlan(tenantId, newPlanId) {
             user.plan = newPlanId;
             user.permissions = newFeatures;
             user.updatedAt = new Date().toISOString();
+            updatedCount++;
             console.log(`🔼 Upgraded ${user.email} from personal to business_admin with ${newPlanId} plan:`, user.permissions);
         }
         // Handle Business Admin downgrading to Personal plan
@@ -2284,6 +2300,7 @@ function syncUserToNewPlan(tenantId, newPlanId) {
             const personalPlan = settings.plans['personal'];
             user.permissions = personalPlan?.features || ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot'];
             user.updatedAt = new Date().toISOString();
+            updatedCount++;
             console.log(`🔽 Downgraded ${user.email} from business_admin to personal`);
         }
         // Handle Business Admin's plan change (no role change)
@@ -2291,6 +2308,7 @@ function syncUserToNewPlan(tenantId, newPlanId) {
             user.plan = newPlanId;
             user.permissions = newFeatures;
             user.updatedAt = new Date().toISOString();
+            updatedCount++;
             console.log(`Updated ${user.email} to ${newPlanId} plan:`, user.permissions);
         }
         // Update Staff/Manager permissions - remove features no longer in plan
@@ -2300,12 +2318,23 @@ function syncUserToNewPlan(tenantId, newPlanId) {
                 user.permissions = user.permissions.filter(p => newFeatures.includes(p));
             }
             user.updatedAt = new Date().toISOString();
+            updatedCount++;
             console.log(`Updated staff ${user.email} to ${newPlanId} plan, permissions:`, user.permissions);
+        }
+        // Catch-all: Update any other user in this tenant (should not normally happen)
+        else {
+            user.plan = newPlanId;
+            user.updatedAt = new Date().toISOString();
+            updatedCount++;
+            console.log(`Updated ${user.email} (${user.role}) to ${newPlanId} plan`);
         }
     });
     
+    console.log('✅ Updated', updatedCount, 'users to plan', newPlanId);
+    
     // Save to localStorage
     localStorage.setItem('ezcubic_users', JSON.stringify(allUsers));
+    console.log('💾 Saved', allUsers.length, 'users to localStorage');
     
     // Also update the global users array
     if (window.users) {

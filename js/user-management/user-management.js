@@ -66,11 +66,22 @@
         // CRITICAL: Always read fresh users from localStorage to ensure we have latest data
         // This fixes issues where plan changes don't reflect until page refresh
         const freshUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        
+        // Filter out deleted users and users from deleted tenants
+        const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+        
+        const activeUsers = freshUsers.filter(u => {
+            const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+            const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+            return !isUserDeleted && !isTenantDeleted;
+        });
+        
         if (window.users) {
-            window.users = freshUsers;
+            window.users = activeUsers;
         }
-        // Use fresh data
-        const users = freshUsers;
+        // Use filtered data
+        const users = activeUsers;
         
         // Determine which roles to show based on current user's role
         let visibleRoles = [];

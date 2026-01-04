@@ -295,13 +295,41 @@
     
     /**
      * Generate branch access selector HTML (only shows if 2+ branches exist)
+     * IMPORTANT: Only shows branches belonging to the user's tenant, not founder's branches
      */
     function generateBranchAccessHTML() {
+        // Get the user being edited to determine which tenant's branches to show
+        const currentUser = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
+        const currentTenantId = currentUser.tenantId;
+        
         // Get branches from window.branches OR localStorage
-        let branches = window.branches || [];
-        if (!Array.isArray(branches) || branches.length === 0) {
-            branches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
+        let allBranches = window.branches || [];
+        if (!Array.isArray(allBranches) || allBranches.length === 0) {
+            allBranches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
         }
+        
+        // Filter branches to only show those belonging to the current tenant
+        // Founder sees all, but when editing other users, only show that tenant's branches
+        const branches = allBranches.filter(b => {
+            // If no tenant filter, show all (founder editing)
+            if (!currentTenantId || currentUser.role === 'founder') {
+                // But still filter - only show branches that match the user being edited's tenant
+                // Get the user being edited from the form if available
+                const editUserForm = document.getElementById('editUserForm');
+                if (editUserForm) {
+                    const editingUserId = editUserForm.dataset?.userId;
+                    if (editingUserId) {
+                        const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                        const editingUser = users.find(u => u.id === editingUserId);
+                        if (editingUser?.tenantId) {
+                            return b.tenantId === editingUser.tenantId;
+                        }
+                    }
+                }
+                return true; // Founder with no specific user context sees all
+            }
+            return b.tenantId === currentTenantId;
+        });
         
         console.log('🏢 generateBranchAccessHTML - branches found:', branches.length, branches.map(b => b.name));
         
