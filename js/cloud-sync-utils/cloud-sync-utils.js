@@ -407,11 +407,13 @@
             const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
             const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
             
-            // Filter out deleted users from upload
+            // Filter out deleted users AND users from deleted tenants from upload
             const cleanUsers = localUsers.filter(u => {
-                const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
-                if (isDeleted) console.log('  🗑️ Filtering out deleted user:', u.email);
-                return !isDeleted;
+                const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+                if (isUserDeleted) console.log('  🗑️ Filtering out deleted user:', u.email);
+                if (isTenantDeleted) console.log('  🗑️ Filtering out user from deleted tenant:', u.email);
+                return !isUserDeleted && !isTenantDeleted;
             });
             
             // Filter out deleted tenants from upload
@@ -452,6 +454,30 @@
                 return { success: false, error: tenantsError.message };
             }
             
+            // Also upload subscriptions (filter out deleted tenants)
+            const localSubscriptions = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+            const cleanSubscriptions = { ...localSubscriptions };
+            deletedTenants.forEach(tenantId => {
+                if (cleanSubscriptions[tenantId]) {
+                    console.log('  🗑️ Filtering out subscription for deleted tenant:', tenantId);
+                    delete cleanSubscriptions[tenantId];
+                }
+            });
+            
+            const { error: subsError } = await client.from('tenant_data').upsert({
+                tenant_id: 'global',
+                data_key: 'ezcubic_subscriptions',
+                data: { key: 'ezcubic_subscriptions', value: cleanSubscriptions, synced_at: new Date().toISOString() },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+            
+            if (subsError) {
+                console.warn('⚠️ Subscriptions upload failed:', subsError.message);
+                // Don't fail the whole operation for subscriptions
+            } else {
+                console.log('  📤 Subscriptions uploaded');
+            }
+            
             console.log('✅ Direct upload successful!');
             
             // Also delete the tenant's data from cloud if any tenant was deleted
@@ -466,11 +492,10 @@
                 }
             }
             
-            // Clear deletion tracking after successful sync
-            // The deleted items are now removed from cloud, so we don't need to track them anymore
-            console.log('  🧹 Clearing deletion tracking...');
-            localStorage.removeItem('ezcubic_deleted_users');
-            localStorage.removeItem('ezcubic_deleted_tenants');
+            // DO NOT clear deletion tracking here!
+            // Keep it until the user explicitly clears it or a certain time has passed
+            // This ensures deleted items stay deleted even after refresh
+            console.log('  ℹ️ Keeping deletion tracking for safety');
             
             return { success: true, users: cleanUsers.length, tenants: Object.keys(cleanTenants).length };
             
@@ -621,6 +646,28 @@
                     
                     localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
                     tenantsDownloaded = Object.keys(localTenants).length;
+                }
+                
+                // Also sync subscriptions (filter deleted tenants)
+                if (record.data_key === 'ezcubic_subscriptions' && record.data?.value) {
+                    const cloudSubs = record.data.value;
+                    const localSubs = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+                    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+                    
+                    // Merge: filter out deleted tenant subscriptions
+                    Object.entries(cloudSubs).forEach(([tenantId, sub]) => {
+                        if (!deletedTenants.includes(tenantId)) {
+                            localSubs[tenantId] = sub;
+                        } else {
+                            console.log('  🗑️ Skipping subscription for deleted tenant:', tenantId);
+                        }
+                    });
+                    
+                    // Also remove any local subscriptions for deleted tenants
+                    deletedTenants.forEach(tenantId => delete localSubs[tenantId]);
+                    
+                    localStorage.setItem('ezcubic_subscriptions', JSON.stringify(localSubs));
+                    console.log('  Subscriptions synced');
                 }
             }
             

@@ -3557,6 +3557,31 @@ window.downloadUsersFromCloud = async function() {
             localStorage.setItem('ezcubic_tenants', JSON.stringify(mergedTenants));
             console.log('🏢 Tenants merged from cloud');
         }
+        
+        // Also handle subscriptions
+        if (record.data_key === 'ezcubic_subscriptions' && record.data?.value) {
+            const cloudSubs = record.data.value;
+            const localSubs = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+            
+            // Filter out deleted tenant subscriptions
+            const filteredCloudSubs = {};
+            Object.entries(cloudSubs).forEach(([id, sub]) => {
+                if (!deletedTenants.includes(id)) {
+                    filteredCloudSubs[id] = sub;
+                } else {
+                    console.log('⏭️ Skipping subscription for deleted tenant:', id);
+                }
+            });
+            
+            // Merge subscriptions
+            const mergedSubs = { ...localSubs, ...filteredCloudSubs };
+            
+            // Also filter out any deleted tenants from merged result
+            deletedTenants.forEach(id => delete mergedSubs[id]);
+            
+            localStorage.setItem('ezcubic_subscriptions', JSON.stringify(mergedSubs));
+            console.log('📦 Subscriptions merged from cloud');
+        }
     }
 };
 
