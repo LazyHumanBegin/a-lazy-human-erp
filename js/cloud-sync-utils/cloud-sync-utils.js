@@ -393,7 +393,7 @@
         console.log('📤 Direct uploading users to cloud (no merge)...');
         
         try {
-            const client = await getSupabaseClient();
+            const client = getUsersSupabaseClient();
             if (!client) {
                 console.error('❌ Cannot direct upload: No Supabase client');
                 return { success: false, error: 'No Supabase client' };
@@ -404,11 +404,30 @@
             const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
             
             // Get deleted lists to filter them out
-            const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
-            const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            let deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            let deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            // CRITICAL: Remove founder from deletion lists - founder should NEVER be deleted
+            const founderProtected = ['founder_001', 'founder@ezcubic.com', 'jeremy.tanchh@gmail.com'];
+            const founderTenantProtected = ['tenant_founder'];
+            
+            const originalDeletedCount = deletedUsers.length;
+            deletedUsers = deletedUsers.filter(id => !founderProtected.includes(id));
+            deletedTenants = deletedTenants.filter(id => !founderTenantProtected.includes(id));
+            
+            if (deletedUsers.length !== originalDeletedCount) {
+                console.log('⚠️ Removed founder from deletion list - founder cannot be deleted!');
+                localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+                localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+            }
             
             // Filter out deleted users AND users from deleted tenants from upload
+            // BUT never filter out founder!
             const cleanUsers = localUsers.filter(u => {
+                // Never filter out founder
+                if (u.role === 'founder' || founderProtected.includes(u.id) || founderProtected.includes(u.email)) {
+                    return true;
+                }
                 const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
                 const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
                 if (isUserDeleted) console.log('  🗑️ Filtering out deleted user:', u.email);
@@ -416,10 +435,10 @@
                 return !isUserDeleted && !isTenantDeleted;
             });
             
-            // Filter out deleted tenants from upload
+            // Filter out deleted tenants from upload (but never founder tenant)
             const cleanTenants = { ...localTenants };
             deletedTenants.forEach(tenantId => {
-                if (cleanTenants[tenantId]) {
+                if (cleanTenants[tenantId] && !founderTenantProtected.includes(tenantId)) {
                     console.log('  🗑️ Filtering out deleted tenant:', tenantId);
                     delete cleanTenants[tenantId];
                 }
