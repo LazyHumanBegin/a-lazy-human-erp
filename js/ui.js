@@ -53,8 +53,8 @@ function showSection(sectionId) {
         updateMalaysianTaxEstimator();
         setTimeout(calculatePersonalTax, 100);
     } else if (sectionId === 'ai-chatbot') {
-        updateRecentChatPreview();
-        showChatbot();
+        if (typeof updateRecentChatPreview === 'function') updateRecentChatPreview();
+        // Don't auto-show floating chatbot - user can click the toggle button
     }
     // Phase 2: Operational Core sections
     else if (sectionId === 'inventory') {

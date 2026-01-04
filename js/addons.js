@@ -1872,10 +1872,10 @@ function initAddons() {
     // Init keyboard shortcuts
     initKeyboardShortcuts();
     
-    // Init quick add button (after small delay for page load)
-    setTimeout(() => {
-        initQuickAddButton();
-    }, 1000);
+    // Quick Add button removed - using AI chatbot instead
+    // setTimeout(() => {
+    //     initQuickAddButton();
+    // }, 1000);
     
     // Check reminders on login (after 3 seconds)
     setTimeout(() => {

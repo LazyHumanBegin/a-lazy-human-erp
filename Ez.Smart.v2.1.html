@@ -6857,11 +6857,6 @@
     </div>
     </div> <!-- Close main-content -->
 
-    <!-- Keyboard Shortcut Hint -->
-    <div class="keyboard-hint" onclick="showKeyboardShortcuts()" title="Click for all shortcuts">
-        <i class="fas fa-keyboard"></i> <kbd>Ctrl</kbd>+<kbd>I</kbd> Income | <kbd>Ctrl</kbd>+<kbd>E</kbd> Expense
-    </div>
-
     <!-- Modular JavaScript Files - v2.4.1 -->
     <script src="js/core.js?v=2032001"></script>
     <script src="js/data.js?v=2032001"></script>
@@ -7094,5 +7089,293 @@
             deferredPrompt = null;
         });
     </script>
+
+    <!-- AI Chatbot Popup Container -->
+    <div id="aiChatbotContainer" class="ai-chatbot-container">
+        <div class="chatbot-header">
+            <div class="chatbot-title">
+                <i class="fas fa-robot"></i>
+                <span>EZ Assistant</span>
+                <span class="ai-badge">AI</span>
+            </div>
+            <div class="chatbot-actions">
+                <button onclick="clearChatHistory()" title="Clear History">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button onclick="toggleChatbot()" title="Minimize">
+                    <i class="fas fa-minus"></i>
+                </button>
+            </div>
+        </div>
+        <div class="chatbot-messages" id="chatbotMessages">
+            <div class="chatbot-message bot">
+                <div class="message-content">
+                    <div class="message-avatar">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="message-text">
+                        Hello! I'm your EZ Assistant powered by AI. I can help you with:
+                        <ul style="margin-top: 8px; padding-left: 16px; font-size: 13px;">
+                            <li>Business analytics & insights</li>
+                            <li>Malaysian tax & accounting</li>
+                            <li>Financial reports analysis</li>
+                            <li>SST, LHDN compliance</li>
+                        </ul>
+                        How can I help you today?
+                    </div>
+                </div>
+                <div class="message-time">Just now</div>
+            </div>
+        </div>
+        <div class="chatbot-quick-actions">
+            <button onclick="askQuickQuestion('What is my profit this month?')">📊 My Profit</button>
+            <button onclick="askQuickQuestion('Who are my top customers?')">👥 Top Customers</button>
+            <button onclick="askQuickQuestion('Any low stock items?')">📦 Low Stock</button>
+        </div>
+        <div class="chatbot-input-area">
+            <input type="text" id="chatbotInput" placeholder="Ask me anything..." onkeypress="handleChatbotKeyPress(event)">
+            <button onclick="sendChatMessage()" class="send-btn">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Chatbot Toggle Button (floating) -->
+    <button id="chatbotToggleBtn" class="chatbot-toggle-btn" onclick="toggleChatbot()">
+        <i class="fas fa-robot"></i>
+        <span id="chatbotNotification" class="chatbot-notification" style="display: none;">0</span>
+    </button>
+
+    <style>
+        /* AI Chatbot Styles */
+        .ai-chatbot-container {
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 380px;
+            max-height: 550px;
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            display: none;
+            flex-direction: column;
+            z-index: 10000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            overflow: hidden;
+        }
+        .ai-chatbot-container.active {
+            display: flex;
+        }
+        .ai-chatbot-container.minimized {
+            max-height: 50px;
+        }
+        .ai-chatbot-container.minimized .chatbot-messages,
+        .ai-chatbot-container.minimized .chatbot-input-area,
+        .ai-chatbot-container.minimized .chatbot-quick-actions {
+            display: none;
+        }
+        .chatbot-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+        }
+        .chatbot-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+        .chatbot-title .ai-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .chatbot-actions button {
+            background: rgba(255,255,255,0.1);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-left: 4px;
+        }
+        .chatbot-actions button:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        .chatbot-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            max-height: 350px;
+        }
+        .chatbot-message {
+            margin-bottom: 16px;
+        }
+        .chatbot-message .message-content {
+            display: flex;
+            gap: 10px;
+        }
+        .chatbot-message.user .message-content {
+            flex-direction: row-reverse;
+        }
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .chatbot-message.bot .message-avatar {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            color: white;
+        }
+        .chatbot-message.user .message-avatar {
+            background: #10b981;
+            color: white;
+        }
+        .message-text {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 14px;
+            border-radius: 12px;
+            color: #f1f5f9;
+            font-size: 14px;
+            line-height: 1.5;
+            max-width: 85%;
+        }
+        .chatbot-message.user .message-text {
+            background: #3b82f6;
+            color: white;
+        }
+        .message-time {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+            margin-left: 42px;
+        }
+        .chatbot-message.user .message-time {
+            text-align: right;
+            margin-right: 42px;
+            margin-left: 0;
+        }
+        .chatbot-quick-actions {
+            padding: 8px 16px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .chatbot-quick-actions button {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            color: #93c5fd;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .chatbot-quick-actions button:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+        .chatbot-input-area {
+            display: flex;
+            padding: 12px 16px;
+            gap: 8px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .chatbot-input-area input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 10px 16px;
+            color: white;
+            font-size: 14px;
+        }
+        .chatbot-input-area input::placeholder {
+            color: #64748b;
+        }
+        .chatbot-input-area .send-btn {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .chatbot-input-area .send-btn:hover {
+            transform: scale(1.05);
+        }
+        .chatbot-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .chatbot-toggle-btn:hover {
+            transform: scale(1.1);
+        }
+        .chatbot-notification {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            font-size: 11px;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 8px 0;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #64748b;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-8px); }
+        }
+        @media (max-width: 480px) {
+            .ai-chatbot-container {
+                width: calc(100% - 20px);
+                right: 10px;
+                bottom: 80px;
+                max-height: 70vh;
+            }
+        }
+    </style>
 </body>
 </html>

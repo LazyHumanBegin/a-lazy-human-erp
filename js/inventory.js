@@ -42,14 +42,40 @@ function loadInventoryBranchFilter() {
 
 // ==================== PRODUCT CRUD ====================
 function loadProducts() {
+    // PRIORITY 1: Load from tenant storage directly (most reliable)
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        if (Array.isArray(tenantData.products)) {
+            products = tenantData.products;
+            window.products = products;
+            console.log('✅ Products loaded from tenant:', products.length);
+            renderProducts();
+            return;
+        }
+    }
+    
+    // PRIORITY 2: Sync from window in case tenant data was loaded
+    if (Array.isArray(window.products) && window.products.length > 0) {
+        products = window.products;
+        console.log('✅ Products loaded from window:', products.length);
+        renderProducts();
+        return;
+    }
+    
+    // PRIORITY 3: Load from localStorage
     const stored = localStorage.getItem(PRODUCTS_KEY);
     if (stored) {
         products = JSON.parse(stored);
     }
+    window.products = products;
+    console.log('✅ Products loaded from localStorage:', products.length);
     renderProducts();
 }
 
-function saveProducts() {
+// Sync version - saves locally without triggering cloud sync
+function saveProductsSync() {
     localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
     updateInventoryStats();
     updateLowStockBadge();
@@ -66,10 +92,15 @@ function saveProducts() {
     }
     window.products = products;
     
-    // CRITICAL: Save timestamp AFTER tenant save (must be newer than tenantData.updatedAt)
-    localStorage.setItem('ezcubic_last_save_timestamp', Date.now().toString());
+    // CRITICAL: Save timestamp with margin to ensure local wins over cloud
+    // Add 5 seconds margin so local is definitely "newer" than any pending cloud data
+    localStorage.setItem('ezcubic_last_save_timestamp', (Date.now() + 5000).toString());
+}
+
+function saveProducts() {
+    saveProductsSync();
     
-    // Trigger cloud sync for deletions
+    // Trigger cloud sync in background (for adds/edits)
     if (typeof window.fullCloudSync === 'function') {
         setTimeout(() => {
             window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
@@ -375,7 +406,7 @@ function saveProduct(event) {
     closeModal('productModal');
 }
 
-function deleteProduct(productId) {
+async function deleteProduct(productId) {
     const product = products.find(p => p.id === productId);
     if (!product) return;
     
@@ -386,7 +417,8 @@ function deleteProduct(productId) {
         products = products.filter(p => p.id !== productId);
         stockMovements = stockMovements.filter(m => m.productId !== productId);
         
-        saveProducts();
+        // Save locally first
+        saveProductsSync(); // Use sync version without cloud trigger
         localStorage.setItem(STOCK_MOVEMENTS_KEY, JSON.stringify(stockMovements));
         
         // Record audit log for product deletion
@@ -410,7 +442,18 @@ function deleteProduct(productId) {
         }
         
         renderProducts();
-        showToast('Product deleted successfully!', 'info');
+        showToast('Product deleted - syncing...', 'info');
+        
+        // CRITICAL: Await cloud sync for deletions to prevent old data from restoring
+        if (typeof window.fullCloudSync === 'function') {
+            try {
+                await window.fullCloudSync();
+                showToast('Product deleted & synced!', 'success');
+            } catch (e) {
+                console.warn('Cloud sync failed:', e);
+                showToast('Deleted locally (cloud sync pending)', 'warning');
+            }
+        }
     }
 }
 

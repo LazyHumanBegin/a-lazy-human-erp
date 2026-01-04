@@ -216,51 +216,72 @@ async function downloadTenantFromCloud(tenantId) {
                                 (cloudData.transactions?.length > 0) ||
                                 (cloudData.sales?.length > 0);
             
+            // CRITICAL: Check if local has FEWER products (indicating deletion)
+            const localProductCount = localTenantData.products?.length || 0;
+            const cloudProductCount = cloudData.products?.length || 0;
+            const localHasDeletions = localProductCount < cloudProductCount;
+            
             console.log('☁️ Cloud download - data check:', {
                 localTimestamp: localUpdatedAt,
                 cloudTimestamp: cloudUpdatedAt,
                 localNewer: localUpdatedAt > cloudUpdatedAt,
                 localHasData,
                 cloudHasData,
-                localProducts: localTenantData.products?.length || 0,
-                cloudProducts: cloudData.products?.length || 0
+                localProducts: localProductCount,
+                cloudProducts: cloudProductCount,
+                localHasDeletions
             });
             
-            // CRITICAL FIX: Only prefer local if it ACTUALLY has data
-            // If local has no data but cloud does, always use cloud (regardless of timestamp)
-            const shouldPreferLocal = localUpdatedAt > cloudUpdatedAt && localHasData;
+            // CRITICAL FIX: Prefer local if:
+            // 1. Local timestamp is newer (or equal with margin), OR
+            // 2. Local has fewer items (deletions happened)
+            // Only use cloud if local has NO data at all
+            const shouldPreferLocal = (localUpdatedAt >= cloudUpdatedAt && localHasData) || 
+                                      (localHasDeletions && localUpdatedAt > 0);
             
             if (shouldPreferLocal) {
-                console.log('☁️ LOCAL DATA IS NEWER AND HAS DATA - preserving local changes');
+                console.log('☁️ LOCAL DATA IS NEWER OR HAS DELETIONS - preserving local changes');
                 // Still save to tenant storage but merge with local data taking priority
                 const existingTenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
                 
                 // Merge: cloudData as base, but keep local arrays if they exist
                 const mergedData = { ...cloudData };
                 
-                // For arrays, prefer local (which has deletions/additions)
+                // For arrays, prefer local TENANT STORAGE (which has deletions/additions applied)
+                // CRITICAL FIX: Use existingTenantData NOT localStorage keys to preserve deletions
                 const arrayKeys = ['customers', 'products', 'crmCustomers', 'suppliers', 'quotations', 
                                    'projects', 'transactions', 'sales', 'orders', 'stockMovements', 
                                    'employees', 'branches', 'heldSales', 'kpiTemplates', 'kpiAssignments', 'kpiScores'];
                 
                 arrayKeys.forEach(key => {
-                    const localKey = key === 'crmCustomers' ? 'ezcubic_crm_customers' : 
-                                    key === 'stockMovements' ? 'ezcubic_stock_movements' :
-                                    key === 'heldSales' ? 'ezcubic_held_sales' :
-                                    key === 'kpiTemplates' ? 'ezcubic_kpi_templates' :
-                                    key === 'kpiAssignments' ? 'ezcubic_kpi_assignments' :
-                                    key === 'kpiScores' ? 'ezcubic_kpi_scores' :
-                                    'ezcubic_' + key;
-                    const localArray = JSON.parse(localStorage.getItem(localKey) || '[]');
-                    if (localArray.length > 0 || localStorage.getItem(localKey)) {
-                        mergedData[key] = localArray;
-                        console.log(`  ↳ Keeping local ${key}:`, localArray.length, 'items');
+                    // CRITICAL: Read from tenant storage (existingTenantData) NOT generic localStorage
+                    // This preserves deletions - when you delete a product, it's removed from tenant storage
+                    // but generic localStorage (ezcubic_products) might have stale data
+                    if (existingTenantData[key] !== undefined) {
+                        mergedData[key] = existingTenantData[key];
+                        console.log(`  ↳ Keeping local tenant ${key}:`, (existingTenantData[key] || []).length, 'items');
                     }
                 });
                 
                 // Update tenant storage with merged data
                 mergedData.updatedAt = new Date().toISOString();
                 localStorage.setItem(tenantKey, JSON.stringify(mergedData));
+                
+                // CRITICAL: Also sync tenant data to generic localStorage keys
+                // This ensures getData() later reads correct data even if useLocalStorage=true
+                localStorage.setItem('ezcubic_products', JSON.stringify(mergedData.products || []));
+                localStorage.setItem('ezcubic_customers', JSON.stringify(mergedData.customers || []));
+                localStorage.setItem('ezcubic_crm_customers', JSON.stringify(mergedData.crmCustomers || []));
+                localStorage.setItem('ezcubic_suppliers', JSON.stringify(mergedData.suppliers || []));
+                localStorage.setItem('ezcubic_quotations', JSON.stringify(mergedData.quotations || []));
+                localStorage.setItem('ezcubic_projects', JSON.stringify(mergedData.projects || []));
+                localStorage.setItem('ezcubic_stock_movements', JSON.stringify(mergedData.stockMovements || []));
+                localStorage.setItem('ezcubic_sales', JSON.stringify(mergedData.sales || []));
+                localStorage.setItem('ezcubic_orders', JSON.stringify(mergedData.orders || []));
+                localStorage.setItem('ezcubic_employees', JSON.stringify(mergedData.employees || []));
+                localStorage.setItem('ezcubic_branches', JSON.stringify(mergedData.branches || []));
+                console.log('☁️ Synced tenant data to generic localStorage keys');
+                
                 console.log('☁️ Merged cloud + local (local priority) for tenant:', tenantId);
                 return;
             }
