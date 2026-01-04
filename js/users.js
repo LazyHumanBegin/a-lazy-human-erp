@@ -376,24 +376,31 @@ async function loadUsersFromCloud() {
                 // Add local users first
                 localUsers.forEach(u => userMap.set(u.id, u));
                 
-                // Merge cloud users (add missing, update if cloud is newer)
+                // Merge cloud users - ALWAYS take admin-controlled fields from cloud
+                // Admin-controlled: plan, role, status (only founder/admin can change these)
                 for (const cloudUser of cloudUsers) {
                     const localUser = userMap.get(cloudUser.id);
                     if (!localUser) {
                         userMap.set(cloudUser.id, cloudUser);
                         console.log('👤 Added from cloud:', cloudUser.email);
                     } else {
-                        const localTime = new Date(localUser.updatedAt || localUser.createdAt || 0);
-                        const cloudTime = new Date(cloudUser.updatedAt || cloudUser.createdAt || 0);
-                        if (cloudTime > localTime) {
-                            // For staff/manager: preserve local permissions (custom access set by admin)
-                            // But take plan and other data from cloud
-                            const isStaffOrManager = localUser.role === 'staff' || localUser.role === 'manager';
-                            if (isStaffOrManager && localUser.permissions && localUser.permissions.length > 0) {
-                                userMap.set(cloudUser.id, { ...cloudUser, permissions: localUser.permissions });
-                            } else {
-                                userMap.set(cloudUser.id, cloudUser);
-                            }
+                        // ALWAYS apply admin-controlled fields from cloud
+                        // These can only be changed by founder/admin in Platform Control
+                        const mergedUser = {
+                            ...localUser,   // Keep local data as base
+                            ...cloudUser,   // Apply cloud updates
+                            // For permissions: admin sets these, so prefer cloud
+                            // unless it's a staff/manager who had custom permissions set locally
+                            permissions: (localUser.role === 'staff' || localUser.role === 'manager') 
+                                && localUser.permissions?.length > 0 
+                                ? localUser.permissions 
+                                : cloudUser.permissions || localUser.permissions
+                        };
+                        userMap.set(cloudUser.id, mergedUser);
+                        
+                        // Log plan changes
+                        if (localUser.plan !== cloudUser.plan) {
+                            console.log(`🔄 Plan updated from cloud: ${cloudUser.email} ${localUser.plan} → ${cloudUser.plan}`);
                         }
                     }
                 }

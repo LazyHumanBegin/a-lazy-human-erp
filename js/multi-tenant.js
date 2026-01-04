@@ -91,38 +91,46 @@ function createTenant(userId, businessName) {
 }
 
 // Auto-sync users and tenants to cloud
+// CRITICAL: Uses proper merge sync to avoid overwriting admin-controlled fields
 async function autoSyncToCloud() {
     try {
-        // Use shared client from users.js if available
-        const client = typeof getUsersSupabaseClient === 'function' ? getUsersSupabaseClient() : null;
-        if (!client) {
-            console.warn('⚠️ Supabase not ready, will sync later');
-            return;
+        // Use the proper merge sync function instead of blind upload
+        // This ensures admin-controlled fields (plan, role, permissions) are preserved from cloud
+        if (typeof window.forceSyncUsersToCloud === 'function') {
+            await window.forceSyncUsersToCloud(true); // silent mode
+            console.log('☁️ Auto-synced users to cloud (merge mode)');
+        } else {
+            // Fallback: Use shared client from users.js if available
+            const client = typeof getUsersSupabaseClient === 'function' ? getUsersSupabaseClient() : null;
+            if (!client) {
+                console.warn('⚠️ Supabase not ready, will sync later');
+                return;
+            }
+            
+            // NOTE: This fallback does NOT merge - only use when forceSyncUsersToCloud unavailable
+            const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+            if (users.length > 0) {
+                await client.from('tenant_data').upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_users',
+                    data: { key: 'ezcubic_users', value: users, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+            }
+            
+            // Sync tenants
+            const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+            if (Object.keys(tenants).length > 0) {
+                await client.from('tenant_data').upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_tenants',
+                    data: { key: 'ezcubic_tenants', value: tenants, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+            }
+            
+            console.log('☁️ Auto-synced to cloud (fallback)');
         }
-        
-        // Sync users
-        const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
-        if (users.length > 0) {
-            await client.from('tenant_data').upsert({
-                tenant_id: 'global',
-                data_key: 'ezcubic_users',
-                data: { key: 'ezcubic_users', value: users, synced_at: new Date().toISOString() },
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'tenant_id,data_key' });
-        }
-        
-        // Sync tenants
-        const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
-        if (Object.keys(tenants).length > 0) {
-            await client.from('tenant_data').upsert({
-                tenant_id: 'global',
-                data_key: 'ezcubic_tenants',
-                data: { key: 'ezcubic_tenants', value: tenants, synced_at: new Date().toISOString() },
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'tenant_id,data_key' });
-        }
-        
-        console.log('☁️ Auto-synced to cloud');
     } catch (err) {
         console.warn('⚠️ Auto-sync failed:', err.message);
     }

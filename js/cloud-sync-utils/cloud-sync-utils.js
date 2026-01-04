@@ -199,7 +199,9 @@
                 else if (u.id) mergedUsersMap.set(u.id, u);
             });
             
-            // Add/update with local users (local is newer)
+            // Add/update with local users
+            // CRITICAL: Admin-controlled fields (plan, role, permissions, status) ALWAYS come from cloud
+            // because only founder/admin can change these from Platform Control
             console.log('🔍 [SYNC DEBUG] Merging local users into map...');
             localUsers.forEach(u => {
                 const key = u.email || u.id;
@@ -209,11 +211,21 @@
                     mergedUsersMap.set(key, u);
                     console.log('  ➕ Adding new user to cloud:', u.email);
                 } else {
-                    // Existing user - merge (prefer local if updated more recently)
-                    const localTime = new Date(u.updatedAt || u.createdAt || 0).getTime();
-                    const cloudTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-                    if (localTime >= cloudTime) {
-                        mergedUsersMap.set(key, { ...existing, ...u });
+                    // Existing user - merge carefully
+                    // ALWAYS preserve admin-controlled fields from cloud (plan, role, permissions, status)
+                    // These can only be changed by founder/admin, so cloud is the source of truth
+                    const mergedUser = {
+                        ...existing,  // Start with cloud data
+                        ...u,         // Apply local changes (like profile edits)
+                        // BUT restore admin-controlled fields from cloud
+                        plan: existing.plan || u.plan,
+                        role: existing.role || u.role,
+                        permissions: existing.permissions || u.permissions,
+                        status: existing.status || u.status
+                    };
+                    mergedUsersMap.set(key, mergedUser);
+                    if (existing.plan !== u.plan) {
+                        console.log(`  🔄 Plan sync: ${u.email} local=${u.plan} cloud=${existing.plan} → using cloud`);
                     }
                 }
             });

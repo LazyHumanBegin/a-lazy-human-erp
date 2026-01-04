@@ -14,6 +14,8 @@ const MEMBERSHIP_CONFIG = {
     pointsPerRM: 1,
     // Redemption: 100 points = RM1 discount
     pointsToRM: 100,
+    // Birthday bonus points (awarded once per year)
+    birthdayBonus: 100,
     // Tier thresholds (based on totalSpent)
     tiers: {
         'regular': { min: 0, label: 'Regular', color: '#64748b', discount: 0, icon: '👤' },
@@ -22,6 +24,9 @@ const MEMBERSHIP_CONFIG = {
         'vip': { min: 5000, label: 'VIP', color: '#7c3aed', discount: 10, icon: '💎' }
     }
 };
+
+// Expose MEMBERSHIP_CONFIG globally for POS
+window.MEMBERSHIP_CONFIG = MEMBERSHIP_CONFIG;
 
 // ==================== CRM INITIALIZATION ====================
 function initializeCRM() {
@@ -275,6 +280,56 @@ function checkBirthdayRewards() {
 }
 window.checkBirthdayRewards = checkBirthdayRewards;
 
+// Award birthday bonus to a specific customer if today is their birthday
+// Used when creating a new customer whose birthday is today
+function awardBirthdayBonusIfToday(customer) {
+    if (!customer || !customer.birthday) return false;
+    
+    const birthdayBonus = MEMBERSHIP_CONFIG.birthdayBonus ?? 100;
+    if (birthdayBonus <= 0) return false;
+    
+    const today = new Date();
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
+    const todayYear = today.getFullYear();
+    
+    // Parse birthday (format: YYYY-MM-DD)
+    const [year, month, day] = customer.birthday.split('-').map(Number);
+    
+    // Check if today is birthday (ignore year)
+    if (month === todayMonth && day === todayDay) {
+        const birthdayCheckKey = `ezcubic_birthday_check_${todayYear}`;
+        const checkedCustomers = JSON.parse(localStorage.getItem(birthdayCheckKey) || '[]');
+        
+        // Don't award if already given this year (shouldn't happen for new customer but safety check)
+        if (checkedCustomers.includes(customer.id)) return false;
+        
+        // Award birthday bonus points
+        if (typeof customer.points !== 'number') customer.points = 0;
+        if (!Array.isArray(customer.pointsHistory)) customer.pointsHistory = [];
+        
+        customer.points += birthdayBonus;
+        customer.pointsHistory.push({
+            type: 'earn',
+            points: birthdayBonus,
+            reference: `🎂 Birthday Bonus ${todayYear}`,
+            date: new Date().toISOString()
+        });
+        
+        // Mark as awarded this year
+        checkedCustomers.push(customer.id);
+        localStorage.setItem(birthdayCheckKey, JSON.stringify(checkedCustomers));
+        
+        console.log(`🎂 Birthday bonus awarded to new customer ${customer.name}: +${birthdayBonus} pts`);
+        showToast(`🎂 Happy Birthday ${customer.name}! +${birthdayBonus} bonus points awarded!`, 'success');
+        
+        return true;
+    }
+    
+    return false;
+}
+window.awardBirthdayBonusIfToday = awardBirthdayBonusIfToday;
+
 // Get customers with upcoming birthdays (next 7 days)
 function getUpcomingBirthdays(days = 7) {
     const today = new Date();
@@ -511,6 +566,11 @@ function saveCRMCustomer(event) {
         crmCustomers.push(newCustomer);
         newCustomerId = newCustomer.id;
         showToast('Customer added successfully!', 'success');
+        
+        // Check if today is the new customer's birthday - award bonus immediately!
+        if (newCustomer.birthday) {
+            awardBirthdayBonusIfToday(newCustomer);
+        }
     }
     
     saveCRMCustomers();
@@ -1254,7 +1314,10 @@ function getCRMCustomersForSelect() {
             id: c.id,
             name: c.name,
             company: c.company,
-            group: c.group
+            group: c.group,
+            phone: c.phone || '',
+            email: c.email || '',
+            dob: c.dob || ''
         }));
 }
 

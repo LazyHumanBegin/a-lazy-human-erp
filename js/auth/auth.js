@@ -98,6 +98,20 @@ function checkSession() {
                 // CRITICAL: Set BOTH window.currentUser AND update users.js local variable
                 window.currentUser = user;
                 
+                // CRITICAL: Update the cached session with fresh data from users array
+                // This ensures plan upgrades from cloud are persisted to the session cache
+                localStorage.setItem(AUTH_CURRENT_USER_KEY, JSON.stringify({
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    plan: user.plan,
+                    tenantId: user.tenantId,
+                    permissions: user.permissions,
+                    loginTime: userData.loginTime // Preserve original login time
+                }));
+                console.log('✅ Session cache updated with fresh user data (plan:', user.plan, ')');
+                
                 // Load user's tenant data on session restore
                 // MUST await to ensure data is loaded before UI renders
                 if (typeof window.loadUserTenantData === 'function') {
@@ -367,8 +381,10 @@ async function autoEnableCloudSync(user, password) {
                         if (typeof window.loadUserTenantData === 'function') {
                             await window.loadUserTenantData(user);
                         }
-                        // Refresh UI
+                        // Refresh UI - including inventory
                         if (typeof updateDashboard === 'function') updateDashboard();
+                        if (typeof renderProducts === 'function') renderProducts();
+                        if (typeof updateInventoryStats === 'function') updateInventoryStats();
                         if (typeof showToast === 'function') {
                             showToast('✓ Synced latest data from cloud', 'success');
                         }

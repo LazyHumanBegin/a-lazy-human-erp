@@ -3096,29 +3096,69 @@ function updatePOSCustomerMembership() {
     `;
     container.style.display = 'block';
     
-    // Check if today is customer's birthday
-    checkCustomerBirthday(customerId);
+    // Check if today is customer's birthday and award bonus if not yet given
+    checkAndAwardBirthdayBonus(customerId);
 }
 
-// Check if it's the customer's birthday and show notification
-function checkCustomerBirthday(customerId) {
+// Check if it's the customer's birthday and award bonus points if not yet given today
+function checkAndAwardBirthdayBonus(customerId) {
     if (!customerId || !window.crmCustomers) return;
     
     const customer = window.crmCustomers.find(c => c.id === customerId);
-    if (!customer || !customer.birthday) return;
+    if (!customer || !customer.birthday || customer.status === 'inactive') return;
     
     const today = new Date();
     const [year, month, day] = customer.birthday.split('-').map(Number);
     
     // Check if today is birthday (ignore year)
     if (month === today.getMonth() + 1 && day === today.getDate()) {
-        // Show birthday notification only once per session per customer
-        const sessionKey = `birthday_notified_${customerId}_${today.toDateString()}`;
-        if (sessionStorage.getItem(sessionKey)) return;
+        const todayYear = today.getFullYear();
+        const birthdayCheckKey = `ezcubic_birthday_check_${todayYear}`;
+        const checkedCustomers = JSON.parse(localStorage.getItem(birthdayCheckKey) || '[]');
         
-        sessionStorage.setItem(sessionKey, 'true');
+        // Check if already awarded this year
+        if (checkedCustomers.includes(customer.id)) {
+            // Already awarded - just show notification once per session
+            const sessionKey = `birthday_notified_${customerId}_${today.toDateString()}`;
+            if (!sessionStorage.getItem(sessionKey)) {
+                sessionStorage.setItem(sessionKey, 'true');
+                showToast(`🎂 Happy Birthday ${customer.name}!`, 'info');
+            }
+            return;
+        }
         
-        showToast(`🎂 Happy Birthday ${customer.name}! Bonus points awarded!`, 'success');
+        // Award birthday bonus NOW
+        const birthdayBonus = (window.MEMBERSHIP_CONFIG?.birthdayBonus ?? 100);
+        if (birthdayBonus <= 0) return;
+        
+        // Initialize points if needed
+        if (typeof customer.points !== 'number') customer.points = 0;
+        if (!Array.isArray(customer.pointsHistory)) customer.pointsHistory = [];
+        
+        customer.points += birthdayBonus;
+        customer.pointsHistory.push({
+            type: 'earn',
+            points: birthdayBonus,
+            reference: `🎂 Birthday Bonus ${todayYear}`,
+            date: new Date().toISOString()
+        });
+        
+        // Mark as awarded this year
+        checkedCustomers.push(customer.id);
+        localStorage.setItem(birthdayCheckKey, JSON.stringify(checkedCustomers));
+        
+        // Save customer data
+        if (typeof saveCRMCustomers === 'function') {
+            saveCRMCustomers();
+        }
+        
+        console.log(`🎂 Birthday bonus awarded to ${customer.name}: +${birthdayBonus} pts`);
+        showToast(`🎂 Happy Birthday ${customer.name}! +${birthdayBonus} bonus points awarded!`, 'success');
+        
+        // Refresh the membership display to show updated points
+        setTimeout(() => {
+            updatePOSCustomerMembership();
+        }, 500);
     }
 }
 window.updatePOSCustomerMembership = updatePOSCustomerMembership;

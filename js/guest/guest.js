@@ -27,10 +27,20 @@ Object.defineProperty(window, 'isGuestMode', {
 // ==================== GUEST PREVIEW MODE ====================
 
 /**
- * Apply guest preview mode - restricted view for non-logged-in users
- * Shows only Dashboard, hides all business tools
+ * Apply guest preview mode - for non-logged-in users
+ * CHANGED: Now shows login page directly instead of preview mode
+ * This ensures new visitors see the login/register page first
  */
 function applyGuestPreviewMode() {
+    // Instead of showing a preview, redirect to login page
+    // This gives a cleaner experience - users must login or register
+    if (typeof showLoginPage === 'function') {
+        showLoginPage();
+        console.log('👤 Guest detected - showing login page');
+        return;
+    }
+    
+    // Fallback: Original preview mode if showLoginPage not available
     isGuestMode = true;
     
     // Guest preview - only show BASIC features, hide powerful tools from competitors

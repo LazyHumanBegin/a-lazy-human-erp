@@ -203,15 +203,35 @@ async function downloadTenantFromCloud(tenantId) {
             const localUpdatedAt = parseInt(localStorage.getItem('ezcubic_last_save_timestamp') || '0');
             const cloudUpdatedAt = cloudData.updatedAt ? new Date(cloudData.updatedAt).getTime() : 0;
             
-            console.log('☁️ Cloud download - timestamp check:', {
+            // Check if local actually has meaningful data
+            const localTenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+            const localHasData = (localTenantData.products?.length > 0) || 
+                                (localTenantData.customers?.length > 0) ||
+                                (localTenantData.transactions?.length > 0) ||
+                                (localTenantData.sales?.length > 0);
+            
+            // Check if cloud has meaningful data
+            const cloudHasData = (cloudData.products?.length > 0) || 
+                                (cloudData.customers?.length > 0) ||
+                                (cloudData.transactions?.length > 0) ||
+                                (cloudData.sales?.length > 0);
+            
+            console.log('☁️ Cloud download - data check:', {
                 localTimestamp: localUpdatedAt,
                 cloudTimestamp: cloudUpdatedAt,
-                localNewer: localUpdatedAt > cloudUpdatedAt
+                localNewer: localUpdatedAt > cloudUpdatedAt,
+                localHasData,
+                cloudHasData,
+                localProducts: localTenantData.products?.length || 0,
+                cloudProducts: cloudData.products?.length || 0
             });
             
-            // If local data is newer, DON'T overwrite - preserve local changes (deletions, additions)
-            if (localUpdatedAt > cloudUpdatedAt) {
-                console.log('☁️ LOCAL DATA IS NEWER - preserving local changes, skipping cloud overwrite');
+            // CRITICAL FIX: Only prefer local if it ACTUALLY has data
+            // If local has no data but cloud does, always use cloud (regardless of timestamp)
+            const shouldPreferLocal = localUpdatedAt > cloudUpdatedAt && localHasData;
+            
+            if (shouldPreferLocal) {
+                console.log('☁️ LOCAL DATA IS NEWER AND HAS DATA - preserving local changes');
                 // Still save to tenant storage but merge with local data taking priority
                 const existingTenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
                 
@@ -245,69 +265,69 @@ async function downloadTenantFromCloud(tenantId) {
                 return;
             }
             
-            // Cloud is newer - use cloud data (normal case: no local changes since last sync)
+            // Cloud is newer OR local has no data - use cloud data
+            console.log('☁️ Using cloud data (cloud newer or local empty)');
             localStorage.setItem(tenantKey, JSON.stringify(cloudData));
-            console.log('☁️ Downloaded full tenant data (cloud newer):', tenantId);
             
-            // Also extract to individual localStorage keys for immediate availability
-            // This ensures customers, products, etc. are ready when modules initialize
-            if (cloudData.customers?.length) {
-                localStorage.setItem('ezcubic_customers', JSON.stringify(cloudData.customers));
-                console.log('  ↳ Extracted', cloudData.customers.length, 'customers');
-            }
-            if (cloudData.products?.length) {
-                localStorage.setItem('ezcubic_products', JSON.stringify(cloudData.products));
-                console.log('  ↳ Extracted', cloudData.products.length, 'products');
-            }
-            if (cloudData.crmCustomers?.length) {
-                localStorage.setItem('ezcubic_crm_customers', JSON.stringify(cloudData.crmCustomers));
-                console.log('  ↳ Extracted', cloudData.crmCustomers.length, 'CRM customers');
-            }
-            if (cloudData.suppliers?.length) {
-                localStorage.setItem('ezcubic_suppliers', JSON.stringify(cloudData.suppliers));
-                console.log('  ↳ Extracted', cloudData.suppliers.length, 'suppliers');
-            }
-            if (cloudData.quotations?.length) {
-                localStorage.setItem('ezcubic_quotations', JSON.stringify(cloudData.quotations));
-                console.log('  ↳ Extracted', cloudData.quotations.length, 'quotations');
-            }
-            if (cloudData.projects?.length) {
-                localStorage.setItem('ezcubic_projects', JSON.stringify(cloudData.projects));
-                console.log('  ↳ Extracted', cloudData.projects.length, 'projects');
-            }
-            if (cloudData.transactions?.length) {
-                localStorage.setItem('ezcubic_transactions', JSON.stringify(cloudData.transactions));
-                console.log('  ↳ Extracted', cloudData.transactions.length, 'transactions');
-            }
-            if (cloudData.sales?.length) {
-                localStorage.setItem('ezcubic_sales', JSON.stringify(cloudData.sales));
-                console.log('  ↳ Extracted', cloudData.sales.length, 'sales');
-            }
-            if (cloudData.orders?.length) {
-                localStorage.setItem('ezcubic_orders', JSON.stringify(cloudData.orders));
-                console.log('  ↳ Extracted', cloudData.orders.length, 'orders');
-            }
-            if (cloudData.stockMovements?.length) {
-                localStorage.setItem('ezcubic_stock_movements', JSON.stringify(cloudData.stockMovements));
-                console.log('  ↳ Extracted', cloudData.stockMovements.length, 'stock movements');
-            }
-            if (cloudData.employees?.length) {
-                localStorage.setItem('ezcubic_employees', JSON.stringify(cloudData.employees));
-                console.log('  ↳ Extracted', cloudData.employees.length, 'employees');
-            }
-            if (cloudData.branches?.length) {
-                localStorage.setItem('ezcubic_branches', JSON.stringify(cloudData.branches));
-                console.log('  ↳ Extracted', cloudData.branches.length, 'branches');
-            }
+            // CRITICAL: Extract ALL data from cloud to localStorage, including empty arrays
+            // This ensures stale data from previous users is cleared
+            // Always set the key - use empty array if cloud has no data
+            localStorage.setItem('ezcubic_customers', JSON.stringify(cloudData.customers || []));
+            console.log('  ↳ Extracted', (cloudData.customers || []).length, 'customers');
+            
+            localStorage.setItem('ezcubic_products', JSON.stringify(cloudData.products || []));
+            console.log('  ↳ Extracted', (cloudData.products || []).length, 'products');
+            
+            localStorage.setItem('ezcubic_crm_customers', JSON.stringify(cloudData.crmCustomers || []));
+            console.log('  ↳ Extracted', (cloudData.crmCustomers || []).length, 'CRM customers');
+            
+            localStorage.setItem('ezcubic_suppliers', JSON.stringify(cloudData.suppliers || []));
+            console.log('  ↳ Extracted', (cloudData.suppliers || []).length, 'suppliers');
+            
+            localStorage.setItem('ezcubic_quotations', JSON.stringify(cloudData.quotations || []));
+            console.log('  ↳ Extracted', (cloudData.quotations || []).length, 'quotations');
+            
+            localStorage.setItem('ezcubic_projects', JSON.stringify(cloudData.projects || []));
+            console.log('  ↳ Extracted', (cloudData.projects || []).length, 'projects');
+            
+            localStorage.setItem('ezcubic_transactions', JSON.stringify(cloudData.transactions || []));
+            console.log('  ↳ Extracted', (cloudData.transactions || []).length, 'transactions');
+            
+            localStorage.setItem('ezcubic_sales', JSON.stringify(cloudData.sales || []));
+            console.log('  ↳ Extracted', (cloudData.sales || []).length, 'sales');
+            
+            localStorage.setItem('ezcubic_orders', JSON.stringify(cloudData.orders || []));
+            console.log('  ↳ Extracted', (cloudData.orders || []).length, 'orders');
+            
+            localStorage.setItem('ezcubic_stock_movements', JSON.stringify(cloudData.stockMovements || []));
+            console.log('  ↳ Extracted', (cloudData.stockMovements || []).length, 'stock movements');
+            
+            localStorage.setItem('ezcubic_employees', JSON.stringify(cloudData.employees || []));
+            console.log('  ↳ Extracted', (cloudData.employees || []).length, 'employees');
+            
+            localStorage.setItem('ezcubic_branches', JSON.stringify(cloudData.branches || []));
+            console.log('  ↳ Extracted', (cloudData.branches || []).length, 'branches');
+            
             // Also extract held sales and KPI data
-            if (cloudData.heldSales) {
-                localStorage.setItem('ezcubic_held_sales', JSON.stringify(cloudData.heldSales));
-                console.log('  ↳ Extracted', (cloudData.heldSales || []).length, 'held sales');
-            }
-            if (cloudData.kpiTemplates) {
-                localStorage.setItem('ezcubic_kpi_templates', JSON.stringify(cloudData.kpiTemplates));
-                console.log('  ↳ Extracted', (cloudData.kpiTemplates || []).length, 'KPI templates');
-            }
+            localStorage.setItem('ezcubic_held_sales', JSON.stringify(cloudData.heldSales || []));
+            console.log('  ↳ Extracted', (cloudData.heldSales || []).length, 'held sales');
+            
+            localStorage.setItem('ezcubic_kpi_templates', JSON.stringify(cloudData.kpiTemplates || []));
+            console.log('  ↳ Extracted', (cloudData.kpiTemplates || []).length, 'KPI templates');
+        } else {
+            // No cloud data exists for this tenant (new user or cloud error)
+            // CRITICAL: Clear localStorage keys to prevent data bleeding from previous users
+            console.log('☁️ No cloud data found for tenant:', tenantId, '- clearing localStorage');
+            const keysToClean = [
+                'ezcubic_products', 'ezcubic_customers', 'ezcubic_suppliers',
+                'ezcubic_branches', 'ezcubic_quotations', 'ezcubic_projects',
+                'ezcubic_crm_customers', 'ezcubic_employees', 'ezcubic_stock_movements',
+                'ezcubic_sales', 'ezcubic_orders', 'ezcubic_transactions',
+                'ezcubic_held_sales', 'ezcubic_kpi_templates'
+            ];
+            keysToClean.forEach(key => {
+                localStorage.setItem(key, '[]');
+            });
         }
         
     } catch (err) {
@@ -413,14 +433,19 @@ async function loadUserTenantData(user) {
         console.log('📦 Branches in tenant:', tenantData.branches?.length || 0);
     }
     
-    // Auto-download from cloud if no local tenant data
-    if (!tenantData && typeof downloadTenantFromCloud === 'function') {
-        console.log('☁️ No local tenant data - attempting cloud download...');
+    // CRITICAL FIX: For same user, ALWAYS try cloud download first
+    // This ensures Device B gets Device A's inventory even if Device B has stale local data
+    // The cloud download function handles timestamp comparison to avoid overwriting newer local changes
+    if (typeof downloadTenantFromCloud === 'function') {
+        console.log('☁️ Checking cloud for tenant data...');
         try {
             await downloadTenantFromCloud(user.tenantId);
-            tenantData = JSON.parse(localStorage.getItem(tenantKey) || 'null');
-            if (tenantData) {
-                console.log('✅ Downloaded from cloud!');
+            // Re-read tenant data after cloud download (might have updated it)
+            const updatedTenantData = JSON.parse(localStorage.getItem(tenantKey) || 'null');
+            if (updatedTenantData) {
+                tenantData = updatedTenantData;
+                console.log('✅ Tenant data loaded/updated from cloud!');
+                console.log('📦 Products after cloud sync:', tenantData.products?.length || 0);
             }
         } catch (err) {
             console.warn('⚠️ Cloud download failed:', err.message);
@@ -429,6 +454,21 @@ async function loadUserTenantData(user) {
     
     // CRITICAL: Always reset window arrays before loading
     resetWindowArraysOnly();
+    
+    // CRITICAL FIX: If different user, clear all generic localStorage keys
+    // to prevent data bleeding from previous user
+    if (!isSameUser) {
+        console.log('🔄 Different user detected - clearing generic localStorage keys');
+        const keysToClean = [
+            'ezcubic_products', 'ezcubic_customers', 'ezcubic_suppliers',
+            'ezcubic_branches', 'ezcubic_quotations', 'ezcubic_projects',
+            'ezcubic_crm_customers', 'ezcubic_employees', 'ezcubic_stock_movements',
+            'ezcubic_sales', 'ezcubic_orders', 'ezcubic_purchase_orders',
+            'ezcubic_held_sales', 'ezcubic_transactions', 'ezcubic_bills',
+            'ezcubicDataMY', 'ezcubic_last_save_timestamp'
+        ];
+        keysToClean.forEach(key => localStorage.removeItem(key));
+    }
     
     if (!tenantData) {
         console.log('⚠️ No tenant data found, initializing empty...');
