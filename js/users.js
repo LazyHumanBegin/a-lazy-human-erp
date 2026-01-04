@@ -132,6 +132,10 @@ function initializeUserSystem() {
     const appContainer = document.getElementById('appContainer');
     if (appContainer) appContainer.style.display = '';
     
+    // CRITICAL: Set loading flag EARLY to prevent initializeApp from proceeding
+    // before tenant data is loaded. This flag is cleared in loadUserTenantData().
+    window._isLoadingUserData = true;
+    
     // CLOUD SYNC: Try to sync users from cloud before checking session
     // This ensures Phone B gets user01 created on Phone A
     loadUsersFromCloud().then(() => {
@@ -369,16 +373,33 @@ async function loadUsersFromCloud() {
             if (data && data.length > 0) {
                 const cloudUsers = data[0].data?.value || [];
                 
+                // Get deleted users list to filter them out
+                const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                console.log('🗑️ Deleted users to filter:', deletedUsers.length);
+                
                 // Merge cloud users with local
                 const localUsers = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
                 const userMap = new Map();
                 
-                // Add local users first
-                localUsers.forEach(u => userMap.set(u.id, u));
+                // Add local users first (skip deleted)
+                localUsers.forEach(u => {
+                    const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                    if (!isDeleted) {
+                        userMap.set(u.id, u);
+                    }
+                });
                 
                 // Merge cloud users - ALWAYS take admin-controlled fields from cloud
                 // Admin-controlled: plan, role, status (only founder/admin can change these)
+                // BUT skip deleted users!
                 for (const cloudUser of cloudUsers) {
+                    // Skip if this user was deleted
+                    const isDeleted = deletedUsers.includes(cloudUser.id) || deletedUsers.includes(cloudUser.email);
+                    if (isDeleted) {
+                        console.log('🗑️ Skipping deleted user from cloud:', cloudUser.email);
+                        continue;
+                    }
+                    
                     const localUser = userMap.get(cloudUser.id);
                     if (!localUser) {
                         userMap.set(cloudUser.id, cloudUser);
@@ -561,7 +582,7 @@ function updateAuthUI() {
         if (lhdnExportNav) {
             // Check if user's plan includes LHDN Export feature
             const userPlan = user.plan || 'personal';
-            const lhdnPlans = ['starter', 'professional', 'enterprise'];
+            const lhdnPlans = ['starter', 'professional', 'premium'];
             const hasPlanAccess = isFounder || lhdnPlans.includes(userPlan.toLowerCase());
             const hasRoleAccess = isFounder || isBusinessAdmin || hasLHDNPermission;
             

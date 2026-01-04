@@ -920,7 +920,7 @@ function loadBranchStockInputs(productId = null) {
     
     // Check if multi-branch is available on current plan
     const currentUserPlan = window.currentUser?.plan || 'starter';
-    const isMultiBranchPlan = ['professional', 'enterprise'].includes(currentUserPlan);
+    const isMultiBranchPlan = ['professional', 'premium'].includes(currentUserPlan);
     
     console.log('loadBranchStockInputs called:', { plan: currentUserPlan, isMultiBranchPlan: isMultiBranchPlan });
     

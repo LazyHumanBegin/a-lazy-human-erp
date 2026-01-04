@@ -1161,7 +1161,7 @@ function loadPOSSalespersons() {
     const userPlan = currentUser?.plan || 'starter';
     
     // Check if user has HR/Employee module access (Professional and Enterprise plans)
-    const hasEmployeeModule = userPlan === 'professional' || userPlan === 'enterprise';
+    const hasEmployeeModule = userPlan === 'professional' || userPlan === 'premium';
     
     // Get employees if available - try multiple sources
     let employeeList = [];

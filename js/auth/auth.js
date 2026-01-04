@@ -782,7 +782,7 @@ function showLoginPage() {
                             <img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 80px; height: 80px;">
                         </div>
                         <h1>A Lazy Human</h1>
-                        <div class="tagline">Malaysian Business Accounting & Tax Platform</div>
+                        <div class="tagline">Smart To Be Lazy</div>
                     </div>
                     
                     <div class="login-page-card">

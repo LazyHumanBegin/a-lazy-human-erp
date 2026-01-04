@@ -42,7 +42,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
         },
         starter: {
             name: 'Starter',
-            price: 49,
+            price: 39,
             color: '#2563eb',
             description: 'For small businesses',
             limits: {
@@ -59,7 +59,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
         },
         professional: {
             name: 'Professional',
-            price: 149,
+            price: 129,
             color: '#10b981',
             description: 'For growing businesses',
             limits: {
@@ -74,9 +74,9 @@ const DEFAULT_PLATFORM_SETTINGS = {
             features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'email-invoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'products', 'backup-restore', 'settings', 'users'],
             hiddenSections: [] // Professional now has access to branches (limited to 3)
         },
-        enterprise: {
-            name: 'Enterprise',
-            price: 399,
+        premium: {
+            name: 'Premium',
+            price: 249,
             color: '#7c3aed',
             description: 'For large organizations with multiple outlets',
             limits: {
@@ -996,7 +996,7 @@ function showLimitReachedModal(limitType, limitResult) {
     const settings = getPlatformSettings();
     
     // Find upgrade options
-    const planOrder = ['personal', 'starter', 'professional', 'enterprise'];
+    const planOrder = ['personal', 'starter', 'professional', 'premium'];
     const currentIndex = planOrder.indexOf(currentPlan);
     const upgradePlans = planOrder.slice(currentIndex + 1).map(id => ({
         id,
@@ -1091,7 +1091,7 @@ function showUpgradePlanModal() {
     document.getElementById('upgradePlanModal')?.remove();
     
     // Plan order for comparison
-    const planOrder = ['personal', 'starter', 'professional', 'enterprise'];
+    const planOrder = ['personal', 'starter', 'professional', 'premium'];
     const currentPlanIndex = planOrder.indexOf(currentPlan);
     
     // Feature categories for display
@@ -1100,64 +1100,64 @@ function showUpgradePlanModal() {
             name: 'Core Features',
             icon: 'fa-cube',
             features: [
-                { id: 'dashboard', name: 'Dashboard & Analytics', plans: ['personal', 'starter', 'professional', 'enterprise'] },
-                { id: 'transactions', name: 'Transaction Management', plans: ['personal', 'starter', 'professional', 'enterprise'] },
-                { id: 'income', name: 'Income Tracking', plans: ['personal', 'starter', 'professional', 'enterprise'] },
-                { id: 'expenses', name: 'Expense Tracking', plans: ['personal', 'starter', 'professional', 'enterprise'] },
-                { id: 'bills', name: 'Bills Management', plans: ['personal', 'starter', 'professional', 'enterprise'] }
+                { id: 'dashboard', name: 'Dashboard & Analytics', plans: ['personal', 'starter', 'professional', 'premium'] },
+                { id: 'transactions', name: 'Transaction Management', plans: ['personal', 'starter', 'professional', 'premium'] },
+                { id: 'income', name: 'Income Tracking', plans: ['personal', 'starter', 'professional', 'premium'] },
+                { id: 'expenses', name: 'Expense Tracking', plans: ['personal', 'starter', 'professional', 'premium'] },
+                { id: 'bills', name: 'Bills Management', plans: ['personal', 'starter', 'professional', 'premium'] }
             ]
         },
         accounting: {
             name: 'Accounting',
             icon: 'fa-calculator',
             features: [
-                { id: 'balance-sheet', name: 'Balance Sheet', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'monthly-reports', name: 'Monthly Reports', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'taxes', name: 'Tax Management', plans: ['professional', 'enterprise'] },
-                { id: 'bank-reconciliation', name: 'Bank Reconciliation', plans: ['professional', 'enterprise'] },
-                { id: 'lhdn-export', name: 'LHDN & Audit Export', plans: ['starter', 'professional', 'enterprise'] }
+                { id: 'balance-sheet', name: 'Balance Sheet', plans: ['starter', 'professional', 'premium'] },
+                { id: 'monthly-reports', name: 'Monthly Reports', plans: ['starter', 'professional', 'premium'] },
+                { id: 'taxes', name: 'Tax Management', plans: ['professional', 'premium'] },
+                { id: 'bank-reconciliation', name: 'Bank Reconciliation', plans: ['professional', 'premium'] },
+                { id: 'lhdn-export', name: 'LHDN & Audit Export', plans: ['starter', 'professional', 'premium'] }
             ]
         },
         sales: {
             name: 'Sales & CRM',
             icon: 'fa-shopping-cart',
             features: [
-                { id: 'pos', name: 'Point of Sale (POS)', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'quotations', name: 'Quotations', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'invoices', name: 'Invoices', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'orders', name: 'Order Management', plans: ['professional', 'enterprise'] },
-                { id: 'crm', name: 'Customer Management (CRM)', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'einvoice', name: 'E-Invoice (Malaysia)', plans: ['professional', 'enterprise'] },
-                { id: 'email-invoice', name: 'Invoice/Receipt', plans: ['professional', 'enterprise'] }
+                { id: 'pos', name: 'Point of Sale (POS)', plans: ['starter', 'professional', 'premium'] },
+                { id: 'quotations', name: 'Quotations', plans: ['starter', 'professional', 'premium'] },
+                { id: 'invoices', name: 'Invoices', plans: ['starter', 'professional', 'premium'] },
+                { id: 'orders', name: 'Order Management', plans: ['professional', 'premium'] },
+                { id: 'crm', name: 'Customer Management (CRM)', plans: ['starter', 'professional', 'premium'] },
+                { id: 'einvoice', name: 'E-Invoice (Malaysia)', plans: ['professional', 'premium'] },
+                { id: 'email-invoice', name: 'Invoice/Receipt', plans: ['professional', 'premium'] }
             ]
         },
         inventory: {
             name: 'Inventory & Stock',
             icon: 'fa-warehouse',
             features: [
-                { id: 'inventory', name: 'Inventory Management', plans: ['starter', 'professional', 'enterprise'] },
-                { id: 'stock', name: 'Stock Control', plans: ['professional', 'enterprise'] },
-                { id: 'multi-branch', name: 'Multi-Branch Stock', plans: ['professional', 'enterprise'] }
+                { id: 'inventory', name: 'Inventory Management', plans: ['starter', 'professional', 'premium'] },
+                { id: 'stock', name: 'Stock Control', plans: ['professional', 'premium'] },
+                { id: 'multi-branch', name: 'Multi-Branch Stock', plans: ['professional', 'premium'] }
             ]
         },
         hr: {
             name: 'HR & Payroll',
             icon: 'fa-users',
             features: [
-                { id: 'payroll', name: 'Payroll Management', plans: ['professional', 'enterprise'] },
-                { id: 'kpi', name: 'KPI Performance', plans: ['professional', 'enterprise'] },
-                { id: 'projects', name: 'Project Management', plans: ['professional', 'enterprise'] }
+                { id: 'payroll', name: 'Payroll Management', plans: ['professional', 'premium'] },
+                { id: 'kpi', name: 'KPI Performance', plans: ['professional', 'premium'] },
+                { id: 'projects', name: 'Project Management', plans: ['professional', 'premium'] }
             ]
         },
         advanced: {
             name: 'Advanced Features',
             icon: 'fa-rocket',
             features: [
-                { id: 'ai-assistant', name: 'AI Assistant', plans: ['professional', 'enterprise'] },
-                { id: 'chatbot', name: 'AI Chatbot', plans: ['professional', 'enterprise'] },
-                { id: 'backup-restore', name: 'Backup & Restore', plans: ['personal', 'starter', 'professional', 'enterprise'] },
-                { id: 'audit-log', name: 'Audit Log', plans: ['enterprise'] },
-                { id: 'api-access', name: 'API Access', plans: ['enterprise'] }
+                { id: 'ai-assistant', name: 'AI Assistant', plans: ['professional', 'premium'] },
+                { id: 'chatbot', name: 'AI Chatbot', plans: ['professional', 'premium'] },
+                { id: 'backup-restore', name: 'Backup & Restore', plans: ['personal', 'starter', 'professional', 'premium'] },
+                { id: 'audit-log', name: 'Audit Log', plans: ['premium'] },
+                { id: 'api-access', name: 'API Access', plans: ['premium'] }
             ]
         }
     };
@@ -1557,7 +1557,7 @@ function renderUsageWidget() {
             </div>
             
             <div style="text-align: center; padding: 15px 0;">
-                <i class="fas ${styleKey === 'founder' || styleKey === 'enterprise' ? 'fa-infinity' : 'fa-chart-line'}" style="font-size: 32px; color: ${style.iconColor}; margin-bottom: 10px; display: block;"></i>
+                <i class="fas ${styleKey === 'founder' || styleKey === 'premium' ? 'fa-infinity' : 'fa-chart-line'}" style="font-size: 32px; color: ${style.iconColor}; margin-bottom: 10px; display: block;"></i>
                 <div style="font-size: 16px; font-weight: 600; margin-bottom: 5px;">${styleKey === 'founder' ? 'Unlimited Access' : style.subtitle}</div>
                 ${styleKey !== 'founder' ? `<div style="font-size: 12px; opacity: 0.7;">Your subscription is active</div>` : `<div style="font-size: 12px; opacity: 0.7;">Full access to all ERP features</div>`}
             </div>
@@ -1572,7 +1572,7 @@ function renderUsageWidget() {
                 `).join('')}
             </div>
             
-            ${styleKey !== 'founder' && styleKey !== 'enterprise' ? `
+            ${styleKey !== 'founder' && styleKey !== 'premium' ? `
                 <button class="btn-sm" style="width: 100%; margin-top: 15px; background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px);"
                     onclick="showUpgradePlanModal()">
                     <i class="fas fa-arrow-up"></i> Upgrade Plan
@@ -2248,6 +2248,7 @@ function executeChangePlan(tenantId) {
 /**
  * Sync a specific user/tenant to a new plan
  * Called when a Business Admin's plan is changed
+ * Also handles Personal to Business upgrade (role change)
  */
 function syncUserToNewPlan(tenantId, newPlanId) {
     const settings = getPlatformSettings();
@@ -2257,18 +2258,40 @@ function syncUserToNewPlan(tenantId, newPlanId) {
     const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
     const newFeatures = plan.features.includes('all') ? ['all'] : [...plan.features];
     
+    // Determine if upgrading TO or FROM personal plan
+    const isUpgradingToBusinessPlan = newPlanId !== 'personal' && ['starter', 'professional', 'premium'].includes(newPlanId);
+    const isDowngradingToPersonal = newPlanId === 'personal';
+    
     allUsers.forEach(user => {
-        // Update Business Admin's permissions
-        if (user.tenantId === tenantId && user.role === 'business_admin') {
+        if (user.tenantId !== tenantId) return; // Skip users from other tenants
+        
+        // Handle Personal user being upgraded to Business plan
+        if (user.role === 'personal' && isUpgradingToBusinessPlan) {
+            user.role = 'business_admin'; // Upgrade role from personal to business_admin
+            user.plan = newPlanId;
+            user.permissions = newFeatures;
+            user.updatedAt = new Date().toISOString();
+            console.log(`🔼 Upgraded ${user.email} from personal to business_admin with ${newPlanId} plan:`, user.permissions);
+        }
+        // Handle Business Admin downgrading to Personal plan
+        else if (user.role === 'business_admin' && isDowngradingToPersonal) {
+            user.role = 'personal'; // Downgrade role to personal
+            user.plan = 'personal';
+            // Get personal plan default permissions
+            const personalPlan = settings.plans['personal'];
+            user.permissions = personalPlan?.features || ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot'];
+            user.updatedAt = new Date().toISOString();
+            console.log(`🔽 Downgraded ${user.email} from business_admin to personal`);
+        }
+        // Handle Business Admin's plan change (no role change)
+        else if (user.role === 'business_admin') {
             user.plan = newPlanId;
             user.permissions = newFeatures;
             user.updatedAt = new Date().toISOString();
             console.log(`Updated ${user.email} to ${newPlanId} plan:`, user.permissions);
         }
-        
         // Update Staff/Manager permissions - remove features no longer in plan
-        // Also update their plan to match admin's plan
-        if (user.tenantId === tenantId && ['staff', 'manager'].includes(user.role)) {
+        else if (['staff', 'manager'].includes(user.role)) {
             user.plan = newPlanId; // Staff/Manager plan follows their admin's plan
             if (!newFeatures.includes('all') && user.permissions && !user.permissions.includes('all')) {
                 user.permissions = user.permissions.filter(p => newFeatures.includes(p));
@@ -2280,6 +2303,11 @@ function syncUserToNewPlan(tenantId, newPlanId) {
     
     localStorage.setItem('ezcubic_users', JSON.stringify(allUsers));
     
+    // Also update window.users to keep in-memory array in sync
+    if (window.users) {
+        window.users = allUsers;
+    }
+    
     // Update current user if affected
     const currentUserData = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
     if (currentUserData.tenantId === tenantId) {
@@ -2290,6 +2318,14 @@ function syncUserToNewPlan(tenantId, newPlanId) {
                 window.currentUser = updatedUser;
             }
         }
+    }
+    
+    // Refresh User Management panel if visible
+    if (typeof window.renderUserManagement === 'function') {
+        setTimeout(() => {
+            window.renderUserManagement();
+            console.log('🔄 User Management panel refreshed');
+        }, 200);
     }
     
     // Sync to cloud so the user's device gets the update

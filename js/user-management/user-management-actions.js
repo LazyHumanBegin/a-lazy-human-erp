@@ -182,13 +182,34 @@
         
         const user = users[userIndex];
         const userName = user.name || user.email;
+        const userEmail = user.email;
+        const userTenantId = user.tenantId;
         
-        // If user is business_admin, also delete their tenant and subscription
-        if (user.role === 'business_admin' && user.tenantId) {
+        // CRITICAL: Track deleted user to prevent re-sync from cloud
+        // Store deleted user IDs so cloud sync knows not to restore them
+        const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        if (userId && !deletedUsers.includes(userId)) {
+            deletedUsers.push(userId);
+        }
+        if (userEmail && !deletedUsers.includes(userEmail)) {
+            deletedUsers.push(userEmail);
+        }
+        localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+        console.log('🗑️ Marked user as deleted:', userId, userEmail);
+        
+        // If user is business_admin or personal, also delete their tenant and subscription
+        if ((user.role === 'business_admin' || user.role === 'personal') && userTenantId) {
+            // Track deleted tenant
+            const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            if (!deletedTenants.includes(userTenantId)) {
+                deletedTenants.push(userTenantId);
+            }
+            localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+            
             // Delete tenant
             const tenants = typeof getTenants === 'function' ? getTenants() : JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
-            if (tenants[user.tenantId]) {
-                delete tenants[user.tenantId];
+            if (tenants[userTenantId]) {
+                delete tenants[userTenantId];
                 if (typeof saveTenants === 'function') {
                     saveTenants(tenants);
                 } else {
@@ -198,8 +219,8 @@
             
             // Delete subscription
             const subs = typeof getSubscriptions === 'function' ? getSubscriptions() : JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
-            if (subs[user.tenantId]) {
-                delete subs[user.tenantId];
+            if (subs[userTenantId]) {
+                delete subs[userTenantId];
                 if (typeof saveSubscriptions === 'function') {
                     saveSubscriptions(subs);
                 } else {
@@ -207,23 +228,40 @@
                 }
             }
             
-            console.log(`Deleted tenant and subscription for: ${user.tenantId}`);
+            // Delete tenant data
+            localStorage.removeItem('ezcubic_tenant_' + userTenantId);
+            
+            console.log(`🗑️ Deleted tenant, subscription, and tenant data for: ${userTenantId}`);
         }
         
         // Remove user from array
         users.splice(userIndex, 1);
+        
+        // Also update window.users
+        if (window.users) {
+            window.users = users;
+        }
+        
         saveUsers();
         
         closeModal('confirmDeleteUserModal');
         showToast(`User "${userName}" has been deleted`, 'success');
         renderUserManagement();
         
-        // Immediate cloud sync to remove from cloud
-        if (typeof window.fullCloudSync === 'function') {
-            console.log('☁️ Syncing delete to cloud...');
+        // CRITICAL: Force upload to cloud (not merge - REPLACE)
+        // Use directUploadUsersToCloud to overwrite cloud data
+        if (typeof window.directUploadUsersToCloud === 'function') {
+            console.log('☁️ Direct upload users to cloud (REPLACE mode)...');
+            window.directUploadUsersToCloud().then(() => {
+                console.log('✅ User deletion synced to cloud');
+                showToast('Deletion synced to cloud!', 'success');
+            }).catch(err => {
+                console.warn('⚠️ Cloud sync failed:', err);
+                showToast('Deleted locally. Cloud sync pending.', 'warning');
+            });
+        } else if (typeof window.fullCloudSync === 'function') {
+            console.log('☁️ Syncing delete to cloud (merge mode - may cause issues)...');
             window.fullCloudSync().catch(err => console.warn('Cloud sync failed:', err));
-        } else if (typeof scheduleAutoCloudSync === 'function') {
-            scheduleAutoCloudSync();
         }
     }
     

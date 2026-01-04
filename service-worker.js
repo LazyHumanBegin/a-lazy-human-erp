@@ -4,7 +4,10 @@
  * Auto-syncs updates without manual version changes
  */
 
-const CACHE_NAME = 'ezcubic-erp-v2.4.0';
+// Auto-incrementing cache version based on deploy timestamp
+// This ensures cache is refreshed on every deployment
+const CACHE_VERSION = '20260104'; // Update: YYYYMMDD format
+const CACHE_NAME = `ezcubic-erp-${CACHE_VERSION}`;
 
 // Files to cache for offline fallback
 const ASSETS_TO_CACHE = [

@@ -3,10 +3,11 @@
 
 // ==================== INITIALIZE APP ====================
 function initializeApp() {
-    // Wait if tenant data is still loading (max 5 retries = 500ms)
+    // Wait if tenant data is still loading (max 20 retries = 2000ms)
+    // Cloud sync can take time, so we need to wait longer
     if (window._isLoadingUserData) {
         window._initAppRetries = (window._initAppRetries || 0) + 1;
-        if (window._initAppRetries < 5) {
+        if (window._initAppRetries < 20) {
             console.log('Waiting for tenant data to finish loading... (retry ' + window._initAppRetries + ')');
             setTimeout(initializeApp, 100);
             return;
@@ -306,7 +307,7 @@ function renderOutletDropdowns() {
             const userPlan = currentUser.plan || 'starter';
             
             // Check plan directly - Professional and Enterprise always get multi-outlet
-            if (userPlan === 'professional' || userPlan === 'enterprise') {
+            if (userPlan === 'professional' || userPlan === 'premium') {
                 isRestricted = false;
             }
             
@@ -658,30 +659,50 @@ function deleteOutlet(outletId) {
 }
 
 // Load Phase 2 data from localStorage
+// NOTE: This should respect window globals if already set by loadUserTenantData()
 function loadPhase2Data() {
     try {
-        // Load products
-        const storedProducts = localStorage.getItem(PRODUCTS_KEY);
-        if (storedProducts) {
-            products = JSON.parse(storedProducts);
+        // CRITICAL: If loadUserTenantData already ran, use window globals instead of localStorage
+        // This prevents loading stale data from previous user session
+        
+        // Load products - prefer window global
+        if (window.products && window.products.length > 0) {
+            products = window.products;
+        } else {
+            const storedProducts = localStorage.getItem(PRODUCTS_KEY);
+            if (storedProducts) {
+                products = JSON.parse(storedProducts);
+            }
         }
         
-        // Load customers
-        const storedCustomers = localStorage.getItem(CUSTOMERS_KEY);
-        if (storedCustomers) {
-            customers = JSON.parse(storedCustomers);
+        // Load customers - prefer window global
+        if (window.customers && window.customers.length > 0) {
+            customers = window.customers;
+        } else {
+            const storedCustomers = localStorage.getItem(CUSTOMERS_KEY);
+            if (storedCustomers) {
+                customers = JSON.parse(storedCustomers);
+            }
         }
         
-        // Load stock movements
-        const storedMovements = localStorage.getItem(STOCK_MOVEMENTS_KEY);
-        if (storedMovements) {
-            stockMovements = JSON.parse(storedMovements);
+        // Load stock movements - prefer window global
+        if (window.stockMovements && window.stockMovements.length > 0) {
+            stockMovements = window.stockMovements;
+        } else {
+            const storedMovements = localStorage.getItem(STOCK_MOVEMENTS_KEY);
+            if (storedMovements) {
+                stockMovements = JSON.parse(storedMovements);
+            }
         }
         
-        // Load sales
-        const storedSales = localStorage.getItem(SALES_KEY);
-        if (storedSales) {
-            sales = JSON.parse(storedSales);
+        // Load sales - prefer window global
+        if (window.sales && window.sales.length > 0) {
+            sales = window.sales;
+        } else {
+            const storedSales = localStorage.getItem(SALES_KEY);
+            if (storedSales) {
+                sales = JSON.parse(storedSales);
+            }
         }
         
         console.log('Phase 2 data loaded:', {

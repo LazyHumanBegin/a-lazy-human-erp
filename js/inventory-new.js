@@ -886,7 +886,7 @@ function loadBranchStockInputs(productId = null) {
     const currentUserPlan = window.currentUser?.plan || 'starter';
     const currentUserRole = window.currentUser?.role || '';
     // Include founder, erp_assistant roles OR professional, enterprise plans for multi-branch
-    const isMultiBranchPlan = ['founder', 'erp_assistant', 'professional', 'enterprise'].includes(currentUserPlan) ||
+    const isMultiBranchPlan = ['founder', 'erp_assistant', 'professional', 'premium'].includes(currentUserPlan) ||
                               ['founder', 'erp_assistant'].includes(currentUserRole);
     console.log('Plan check:', { currentUserPlan, currentUserRole, isMultiBranchPlan, windowCurrentUser: !!window.currentUser });
     

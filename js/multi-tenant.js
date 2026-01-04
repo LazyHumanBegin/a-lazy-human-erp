@@ -159,7 +159,68 @@ function saveTenantData(tenantId, data) {
     if (!tenantId) return;
     data.updatedAt = new Date().toISOString();
     localStorage.setItem(getTenantDataKey(tenantId), JSON.stringify(data));
+    
+    // AUTO-SYNC: Queue cloud upload after local save (debounced)
+    queueCloudSync(tenantId);
 }
+
+// ==================== AUTO-SYNC SYSTEM ====================
+// Debounced cloud sync - prevents overwhelming server with rapid saves
+let syncTimers = {};
+let pendingSyncs = new Set();
+
+function queueCloudSync(tenantId) {
+    // Don't sync if offline or no Supabase
+    if (!navigator.onLine || !window.supabase) return;
+    
+    // Mark this tenant as needing sync
+    pendingSyncs.add(tenantId);
+    
+    // Update sync status
+    if (window.syncStatus) {
+        window.syncStatus.pendingChanges = pendingSyncs.size;
+    }
+    
+    // Clear existing timer for this tenant
+    if (syncTimers[tenantId]) {
+        clearTimeout(syncTimers[tenantId]);
+    }
+    
+    // Debounce: Wait 3 seconds after last change before syncing
+    // This batches multiple rapid changes into one sync
+    syncTimers[tenantId] = setTimeout(async () => {
+        if (!pendingSyncs.has(tenantId)) return;
+        
+        try {
+            console.log(`☁️ Auto-syncing tenant ${tenantId} to cloud...`);
+            
+            // Get tenant data
+            const tenantData = getTenantData(tenantId);
+            
+            // Use syncTenantDataToCloud (from tenant.js)
+            if (typeof window.syncTenantDataToCloud === 'function') {
+                await window.syncTenantDataToCloud(tenantId, tenantData);
+            }
+            
+            pendingSyncs.delete(tenantId);
+            
+            // Update sync status
+            if (window.syncStatus) {
+                window.syncStatus.pendingChanges = pendingSyncs.size;
+                window.syncStatus.lastSync = new Date().toISOString();
+            }
+            
+            console.log(`✅ Auto-sync complete for ${tenantId}`);
+        } catch (err) {
+            console.warn(`⚠️ Auto-sync failed for ${tenantId}:`, err.message);
+            // Keep in pending list to retry on next change
+        }
+    }, 3000); // 3 second debounce
+}
+
+// Expose for manual trigger
+window.queueCloudSync = queueCloudSync;
+window.getPendingSyncs = () => Array.from(pendingSyncs);
 
 // ==================== CURRENT USER TENANT ====================
 function getCurrentTenantId() {

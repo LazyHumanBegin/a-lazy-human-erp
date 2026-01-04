@@ -167,9 +167,9 @@
         const platformSettings = typeof getPlatformSettings === 'function' ? getPlatformSettings() : null;
         const plans = platformSettings?.plans || {
             personal: { name: 'Personal', price: 0, color: '#64748b' },
-            starter: { name: 'Starter', price: 49, color: '#3b82f6' },
-            professional: { name: 'Professional', price: 149, color: '#8b5cf6' },
-            enterprise: { name: 'Enterprise', price: 399, color: '#f59e0b' }
+            starter: { name: 'Starter', price: 39, color: '#3b82f6' },
+            professional: { name: 'Professional', price: 129, color: '#8b5cf6' },
+            premium: { name: 'Premium', price: 249, color: '#f59e0b' }
         };
         
         const showPlanSelector = roleId === 'business_admin';
@@ -181,7 +181,7 @@
         
         if (window.currentUser?.role === 'founder') {
             // Founder ALWAYS has ALL features regardless of plan
-            ownerPlan = 'enterprise';
+            ownerPlan = 'premium';
             ownerFeatures = ['all'];
         } else if (window.currentUser?.role === 'business_admin') {
             ownerPlan = window.currentUser?.plan || 'starter';
@@ -486,7 +486,7 @@
                                         ${plan.price === 0 ? 'Free' : `RM${plan.price}/mo`}
                                     </div>
                                 </div>
-                                ${planId === 'enterprise' ? '<i class="fas fa-crown" style="color: #f59e0b;"></i>' : ''}
+                                ${planId === 'premium' ? '<i class="fas fa-crown" style="color: #f59e0b;"></i>' : ''}
                                 ${planId === 'professional' ? '<i class="fas fa-star" style="color: #10b981;"></i>' : ''}
                             </div>
                             <div style="font-size: 10px; color: #94a3b8; padding-left: 28px;">
@@ -831,7 +831,7 @@
         renderUserManagement();
         
         if (role === 'business_admin' && newUser.plan) {
-            const planNames = { personal: 'Personal', starter: 'Starter', professional: 'Professional', enterprise: 'Enterprise' };
+            const planNames = { personal: 'Personal', starter: 'Starter', professional: 'Professional', premium: 'Premium' };
             showToast(`${ROLES[role].name} created with ${planNames[newUser.plan] || newUser.plan} plan!`, 'success');
         } else {
             showToast(`${ROLES[role].name} created successfully!`, 'success');

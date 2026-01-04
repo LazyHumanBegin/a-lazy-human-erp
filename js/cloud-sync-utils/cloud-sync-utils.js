@@ -17,12 +17,59 @@
  * - generateCompanyCode() from users.js
  * - localStorage for data storage
  * 
- * Version: 1.0.0
- * Last Updated: 2025-01-13
+ * Version: 1.1.0 - Added sync status tracking & timestamp-based resolution
+ * Last Updated: 2026-01-04
  */
 
 (function() {
     'use strict';
+    
+    // ==================== SYNC STATUS TRACKING ====================
+    /**
+     * Global sync status - tracks if sync is in progress and last sync times
+     */
+    window.syncStatus = {
+        inProgress: false,
+        lastSync: null,
+        lastError: null,
+        pendingChanges: 0,
+        isOnline: navigator.onLine
+    };
+    
+    // Track online/offline status
+    window.addEventListener('online', () => {
+        window.syncStatus.isOnline = true;
+        console.log('🌐 Back online - will sync pending changes');
+        // Trigger sync of any pending changes
+        if (window.syncStatus.pendingChanges > 0 && typeof window.forceSyncUsersToCloud === 'function') {
+            window.forceSyncUsersToCloud(true);
+        }
+    });
+    
+    window.addEventListener('offline', () => {
+        window.syncStatus.isOnline = false;
+        console.log('📴 Offline - changes will sync when back online');
+    });
+    
+    /**
+     * Get sync status for UI display
+     * Run: getSyncStatus()
+     */
+    window.getSyncStatus = function() {
+        const status = window.syncStatus;
+        const lastSyncAgo = status.lastSync 
+            ? Math.round((Date.now() - new Date(status.lastSync).getTime()) / 1000) + 's ago'
+            : 'Never';
+        
+        return {
+            ...status,
+            lastSyncAgo,
+            statusText: status.inProgress ? '🔄 Syncing...' 
+                : status.lastError ? '⚠️ Sync Error' 
+                : status.isOnline ? '✅ Synced' 
+                : '📴 Offline'
+        };
+    };
     
     // ==================== CLOUD CONNECTION TEST ====================
     /**
@@ -103,6 +150,14 @@
         console.log('☁️ Force syncing users to cloud (MERGE mode)...');
         console.log('🔍 [SYNC DEBUG] Function called, silent:', silent);
         
+        // Prevent concurrent syncs
+        if (window.syncStatus.inProgress) {
+            console.log('⏸️ Sync already in progress, skipping...');
+            return { success: false, error: 'Sync already in progress' };
+        }
+        
+        window.syncStatus.inProgress = true;
+        
         try {
             // Wait for Supabase SDK to be ready
             console.log('🔍 [SYNC DEBUG] Checking Supabase SDK availability...');
@@ -116,6 +171,8 @@
             if (!window.supabase?.createClient) {
                 const msg = 'Supabase SDK not loaded';
                 console.error('❌ [SYNC DEBUG]', msg);
+                window.syncStatus.inProgress = false;
+                window.syncStatus.lastError = msg;
                 if (!silent) alert('❌ ' + msg);
                 return { success: false, error: msg };
             }
@@ -127,6 +184,8 @@
             if (!client) {
                 const msg = 'Could not get Supabase client';
                 console.error('❌ [SYNC DEBUG]', msg);
+                window.syncStatus.inProgress = false;
+                window.syncStatus.lastError = msg;
                 if (!silent) alert('❌ ' + msg);
                 return { success: false, error: msg };
             }
@@ -182,8 +241,14 @@
             const localUsers = JSON.parse(rawLocalUsers || '[]');
             const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
             
+            // Get deleted lists to filter them out
+            const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
             console.log('  📱 Local users:', localUsers.length);
             console.log('  📱 Local tenants:', Object.keys(localTenants).length);
+            console.log('  🗑️ Deleted users tracked:', deletedUsers.length);
+            console.log('  🗑️ Deleted tenants tracked:', deletedTenants.length);
             console.log('🔍 [SYNC DEBUG] Local users FULL DATA:');
             localUsers.forEach((u, i) => {
                 console.log(`  [${i}] email: ${u.email}, role: ${u.role}, id: ${u.id}`);
@@ -192,9 +257,15 @@
             // Create merged users map (use email as unique key)
             const mergedUsersMap = new Map();
             
-            // Add cloud users first
+            // Add cloud users first - BUT skip deleted ones
             console.log('🔍 [SYNC DEBUG] Adding cloud users to map...');
             cloudUsers.forEach(u => {
+                const key = u.email || u.id;
+                // Skip if user was deleted
+                if (deletedUsers.includes(u.id) || deletedUsers.includes(u.email)) {
+                    console.log('  🗑️ Skipping deleted user from cloud:', u.email);
+                    return;
+                }
                 if (u.email) mergedUsersMap.set(u.email, u);
                 else if (u.id) mergedUsersMap.set(u.id, u);
             });
@@ -234,8 +305,22 @@
             console.log('  🔄 Merged users total:', mergedUsers.length);
             console.log('🔍 [SYNC DEBUG] Merged users emails:', mergedUsers.map(u => u.email));
             
-            // Merge tenants
-            const mergedTenants = { ...cloudTenants, ...localTenants };
+            // Merge tenants - but skip deleted ones
+            const mergedTenants = {};
+            // Add cloud tenants first (skip deleted)
+            Object.entries(cloudTenants).forEach(([id, tenant]) => {
+                if (!deletedTenants.includes(id)) {
+                    mergedTenants[id] = tenant;
+                } else {
+                    console.log('  🗑️ Skipping deleted tenant from cloud:', id);
+                }
+            });
+            // Add/override with local tenants (skip deleted)
+            Object.entries(localTenants).forEach(([id, tenant]) => {
+                if (!deletedTenants.includes(id)) {
+                    mergedTenants[id] = tenant;
+                }
+            });
             console.log('  🔄 Merged tenants total:', Object.keys(mergedTenants).length);
             
             // STEP 3: Upload merged data to cloud
@@ -281,13 +366,137 @@
             console.log('  Tenants:', Object.keys(mergedTenants).length);
             console.log('🔍 [SYNC DEBUG] Sync completed successfully');
             
+            // Update sync status
+            window.syncStatus.inProgress = false;
+            window.syncStatus.lastSync = new Date().toISOString();
+            window.syncStatus.lastError = null;
+            window.syncStatus.pendingChanges = 0;
+            
             return { success: true, users: mergedUsers.length, tenants: Object.keys(mergedTenants).length };
             
         } catch (err) {
             console.error('❌ Sync error:', err);
+            window.syncStatus.inProgress = false;
+            window.syncStatus.lastError = err.message;
             if (!silent) alert('❌ Error: ' + err.message);
             return { success: false, error: err.message };
         }
+    };
+    
+    // ==================== DIRECT UPLOAD (NO MERGE) ====================
+    /**
+     * Upload users directly to cloud WITHOUT merging
+     * Used after user deletion to ensure deleted users stay deleted
+     * Run: directUploadUsersToCloud()
+     */
+    window.directUploadUsersToCloud = async function(silent = true) {
+        console.log('📤 Direct uploading users to cloud (no merge)...');
+        
+        try {
+            const client = await getSupabaseClient();
+            if (!client) {
+                console.error('❌ Cannot direct upload: No Supabase client');
+                return { success: false, error: 'No Supabase client' };
+            }
+            
+            // Get local data
+            const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+            const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+            
+            // Get deleted lists to filter them out
+            const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            // Filter out deleted users from upload
+            const cleanUsers = localUsers.filter(u => {
+                const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                if (isDeleted) console.log('  🗑️ Filtering out deleted user:', u.email);
+                return !isDeleted;
+            });
+            
+            // Filter out deleted tenants from upload
+            const cleanTenants = { ...localTenants };
+            deletedTenants.forEach(tenantId => {
+                if (cleanTenants[tenantId]) {
+                    console.log('  🗑️ Filtering out deleted tenant:', tenantId);
+                    delete cleanTenants[tenantId];
+                }
+            });
+            
+            console.log('  📤 Uploading', cleanUsers.length, 'users (after filtering)');
+            console.log('  📤 Uploading', Object.keys(cleanTenants).length, 'tenants (after filtering)');
+            
+            // Upload users directly (overwrites cloud data)
+            const { error: usersError } = await client.from('tenant_data').upsert({
+                tenant_id: 'global',
+                data_key: 'ezcubic_users',
+                data: { key: 'ezcubic_users', value: cleanUsers, synced_at: new Date().toISOString() },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+            
+            if (usersError) {
+                console.error('❌ Users upload failed:', usersError.message);
+                return { success: false, error: usersError.message };
+            }
+            
+            // Upload tenants directly
+            const { error: tenantsError } = await client.from('tenant_data').upsert({
+                tenant_id: 'global',
+                data_key: 'ezcubic_tenants',
+                data: { key: 'ezcubic_tenants', value: cleanTenants, synced_at: new Date().toISOString() },
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'tenant_id,data_key' });
+            
+            if (tenantsError) {
+                console.error('❌ Tenants upload failed:', tenantsError.message);
+                return { success: false, error: tenantsError.message };
+            }
+            
+            console.log('✅ Direct upload successful!');
+            
+            // Also delete the tenant's data from cloud if any tenant was deleted
+            for (const tenantId of deletedTenants) {
+                console.log('  🗑️ Deleting tenant data from cloud:', tenantId);
+                try {
+                    await client.from('tenant_data').delete()
+                        .eq('tenant_id', tenantId);
+                    console.log('  ✅ Deleted cloud data for tenant:', tenantId);
+                } catch (e) {
+                    console.warn('  ⚠️ Could not delete cloud data for tenant:', tenantId, e);
+                }
+            }
+            
+            // Clear deletion tracking after successful sync
+            // The deleted items are now removed from cloud, so we don't need to track them anymore
+            console.log('  🧹 Clearing deletion tracking...');
+            localStorage.removeItem('ezcubic_deleted_users');
+            localStorage.removeItem('ezcubic_deleted_tenants');
+            
+            return { success: true, users: cleanUsers.length, tenants: Object.keys(cleanTenants).length };
+            
+        } catch (err) {
+            console.error('❌ Direct upload error:', err);
+            return { success: false, error: err.message };
+        }
+    };
+    
+    // ==================== CLEAR DELETION TRACKING ====================
+    /**
+     * Manually clear deletion tracking (use after confirming cloud is clean)
+     * Run: clearDeletionTracking()
+     */
+    window.clearDeletionTracking = function() {
+        const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+        
+        console.log('🧹 Clearing deletion tracking...');
+        console.log('  Deleted users cleared:', deletedUsers.length);
+        console.log('  Deleted tenants cleared:', deletedTenants.length);
+        
+        localStorage.removeItem('ezcubic_deleted_users');
+        localStorage.removeItem('ezcubic_deleted_tenants');
+        
+        alert('✅ Deletion tracking cleared!\n\nUsers: ' + deletedUsers.length + '\nTenants: ' + deletedTenants.length);
     };
     
     // ==================== DOWNLOAD USERS FROM CLOUD ====================
@@ -334,19 +543,29 @@
                     const cloudUsers = record.data.value;
                     const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
                     
+                    // Get deleted lists to filter them out
+                    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                    
                     // ROLE-BASED FILTERING
                     let usersToSync = cloudUsers;
                     
+                    // First filter out deleted users
+                    usersToSync = usersToSync.filter(u => {
+                        const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                        if (isDeleted) console.log('  🗑️ Skipping deleted user:', u.email);
+                        return !isDeleted;
+                    });
+                    
                     if (!isFounder && currentTenantId) {
                         // Admin/Staff: Only sync users from their tenant
-                        usersToSync = cloudUsers.filter(u => 
+                        usersToSync = usersToSync.filter(u => 
                             u.tenantId === currentTenantId || 
                             u.id === currentUser.id // Always include self
                         );
                         console.log('  🔒 Filtered to tenant users only:', usersToSync.length, 'of', cloudUsers.length);
                     } else if (isFounder) {
-                        // Founder: Gets ALL users
-                        console.log('  👑 Founder access: All', cloudUsers.length, 'users');
+                        // Founder: Gets ALL users (except deleted)
+                        console.log('  👑 Founder access: All', usersToSync.length, 'users');
                     }
                     
                     // Merge: Add filtered cloud users not in local
@@ -369,16 +588,25 @@
                     const cloudTenants = record.data.value;
                     const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
                     
+                    // Get deleted tenants list
+                    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+                    
                     if (!isFounder && currentTenantId) {
-                        // Admin: Only get their own tenant info
-                        if (cloudTenants[currentTenantId]) {
+                        // Admin: Only get their own tenant info (if not deleted)
+                        if (cloudTenants[currentTenantId] && !deletedTenants.includes(currentTenantId)) {
                             localTenants[currentTenantId] = cloudTenants[currentTenantId];
                             console.log('  🔒 Synced own tenant only:', currentTenantId);
                         }
                     } else {
-                        // Founder: Gets ALL tenants
-                        Object.assign(localTenants, cloudTenants);
-                        console.log('  👑 Founder access: All', Object.keys(cloudTenants).length, 'tenants');
+                        // Founder: Gets ALL tenants (except deleted)
+                        Object.entries(cloudTenants).forEach(([id, tenant]) => {
+                            if (!deletedTenants.includes(id)) {
+                                localTenants[id] = tenant;
+                            } else {
+                                console.log('  🗑️ Skipping deleted tenant:', id);
+                            }
+                        });
+                        console.log('  👑 Founder access: Tenants synced');
                     }
                     
                     localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
