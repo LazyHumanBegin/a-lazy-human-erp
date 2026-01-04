@@ -1887,7 +1887,7 @@ function renderPlatformControl() {
                                                 <i class="fas fa-check"></i>
                                             </button>
                                         `}
-                                        <button class="btn-icon danger" onclick="deleteSubscription('${tenant.id}', '${escapeHtml(tenant.businessName)}')" title="Delete Subscription" style="margin-left: 4px;">
+                                        <button class="btn-icon danger" onclick="deleteSubscription('${tenant.id}')" title="Delete Subscription" style="margin-left: 4px;">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </td>
@@ -2405,7 +2405,12 @@ function reactivateTenant(tenantId) {
 }
 
 // Delete subscription and optionally the tenant/user
-function deleteSubscription(tenantId, businessName) {
+function deleteSubscription(tenantId) {
+    // Look up business name from tenant
+    const tenants = getTenants();
+    const tenant = tenants[tenantId];
+    const businessName = tenant ? tenant.businessName : tenantId;
+    
     const confirmMsg = `⚠️ DELETE SUBSCRIPTION\n\nBusiness: ${businessName}\nTenant ID: ${tenantId}\n\nThis will:\n• Remove the subscription\n• Remove the tenant record\n• Remove associated user(s)\n• Delete all tenant data\n\nThis action CANNOT be undone!\n\nType "DELETE" to confirm:`;
     
     const userInput = prompt(confirmMsg);
