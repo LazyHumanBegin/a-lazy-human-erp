@@ -2405,7 +2405,7 @@ function reactivateTenant(tenantId) {
 }
 
 // Delete subscription and optionally the tenant/user
-function deleteSubscription(tenantId) {
+async function deleteSubscription(tenantId) {
     // Look up business name from tenant
     const tenants = getTenants();
     const tenant = tenants[tenantId];
@@ -2461,9 +2461,11 @@ function deleteSubscription(tenantId) {
         localStorage.removeItem('ezcubic_tenant_' + tenantId);
         console.log('🗑️ Tenant data deleted');
         
-        // 6. Sync to cloud
+        // 6. Sync to cloud - await to ensure deletion is uploaded
         if (typeof window.directUploadUsersToCloud === 'function') {
-            window.directUploadUsersToCloud(true);
+            console.log('📤 Syncing deletion to cloud...');
+            await window.directUploadUsersToCloud(true);
+            console.log('✅ Deletion synced to cloud');
         }
         
         // Refresh UI
@@ -3485,6 +3487,10 @@ window.downloadUsersFromCloud = async function() {
     
     if (error) throw error;
     
+    // Get deleted lists to filter out
+    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+    
     for (const record of data || []) {
         if (record.data_key === 'ezcubic_users' && record.data?.value) {
             const cloudUsers = record.data.value;
@@ -3493,6 +3499,17 @@ window.downloadUsersFromCloud = async function() {
             // Merge: Cloud wins for newer data
             const mergedUsers = [...localUsers];
             cloudUsers.forEach(cloudUser => {
+                // Skip if user was deleted locally
+                if (deletedUsers.includes(cloudUser.id) || deletedUsers.includes(cloudUser.email)) {
+                    console.log('⏭️ Skipping deleted user:', cloudUser.email);
+                    return;
+                }
+                // Skip if user's tenant was deleted
+                if (cloudUser.tenantId && deletedTenants.includes(cloudUser.tenantId)) {
+                    console.log('⏭️ Skipping user from deleted tenant:', cloudUser.email);
+                    return;
+                }
+                
                 const localIdx = mergedUsers.findIndex(u => u.id === cloudUser.id);
                 if (localIdx >= 0) {
                     // Compare timestamps, prefer newer
@@ -3506,16 +3523,37 @@ window.downloadUsersFromCloud = async function() {
                 }
             });
             
-            localStorage.setItem('ezcubic_users', JSON.stringify(mergedUsers));
-            console.log('👥 Users merged from cloud:', mergedUsers.length);
+            // Also filter out any deleted users from merged result
+            const filteredUsers = mergedUsers.filter(u => 
+                !deletedUsers.includes(u.id) && 
+                !deletedUsers.includes(u.email) &&
+                !(u.tenantId && deletedTenants.includes(u.tenantId))
+            );
+            
+            localStorage.setItem('ezcubic_users', JSON.stringify(filteredUsers));
+            console.log('👥 Users merged from cloud:', filteredUsers.length);
         }
         
         if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
             const cloudTenants = record.data.value;
             const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
             
+            // Filter out deleted tenants from cloud
+            const filteredCloudTenants = {};
+            Object.entries(cloudTenants).forEach(([id, tenant]) => {
+                if (!deletedTenants.includes(id)) {
+                    filteredCloudTenants[id] = tenant;
+                } else {
+                    console.log('⏭️ Skipping deleted tenant:', id);
+                }
+            });
+            
             // Merge tenants
-            const mergedTenants = { ...localTenants, ...cloudTenants };
+            const mergedTenants = { ...localTenants, ...filteredCloudTenants };
+            
+            // Also filter out any deleted tenants from merged result
+            deletedTenants.forEach(id => delete mergedTenants[id]);
+            
             localStorage.setItem('ezcubic_tenants', JSON.stringify(mergedTenants));
             console.log('🏢 Tenants merged from cloud');
         }
