@@ -257,6 +257,42 @@ function checkSubscriptionStatus(tenantId) {
     return { valid: true, reason: 'active', daysLeft, subscription: sub };
 }
 
+// ==================== FORCE UPLOAD USERS TO CLOUD ====================
+// Used when founder changes plan - uploads directly without merge
+async function forceUploadUsersToCloud(users) {
+    console.log('[forceUploadUsersToCloud] Starting direct upload of', users.length, 'users');
+    
+    try {
+        // Get Supabase client
+        const client = typeof getUsersSupabaseClient === 'function' ? getUsersSupabaseClient() : null;
+        if (!client) {
+            console.warn('[forceUploadUsersToCloud] Supabase not available');
+            return false;
+        }
+        
+        // Direct upsert - overwrites cloud data
+        const { error } = await client.from('tenant_data').upsert({
+            tenant_id: 'global',
+            data_key: 'ezcubic_users',
+            data: { key: 'ezcubic_users', value: users, synced_at: new Date().toISOString() },
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'tenant_id,data_key' });
+        
+        if (error) {
+            console.error('[forceUploadUsersToCloud] Upload failed:', error.message);
+            return false;
+        }
+        
+        console.log('[forceUploadUsersToCloud] SUCCESS - uploaded', users.length, 'users to cloud');
+        showToast('Plan synced to cloud!', 'success');
+        return true;
+    } catch (err) {
+        console.error('[forceUploadUsersToCloud] Error:', err);
+        return false;
+    }
+}
+window.forceUploadUsersToCloud = forceUploadUsersToCloud;
+
 // ==================== AUTO-SYNC USERS FOR FOUNDER ====================
 // Tracks last sync to prevent excessive API calls
 let lastPlatformUserSync = 0;
@@ -314,15 +350,26 @@ async function autoSyncPlatformUsers() {
                     const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
                     
                     // Merge: Add cloud users not in local, update existing ones
+                    // IMPORTANT: Preserve admin-controlled fields - local is truth for plan/role/permissions
                     let newUsersCount = 0;
                     cloudUsers.forEach(cu => {
                         const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
                         if (existingIdx === -1) {
+                            // New user from cloud - add them
                             localUsers.push(cu);
                             newUsersCount++;
                         } else {
-                            // Update existing user with cloud data (cloud is source of truth)
-                            localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+                            // Existing user - merge but PRESERVE local admin-controlled fields
+                            // Local is source of truth for: plan, role, permissions (set by founder)
+                            const localUser = localUsers[existingIdx];
+                            const preservedFields = {
+                                plan: localUser.plan,
+                                role: localUser.role,
+                                permissions: localUser.permissions,
+                                updatedAt: localUser.updatedAt
+                            };
+                            // Merge cloud data then restore preserved fields
+                            localUsers[existingIdx] = { ...localUser, ...cu, ...preservedFields };
                         }
                     });
                     
@@ -1665,18 +1712,22 @@ function renderPlatformControl() {
     const subs = getSubscriptions();
     
     // Build tenant list from both tenants storage AND users with tenantIds
-    // This ensures we show all business admins even if their tenant wasn't properly registered
+    // This ensures we show all business admins AND personal users even if their tenant wasn't properly registered
     const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
-    const businessAdmins = allUsers.filter(u => u.role === 'business_admin' && u.tenantId);
     
-    // Add any missing tenants from business admins
-    businessAdmins.forEach(admin => {
-        if (!tenants[admin.tenantId]) {
-            tenants[admin.tenantId] = {
-                id: admin.tenantId,
-                businessName: admin.businessName || admin.companyName || `${admin.name}'s Business`,
-                ownerEmail: admin.email,
-                createdAt: admin.createdAt || new Date().toISOString()
+    // Include both business_admin AND personal users (so founder can upgrade personal to business)
+    const managedUsers = allUsers.filter(u => (u.role === 'business_admin' || u.role === 'personal') && u.tenantId);
+    
+    // Add any missing tenants from users
+    managedUsers.forEach(user => {
+        if (!tenants[user.tenantId]) {
+            tenants[user.tenantId] = {
+                id: user.tenantId,
+                businessName: user.businessName || user.companyName || `${user.name}'s ${user.role === 'personal' ? 'Personal' : 'Business'}`,
+                ownerEmail: user.email,
+                ownerId: user.id,
+                role: user.role, // Track if it's personal or business
+                createdAt: user.createdAt || new Date().toISOString()
             };
         }
     });
@@ -2221,31 +2272,44 @@ function executeChangePlan(tenantId) {
     closeModal('changePlanModal');
     
     // Show loading indicator
-    showToast('⏳ Updating plan...', 'info');
+    showToast('⏳ Updating plan and syncing to cloud...', 'info');
     
-    // Force clear the container completely
-    const container = document.getElementById('platformControlContent');
-    if (container) {
-        // Hide container first
-        container.style.opacity = '0';
-        container.innerHTML = '';
-    }
-    
-    // Use requestAnimationFrame to ensure DOM updates
-    requestAnimationFrame(() => {
+    // CRITICAL: Sync to cloud BEFORE re-rendering to prevent cloud overwriting local changes
+    // This ensures the cloud has our updated data before autoSyncPlatformUsers runs
+    const syncToCloudFirst = async () => {
+        try {
+            if (typeof window.fullCloudSync === 'function') {
+                console.log('[executeChangePlan] Syncing to cloud BEFORE render...');
+                await window.fullCloudSync();
+                console.log('[executeChangePlan] Cloud sync complete');
+            } else if (typeof window.forceSyncUsersToCloud === 'function') {
+                await window.forceSyncUsersToCloud(true);
+            }
+        } catch (err) {
+            console.warn('[executeChangePlan] Cloud sync failed:', err);
+        }
+        
+        // NOW re-render (autoSyncPlatformUsers will download our just-uploaded data)
+        const container = document.getElementById('platformControlContent');
+        if (container) {
+            container.style.opacity = '0';
+            container.innerHTML = '';
+        }
+        
         setTimeout(() => {
             console.log('🔄 Re-rendering Platform Control...');
             renderPlatformControl();
             
-            // Force reflow and show
             if (container) {
-                void container.offsetHeight; // Force reflow
+                void container.offsetHeight;
                 container.style.opacity = '1';
             }
             
             showToast('✅ Plan changed to ' + newPlan.toUpperCase() + '!', 'success');
         }, 150);
-    });
+    };
+    
+    syncToCloudFirst();
 }
 
 /**
@@ -2254,10 +2318,12 @@ function executeChangePlan(tenantId) {
  * Also handles Personal to Business upgrade (role change)
  */
 function syncUserToNewPlan(tenantId, newPlanId) {
+    console.log('[syncUserToNewPlan] tenantId:', tenantId, 'newPlanId:', newPlanId);
+    
     const settings = getPlatformSettings();
     const plan = settings.plans[newPlanId];
     if (!plan) {
-        console.error('❌ Plan not found:', newPlanId);
+        console.error('[syncUserToNewPlan] Plan not found:', newPlanId);
         return;
     }
     
@@ -2265,15 +2331,62 @@ function syncUserToNewPlan(tenantId, newPlanId) {
     const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
     const newFeatures = plan.features.includes('all') ? ['all'] : [...plan.features];
     
+    // Debug: Log user count
+    console.log('[syncUserToNewPlan] All users in system:', allUsers.length);
+    
+    // Track the actual tenantId to use for filtering
+    let actualTenantId = tenantId;
+    
     // Find users belonging to this tenant
-    const tenantUsers = allUsers.filter(u => u.tenantId === tenantId);
-    console.log('👥 Found', tenantUsers.length, 'users in tenant', tenantId);
+    let tenantUsers = allUsers.filter(u => u.tenantId === tenantId);
+    console.log('[syncUserToNewPlan] Found ' + tenantUsers.length + ' users with exact tenantId match');
+    
+    // If no exact match, try multiple lookup strategies
+    if (tenantUsers.length === 0) {
+        console.log('[syncUserToNewPlan] No exact match, trying alternative lookups...');
+        const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+        const tenant = tenants[tenantId];
+        
+        // Strategy 1: Find by ownerEmail in tenant record
+        if (tenant && tenant.ownerEmail) {
+            const adminUser = allUsers.find(u => u.email === tenant.ownerEmail);
+            if (adminUser) {
+                console.log('[syncUserToNewPlan] Found user by ownerEmail:', adminUser.email, 'userTenantId:', adminUser.tenantId);
+                actualTenantId = adminUser.tenantId;
+                tenantUsers = allUsers.filter(u => u.tenantId === actualTenantId);
+            }
+        }
+        
+        // Strategy 2: Find by ownerId in tenant record
+        if (tenantUsers.length === 0 && tenant && tenant.ownerId) {
+            const adminUser = allUsers.find(u => u.id === tenant.ownerId);
+            if (adminUser) {
+                console.log('[syncUserToNewPlan] Found user by ownerId:', adminUser.email, 'userTenantId:', adminUser.tenantId);
+                actualTenantId = adminUser.tenantId;
+                tenantUsers = allUsers.filter(u => u.tenantId === actualTenantId);
+            }
+        }
+        
+        // Strategy 3: Legacy - find by adminEmail (for older tenant records)
+        if (tenantUsers.length === 0 && tenant && tenant.adminEmail) {
+            const adminUser = allUsers.find(u => u.email === tenant.adminEmail);
+            if (adminUser) {
+                console.log('[syncUserToNewPlan] Found user by adminEmail:', adminUser.email, 'userTenantId:', adminUser.tenantId);
+                actualTenantId = adminUser.tenantId;
+                tenantUsers = allUsers.filter(u => u.tenantId === actualTenantId);
+            }
+        }
+        
+        console.log('[syncUserToNewPlan] After lookups, found ' + tenantUsers.length + ' users');
+    }
     
     if (tenantUsers.length === 0) {
-        console.warn('⚠️ No users found for tenant:', tenantId);
-        showToast('No users found for this tenant', 'warning');
+        console.warn('[syncUserToNewPlan] Still no users found for tenant:', tenantId);
+        showToast('No users found for this tenant. Check console for details.', 'warning');
         return;
     }
+    
+    console.log('[syncUserToNewPlan] Using actualTenantId for update:', actualTenantId);
     
     // Determine if upgrading TO or FROM personal plan
     const isUpgradingToBusinessPlan = newPlanId !== 'personal' && ['starter', 'professional', 'premium'].includes(newPlanId);
@@ -2281,19 +2394,26 @@ function syncUserToNewPlan(tenantId, newPlanId) {
     
     let updatedCount = 0;
     allUsers.forEach(user => {
-        if (user.tenantId !== tenantId) return; // Skip users from other tenants
+        if (user.tenantId !== actualTenantId) return; // Skip users from other tenants
+        
+        // Debug: Log each user being processed
+        console.log('[syncUserToNewPlan] Processing user:', user.email, 'currentRole:', user.role, 'currentPlan:', user.plan);
+        
+        // Normalize role for comparison (handle undefined, null, or case differences)
+        const userRole = (user.role || '').toLowerCase().trim();
         
         // Handle Personal user being upgraded to Business plan
-        if (user.role === 'personal' && isUpgradingToBusinessPlan) {
+        // Check for 'personal' role OR user has no role/plan and we're upgrading
+        if ((userRole === 'personal' || !user.role || user.plan === 'personal') && isUpgradingToBusinessPlan) {
             user.role = 'business_admin'; // Upgrade role from personal to business_admin
             user.plan = newPlanId;
             user.permissions = newFeatures;
             user.updatedAt = new Date().toISOString();
             updatedCount++;
-            console.log(`🔼 Upgraded ${user.email} from personal to business_admin with ${newPlanId} plan:`, user.permissions);
+            console.log('[syncUserToNewPlan] UPGRADED ' + user.email + ' to business_admin with ' + newPlanId + ' plan, permissions:', newFeatures.length);
         }
         // Handle Business Admin downgrading to Personal plan
-        else if (user.role === 'business_admin' && isDowngradingToPersonal) {
+        else if (userRole === 'business_admin' && isDowngradingToPersonal) {
             user.role = 'personal'; // Downgrade role to personal
             user.plan = 'personal';
             // Get personal plan default permissions
@@ -2301,87 +2421,122 @@ function syncUserToNewPlan(tenantId, newPlanId) {
             user.permissions = personalPlan?.features || ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot'];
             user.updatedAt = new Date().toISOString();
             updatedCount++;
-            console.log(`🔽 Downgraded ${user.email} from business_admin to personal`);
+            console.log('[syncUserToNewPlan] DOWNGRADED ' + user.email + ' to personal');
         }
         // Handle Business Admin's plan change (no role change)
-        else if (user.role === 'business_admin') {
+        else if (userRole === 'business_admin') {
             user.plan = newPlanId;
             user.permissions = newFeatures;
             user.updatedAt = new Date().toISOString();
             updatedCount++;
-            console.log(`Updated ${user.email} to ${newPlanId} plan:`, user.permissions);
+            console.log('[syncUserToNewPlan] Updated business_admin ' + user.email + ' to ' + newPlanId + ' plan');
         }
         // Update Staff/Manager permissions - remove features no longer in plan
-        else if (['staff', 'manager'].includes(user.role)) {
+        else if (['staff', 'manager'].includes(userRole)) {
             user.plan = newPlanId; // Staff/Manager plan follows their admin's plan
             if (!newFeatures.includes('all') && user.permissions && !user.permissions.includes('all')) {
                 user.permissions = user.permissions.filter(p => newFeatures.includes(p));
             }
             user.updatedAt = new Date().toISOString();
             updatedCount++;
-            console.log(`Updated staff ${user.email} to ${newPlanId} plan, permissions:`, user.permissions);
+            console.log('[syncUserToNewPlan] Updated staff ' + user.email + ' to ' + newPlanId + ' plan');
         }
-        // Catch-all: Update any other user in this tenant (should not normally happen)
+        // Catch-all: Update any other user in this tenant - ALSO update role and permissions if upgrading
         else {
+            console.log('[syncUserToNewPlan] CATCH-ALL for ' + user.email + ' role=' + user.role + ' plan=' + user.plan);
             user.plan = newPlanId;
+            // If upgrading to business plan, also set role and permissions
+            if (isUpgradingToBusinessPlan) {
+                user.role = 'business_admin';
+                user.permissions = newFeatures;
+                console.log('[syncUserToNewPlan] Catch-all UPGRADED ' + user.email + ' to business_admin');
+            } else if (isDowngradingToPersonal) {
+                user.role = 'personal';
+                const personalPlan = settings.plans['personal'];
+                user.permissions = personalPlan?.features || ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot'];
+                console.log('[syncUserToNewPlan] Catch-all DOWNGRADED ' + user.email + ' to personal');
+            }
             user.updatedAt = new Date().toISOString();
             updatedCount++;
-            console.log(`Updated ${user.email} (${user.role}) to ${newPlanId} plan`);
         }
     });
     
-    console.log('✅ Updated', updatedCount, 'users to plan', newPlanId);
+    console.log('[syncUserToNewPlan] Updated', updatedCount, 'users to plan', newPlanId);
     
-    // Save to localStorage
+    // DEBUG: Show what we're about to save
+    const usersToSave = allUsers.filter(u => u.tenantId === actualTenantId);
+    console.log('[syncUserToNewPlan] Users being saved for this tenant:', usersToSave.map(u => ({
+        email: u.email,
+        role: u.role,
+        plan: u.plan,
+        permissions: u.permissions?.length || 0
+    })));
+    
+    // Save to localStorage FIRST before any other operations
     localStorage.setItem('ezcubic_users', JSON.stringify(allUsers));
-    console.log('💾 Saved', allUsers.length, 'users to localStorage');
+    console.log('[syncUserToNewPlan] Saved', allUsers.length, 'users to localStorage');
     
-    // Also update the global users array
+    // VERIFY the save worked
+    const verifyUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const verifyUser = verifyUsers.find(u => u.tenantId === actualTenantId);
+    console.log('[syncUserToNewPlan] VERIFY after save - user role:', verifyUser?.role, 'plan:', verifyUser?.plan);
+    
+    // Also update the global users array - IMPORTANT: must match localStorage
     if (window.users) {
         // Clear and repopulate to maintain reference
         window.users.length = 0;
         allUsers.forEach(u => window.users.push(u));
+        console.log('[syncUserToNewPlan] Updated window.users array, length:', window.users.length);
     }
     
-    // Call saveUsers if available (triggers cloud sync)
+    // ALSO update the global users variable if it's different from window.users
+    if (typeof users !== 'undefined' && users !== window.users) {
+        users.length = 0;
+        allUsers.forEach(u => users.push(u));
+        console.log('[syncUserToNewPlan] Updated global users variable');
+    }
+    
+    // Call saveUsers if available (triggers cloud sync) - but DON'T let it overwrite our changes
+    // saveUsers reads from the users array, which we just updated
     if (typeof saveUsers === 'function') {
         saveUsers();
-        console.log('💾 saveUsers() called to trigger cloud sync');
+        console.log('[syncUserToNewPlan] saveUsers() called to trigger cloud sync');
     }
     
-    // Update current user if affected
+    // Update current user if affected (check both original tenantId and actualTenantId)
     const currentUserData = JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
-    if (currentUserData.tenantId === tenantId) {
+    if (currentUserData.tenantId === tenantId || currentUserData.tenantId === actualTenantId) {
         const updatedUser = allUsers.find(u => u.id === currentUserData.id);
         if (updatedUser) {
             localStorage.setItem('ezcubic_current_user', JSON.stringify(updatedUser));
             if (window.currentUser) {
-                window.currentUser = updatedUser;
+                Object.assign(window.currentUser, updatedUser);
             }
+            console.log('[syncUserToNewPlan] Updated current user session - role:', updatedUser.role, 'plan:', updatedUser.plan);
         }
+    }
+    
+    // Force reload users from localStorage before rendering
+    if (typeof loadUsers === 'function') {
+        loadUsers();
+        console.log('[syncUserToNewPlan] loadUsers() called to refresh users array');
     }
     
     // Refresh User Management panel if visible
     if (typeof window.renderUserManagement === 'function') {
         setTimeout(() => {
+            // Force reload again just before render
+            if (typeof loadUsers === 'function') {
+                loadUsers();
+            }
             window.renderUserManagement();
-            console.log('🔄 User Management panel refreshed');
+            console.log('[syncUserToNewPlan] User Management panel refreshed');
         }, 200);
     }
     
-    // Sync to cloud so the user's device gets the update
-    if (typeof window.fullCloudSync === 'function') {
-        console.log('☁️ Syncing plan change to cloud...');
-        window.fullCloudSync().then(() => {
-            console.log('✅ Plan change synced to cloud successfully');
-            showToast('Plan synced to cloud! User will see changes on next login/refresh.', 'success');
-        }).catch(err => {
-            console.warn('Cloud sync failed:', err);
-            showToast('Plan changed locally. Cloud sync pending.', 'warning');
-        });
-    } else if (typeof scheduleAutoCloudSync === 'function') {
-        scheduleAutoCloudSync();
-    }
+    // CRITICAL: Force upload to cloud IMMEDIATELY (no merge, just overwrite)
+    // This ensures the cloud has our changes before any sync downloads old data
+    forceUploadUsersToCloud(allUsers);
 }
 
 function extendSubscription(tenantId) {
@@ -2898,6 +3053,85 @@ window.updateFeatureCheckbox = updateFeatureCheckbox;
 window.savePlanFeatures = savePlanFeatures;
 window.syncPlanFeaturesToUsers = syncPlanFeaturesToUsers;
 window.syncUserToNewPlan = syncUserToNewPlan;
+
+// ==================== DEBUG FUNCTIONS ====================
+// Run in console: debugUserPlan('email@example.com')
+window.debugUserPlan = function(email) {
+    const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const user = allUsers.find(u => u.email === email || u.email.includes(email));
+    if (!user) {
+        console.log('User not found with email:', email);
+        console.log('Available users:', allUsers.map(u => u.email));
+        return;
+    }
+    console.log('=== DEBUG USER PLAN ===');
+    console.log('Email:', user.email);
+    console.log('Name:', user.name);
+    console.log('Role:', user.role);
+    console.log('Plan:', user.plan);
+    console.log('TenantId:', user.tenantId);
+    console.log('Permissions:', user.permissions);
+    console.log('Full user object:', user);
+    
+    // Check tenants
+    const tenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    console.log('Tenant entry:', tenants[user.tenantId]);
+    
+    // Check subscriptions
+    const subs = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+    console.log('Subscription:', subs[user.tenantId]);
+    
+    // Check window.users
+    const windowUser = window.users?.find(u => u.email === user.email);
+    console.log('window.users entry - role:', windowUser?.role, 'plan:', windowUser?.plan);
+    
+    return user;
+};
+
+// Force update a user's plan directly
+window.forceUpdateUserPlan = function(email, newPlanId, newRole) {
+    const allUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const userIndex = allUsers.findIndex(u => u.email === email || u.email.includes(email));
+    if (userIndex === -1) {
+        console.log('User not found');
+        return;
+    }
+    
+    const settings = getPlatformSettings();
+    const plan = settings.plans[newPlanId];
+    if (!plan) {
+        console.log('Plan not found:', newPlanId);
+        return;
+    }
+    
+    allUsers[userIndex].plan = newPlanId;
+    allUsers[userIndex].role = newRole || (newPlanId === 'personal' ? 'personal' : 'business_admin');
+    allUsers[userIndex].permissions = plan.features.includes('all') ? ['all'] : [...plan.features];
+    allUsers[userIndex].updatedAt = new Date().toISOString();
+    
+    localStorage.setItem('ezcubic_users', JSON.stringify(allUsers));
+    
+    // Update window.users
+    if (window.users) {
+        window.users.length = 0;
+        allUsers.forEach(u => window.users.push(u));
+    }
+    
+    console.log('Updated user:', allUsers[userIndex].email);
+    console.log('New role:', allUsers[userIndex].role);
+    console.log('New plan:', allUsers[userIndex].plan);
+    console.log('New permissions:', allUsers[userIndex].permissions);
+    
+    // Refresh UI
+    if (typeof renderUserManagement === 'function') {
+        renderUserManagement();
+    }
+    if (typeof renderPlatformControl === 'function') {
+        renderPlatformControl();
+    }
+    
+    return allUsers[userIndex];
+};
 
 // ==================== PRICING PLAN EDITOR ====================
 function showEditPlanModal(planId) {

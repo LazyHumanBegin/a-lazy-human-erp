@@ -420,12 +420,25 @@
      */
     function generateEditBranchAccessHTML(user) {
         // Get branches from window.branches OR localStorage
-        let branches = window.branches || [];
-        if (!Array.isArray(branches) || branches.length === 0) {
-            branches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
+        let allBranches = window.branches || [];
+        if (!Array.isArray(allBranches) || allBranches.length === 0) {
+            allBranches = JSON.parse(localStorage.getItem('ezcubic_branches') || '[]');
         }
         
-        // Only show if admin has 2 or more branches
+        // CRITICAL: Filter branches to only show the user's tenant branches
+        // When editing a user, only show branches belonging to THEIR tenant, not founder's
+        const branches = allBranches.filter(b => {
+            // If user has a tenantId, only show branches from their tenant
+            if (user.tenantId) {
+                return b.tenantId === user.tenantId;
+            }
+            // If no tenantId (shouldn't happen), don't show any branches
+            return false;
+        });
+        
+        console.log('🏢 generateEditBranchAccessHTML for', user.email, '- tenant:', user.tenantId, '- branches found:', branches.length);
+        
+        // Only show if user's tenant has 2 or more branches
         if (branches.length < 2) {
             return '';
         }

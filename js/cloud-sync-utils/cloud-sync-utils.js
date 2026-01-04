@@ -282,21 +282,27 @@
                     mergedUsersMap.set(key, u);
                     console.log('  ➕ Adding new user to cloud:', u.email);
                 } else {
-                    // Existing user - merge carefully
-                    // ALWAYS preserve admin-controlled fields from cloud (plan, role, permissions, status)
-                    // These can only be changed by founder/admin, so cloud is the source of truth
+                    // Existing user - merge carefully using timestamps
+                    // Newer updatedAt wins for admin-controlled fields (plan, role, permissions, status)
+                    const localTime = new Date(u.updatedAt || u.createdAt || 0).getTime();
+                    const cloudTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+                    
+                    // Use whichever has newer admin fields
+                    const useLocalAdmin = localTime >= cloudTime;
+                    
                     const mergedUser = {
                         ...existing,  // Start with cloud data
-                        ...u,         // Apply local changes (like profile edits)
-                        // BUT restore admin-controlled fields from cloud
-                        plan: existing.plan || u.plan,
-                        role: existing.role || u.role,
-                        permissions: existing.permissions || u.permissions,
-                        status: existing.status || u.status
+                        ...u,         // Apply local changes
+                        // Admin-controlled fields: use whichever is newer
+                        plan: useLocalAdmin ? (u.plan || existing.plan) : (existing.plan || u.plan),
+                        role: useLocalAdmin ? (u.role || existing.role) : (existing.role || u.role),
+                        permissions: useLocalAdmin ? (u.permissions || existing.permissions) : (existing.permissions || u.permissions),
+                        status: useLocalAdmin ? (u.status || existing.status) : (existing.status || u.status),
+                        updatedAt: useLocalAdmin ? u.updatedAt : existing.updatedAt
                     };
                     mergedUsersMap.set(key, mergedUser);
                     if (existing.plan !== u.plan) {
-                        console.log(`  🔄 Plan sync: ${u.email} local=${u.plan} cloud=${existing.plan} → using cloud`);
+                        console.log(`  🔄 Plan sync: ${u.email} local=${u.plan} cloud=${existing.plan} → using ${useLocalAdmin ? 'local' : 'cloud'} (newer)`);
                     }
                 }
             });

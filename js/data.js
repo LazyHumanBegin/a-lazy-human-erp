@@ -4,8 +4,31 @@
 // ==================== APP VERSION ====================
 // Single source of truth for version number
 // Update this when releasing new versions
-const APP_VERSION = '2.4.8';
+// Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
+const APP_VERSION = '2.4.9';
 window.APP_VERSION = APP_VERSION;
+
+/**
+ * Calculate next version number
+ * Rule: 2.4.9 → 2.4.10 → 2.5.0 → 2.5.1 → ... → 2.5.10 → 2.6.0
+ * @param {string} currentVersion - Current version like "2.4.9"
+ * @returns {string} Next version
+ */
+function getNextVersion(currentVersion = APP_VERSION) {
+    const parts = currentVersion.split('.').map(Number);
+    let [major, minor, patch] = parts;
+    
+    patch++;
+    
+    // When patch exceeds 10, roll to next minor version
+    if (patch > 10) {
+        minor++;
+        patch = 0;
+    }
+    
+    return `${major}.${minor}.${patch}`;
+}
+window.getNextVersion = getNextVersion;
 
 // Update version display in UI
 function updateVersionDisplay() {
