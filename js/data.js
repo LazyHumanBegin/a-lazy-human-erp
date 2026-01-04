@@ -4,7 +4,7 @@
 // ==================== APP VERSION ====================
 // Single source of truth for version number
 // Update this when releasing new versions
-const APP_VERSION = '2.4.4';
+const APP_VERSION = '2.4.5';
 window.APP_VERSION = APP_VERSION;
 
 // Update version display in UI

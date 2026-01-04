@@ -545,15 +545,18 @@
                     
                     // Get deleted lists to filter them out
                     const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
                     
                     // ROLE-BASED FILTERING
                     let usersToSync = cloudUsers;
                     
-                    // First filter out deleted users
+                    // First filter out deleted users and users from deleted tenants
                     usersToSync = usersToSync.filter(u => {
-                        const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
-                        if (isDeleted) console.log('  🗑️ Skipping deleted user:', u.email);
-                        return !isDeleted;
+                        const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                        const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+                        if (isUserDeleted) console.log('  🗑️ Skipping deleted user:', u.email);
+                        if (isTenantDeleted) console.log('  🗑️ Skipping user from deleted tenant:', u.email);
+                        return !isUserDeleted && !isTenantDeleted;
                     });
                     
                     if (!isFounder && currentTenantId) {
@@ -568,18 +571,25 @@
                         console.log('  👑 Founder access: All', usersToSync.length, 'users');
                     }
                     
+                    // FIRST: Filter out any deleted users from local
+                    let cleanLocalUsers = localUsers.filter(lu => {
+                        const isDeleted = deletedUsers.includes(lu.id) || deletedUsers.includes(lu.email);
+                        if (isDeleted) console.log('  🗑️ Removing deleted local user:', lu.email);
+                        return !isDeleted;
+                    });
+                    
                     // Merge: Add filtered cloud users not in local
                     usersToSync.forEach(cu => {
-                        const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
+                        const existingIdx = cleanLocalUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
                         if (existingIdx === -1) {
-                            localUsers.push(cu);
+                            cleanLocalUsers.push(cu);
                         } else {
                             // Update existing user with cloud data
-                            localUsers[existingIdx] = { ...localUsers[existingIdx], ...cu };
+                            cleanLocalUsers[existingIdx] = { ...cleanLocalUsers[existingIdx], ...cu };
                         }
                     });
                     
-                    localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
+                    localStorage.setItem('ezcubic_users', JSON.stringify(cleanLocalUsers));
                     usersDownloaded = usersToSync.length;
                     console.log('  Users synced:', usersToSync.length);
                 }

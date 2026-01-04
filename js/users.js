@@ -373,30 +373,40 @@ async function loadUsersFromCloud() {
             if (data && data.length > 0) {
                 const cloudUsers = data[0].data?.value || [];
                 
-                // Get deleted users list to filter them out
+                // Get deleted users and tenants list to filter them out
                 const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
                 console.log('🗑️ Deleted users to filter:', deletedUsers.length);
+                console.log('🗑️ Deleted tenants to filter:', deletedTenants.length);
                 
                 // Merge cloud users with local
                 const localUsers = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
                 const userMap = new Map();
                 
-                // Add local users first (skip deleted)
+                // Add local users first (skip deleted users and users from deleted tenants)
                 localUsers.forEach(u => {
-                    const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
-                    if (!isDeleted) {
+                    const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                    const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+                    if (!isUserDeleted && !isTenantDeleted) {
                         userMap.set(u.id, u);
+                    } else if (isTenantDeleted) {
+                        console.log('🗑️ Skipping user from deleted tenant:', u.email);
                     }
                 });
                 
                 // Merge cloud users - ALWAYS take admin-controlled fields from cloud
                 // Admin-controlled: plan, role, status (only founder/admin can change these)
-                // BUT skip deleted users!
+                // BUT skip deleted users and users from deleted tenants!
                 for (const cloudUser of cloudUsers) {
                     // Skip if this user was deleted
-                    const isDeleted = deletedUsers.includes(cloudUser.id) || deletedUsers.includes(cloudUser.email);
-                    if (isDeleted) {
+                    const isUserDeleted = deletedUsers.includes(cloudUser.id) || deletedUsers.includes(cloudUser.email);
+                    const isTenantDeleted = cloudUser.tenantId && deletedTenants.includes(cloudUser.tenantId);
+                    if (isUserDeleted) {
                         console.log('🗑️ Skipping deleted user from cloud:', cloudUser.email);
+                        continue;
+                    }
+                    if (isTenantDeleted) {
+                        console.log('🗑️ Skipping user from deleted tenant:', cloudUser.email);
                         continue;
                     }
                     
