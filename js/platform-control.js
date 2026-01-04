@@ -1887,6 +1887,9 @@ function renderPlatformControl() {
                                                 <i class="fas fa-check"></i>
                                             </button>
                                         `}
+                                        <button class="btn-icon danger" onclick="deleteSubscription('${tenant.id}', '${escapeHtml(tenant.businessName)}')" title="Delete Subscription" style="margin-left: 4px;">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
                                     </td>
                                 </tr>
                             `;
@@ -2301,11 +2304,20 @@ function syncUserToNewPlan(tenantId, newPlanId) {
         }
     });
     
+    // Save to localStorage
     localStorage.setItem('ezcubic_users', JSON.stringify(allUsers));
     
-    // Also update window.users to keep in-memory array in sync
+    // Also update the global users array
     if (window.users) {
-        window.users = allUsers;
+        // Clear and repopulate to maintain reference
+        window.users.length = 0;
+        allUsers.forEach(u => window.users.push(u));
+    }
+    
+    // Call saveUsers if available (triggers cloud sync)
+    if (typeof saveUsers === 'function') {
+        saveUsers();
+        console.log('💾 saveUsers() called to trigger cloud sync');
     }
     
     // Update current user if affected
@@ -2391,6 +2403,74 @@ function reactivateTenant(tenantId) {
     renderPlatformControl();
     showToast('Business reactivated!', 'success');
 }
+
+// Delete subscription and optionally the tenant/user
+function deleteSubscription(tenantId, businessName) {
+    const confirmMsg = `⚠️ DELETE SUBSCRIPTION\n\nBusiness: ${businessName}\nTenant ID: ${tenantId}\n\nThis will:\n• Remove the subscription\n• Remove the tenant record\n• Remove associated user(s)\n• Delete all tenant data\n\nThis action CANNOT be undone!\n\nType "DELETE" to confirm:`;
+    
+    const userInput = prompt(confirmMsg);
+    if (userInput !== 'DELETE') {
+        showToast('Deletion cancelled', 'info');
+        return;
+    }
+    
+    try {
+        // 1. Remove subscription
+        const subs = getSubscriptions();
+        if (subs[tenantId]) {
+            delete subs[tenantId];
+            saveSubscriptions(subs);
+            console.log('🗑️ Subscription deleted for:', tenantId);
+        }
+        
+        // 2. Remove tenant record
+        const tenants = getTenants();
+        if (tenants[tenantId]) {
+            delete tenants[tenantId];
+            saveTenants(tenants);
+            console.log('🗑️ Tenant record deleted:', tenantId);
+        }
+        
+        // 3. Remove associated users (business_admin and their staff)
+        const users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        const remainingUsers = users.filter(u => u.tenantId !== tenantId);
+        const deletedCount = users.length - remainingUsers.length;
+        localStorage.setItem('ezcubic_users', JSON.stringify(remainingUsers));
+        window.users = remainingUsers;
+        console.log('🗑️ Users deleted:', deletedCount);
+        
+        // 4. Track deleted for cloud sync
+        const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+        
+        users.filter(u => u.tenantId === tenantId).forEach(u => {
+            if (u.id && !deletedUsers.includes(u.id)) deletedUsers.push(u.id);
+            if (u.email && !deletedUsers.includes(u.email)) deletedUsers.push(u.email);
+        });
+        if (!deletedTenants.includes(tenantId)) deletedTenants.push(tenantId);
+        
+        localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+        localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+        
+        // 5. Delete tenant data
+        localStorage.removeItem('ezcubic_tenant_' + tenantId);
+        console.log('🗑️ Tenant data deleted');
+        
+        // 6. Sync to cloud
+        if (typeof window.directUploadUsersToCloud === 'function') {
+            window.directUploadUsersToCloud(true);
+        }
+        
+        // Refresh UI
+        renderPlatformControl();
+        showToast(`✅ Subscription deleted: ${businessName}`, 'success');
+        
+    } catch (err) {
+        console.error('❌ Error deleting subscription:', err);
+        showToast('Error deleting subscription: ' + err.message, 'error');
+    }
+}
+window.deleteSubscription = deleteSubscription;
 
 function savePlatformSettingsForm() {
     const settings = getPlatformSettings();

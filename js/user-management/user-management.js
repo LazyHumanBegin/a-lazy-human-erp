@@ -63,6 +63,15 @@
         const container = document.getElementById('userManagementContent');
         if (!container) return;
         
+        // CRITICAL: Always read fresh users from localStorage to ensure we have latest data
+        // This fixes issues where plan changes don't reflect until page refresh
+        const freshUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        if (window.users) {
+            window.users = freshUsers;
+        }
+        // Use fresh data
+        const users = freshUsers;
+        
         // Determine which roles to show based on current user's role
         let visibleRoles = [];
         let manageableUsers = [];

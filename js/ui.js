@@ -270,7 +270,7 @@ function updateEInvoiceStatusBanner() {
 
 function updateCompanyNameInUI() {
     const companyName = businessData.settings.businessName || "My Malaysian Business";
-    document.title = `${companyName} - EZCubic Malaysia`;
+    document.title = `Smart Business Management Platform - ERP by A Lazy Human`;
     
     const welcomeCompanyName = document.getElementById('welcomeCompanyName');
     if (welcomeCompanyName) {
