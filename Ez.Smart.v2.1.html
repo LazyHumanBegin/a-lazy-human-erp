@@ -360,12 +360,18 @@
             </div>
         </div>
         
+        <!-- Floating Nav Toggle (sticks out from sidebar edge) - OUTSIDE nav-panel so it stays visible -->
+        <button class="floating-nav-toggle" id="floatingNavToggle" onclick="toggleSidebarLandscape()" title="Toggle Sidebar">
+            <i class="fas fa-chevron-left" id="floatingNavIcon"></i>
+        </button>
+        
         <!-- Main Content Area -->
         <div class="main-content">
             <!-- Sidebar Show Button (when hidden in landscape) -->
             <button class="sidebar-show-btn" id="sidebarShowBtn" onclick="toggleSidebarLandscape()" title="Show Sidebar">
                 <i class="fas fa-bars"></i>
             </button>
+            
             <!-- Auth Bar -->
             <div class="top-auth-bar">
                 <!-- Tenant selector (hidden - access via Platform Control instead) -->
@@ -382,6 +388,11 @@
                     <!-- Dark Mode Toggle -->
                     <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode">
                         <i class="fas fa-moon" id="darkModeIcon"></i>
+                    </button>
+                    <!-- AI Pending Approvals -->
+                    <button id="aiPendingTopBtn" onclick="togglePendingApprovalsPanel()" class="btn-icon ai-pending-top-btn" title="AI Pending Approvals">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span id="aiPendingTopBadge" class="ai-pending-top-badge" style="display: none;">0</span>
                     </button>
                     
                     <!-- Auth buttons (when logged out) -->
@@ -6858,7 +6869,7 @@
     </div> <!-- Close main-content -->
 
     <!-- Modular JavaScript Files - v2.4.1 -->
-    <script src="js/core.js?v=2032001"></script>
+    <script src="js/core.js?v=2032022"></script>
     <script src="js/data.js?v=2032001"></script>
     <script src="js/ui.js?v=2032001"></script>
     <script src="js/transactions.js?v=2032001"></script>
@@ -6867,7 +6878,7 @@
     <script src="js/charts.js?v=2032001"></script>
     <script src="js/reports.js?v=2032001"></script>
     <script src="js/taxes.js?v=2032001"></script>
-    <script src="js/chatbot.js?v=2032001"></script>
+    <script src="js/chatbot.js?v=2032036"></script>
     <script src="js/balance-sheet.js?v=2027001"></script>
     <script src="js/pdf-export.js?v=2027001"></script>
     <script src="js/ai-assistant.js?v=2027001"></script>
@@ -6880,7 +6891,7 @@
     <!-- Phase 2: Operational Core -->
     <script src="js/inventory-new.js?v=2027001"></script>
     <script src="js/stock.js?v=2027001"></script>
-    <script src="js/pos.js?v=2032014"></script>
+    <script src="js/pos.js?v=2032024"></script>
     <script src="js/orders.js?v=2027001"></script>
     <script src="js/customers.js?v=2027001"></script>
     <script src="js/crm.js?v=2032013"></script>
@@ -6915,10 +6926,10 @@
     <script src="js/lhdn-export.js?v=2027001"></script>
     
     <!-- Phase 5: Multi-Branch -->
-    <script src="js/branches.js?v=2028002"></script>
+    <script src="js/branches.js?v=2032024"></script>
     
     <!-- Phase 6: Multi-Tenant & User Management -->
-    <script src="js/multi-tenant.js?v=2027001"></script>
+    <script src="js/multi-tenant.js?v=2032022"></script>
     
     <!-- Permissions Module (extracted from users.js) -->
     <script src="js/permissions/permissions.js?v=2032005"></script>
@@ -6927,7 +6938,7 @@
     <script src="js/auth/auth.js?v=2032004"></script>
     
     <!-- Tenant Module - multi-tenant data isolation -->
-    <script src="js/tenant/tenant.js?v=2028010"></script>
+    <script src="js/tenant/tenant.js?v=2032022"></script>
     
     <!-- Guest Module - guest preview mode -->
     <script src="js/guest/guest.js?v=2028014"></script>
@@ -6956,7 +6967,7 @@
     <script src="js/notifications.js?v=2027001"></script>
     <script src="js/bom.js?v=2027001"></script>
     
-    <script src="js/app.js?v=2027001"></script>
+    <script src="js/app.js?v=2027002"></script>
     
     <!-- PWA Service Worker Registration -->
     <script>
@@ -7102,7 +7113,7 @@
                 <button onclick="clearChatHistory()" title="Clear History">
                     <i class="fas fa-trash"></i>
                 </button>
-                <button onclick="toggleChatbot()" title="Minimize">
+                <button onclick="closeChatbot()" title="Minimize">
                     <i class="fas fa-minus"></i>
                 </button>
             </div>
@@ -7140,13 +7151,55 @@
         </div>
     </div>
 
-    <!-- Chatbot Toggle Button (floating) -->
+    <!-- AI Chat Floating Button -->
     <button id="chatbotToggleBtn" class="chatbot-toggle-btn" onclick="toggleChatbot()">
         <i class="fas fa-robot"></i>
         <span id="chatbotNotification" class="chatbot-notification" style="display: none;">0</span>
     </button>
 
+    <!-- AI Pending Approvals Panel -->
+    <div id="aiPendingApprovalsContainer" class="ai-pending-container">
+        <div class="ai-pending-header">
+            <div class="ai-pending-title">
+                <i class="fas fa-robot"></i>
+                <span>AI Pending Approvals</span>
+            </div>
+            <button class="ai-pending-close" onclick="togglePendingApprovalsPanel()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="aiPendingApprovalsPanel" class="ai-pending-list">
+            <div class="ai-pending-empty">
+                <i class="fas fa-check-circle"></i>
+                <p>No pending approvals</p>
+            </div>
+        </div>
+    </div>
+
     <style>
+        /* AI Pending Approval in Top Bar */
+        .ai-pending-top-btn {
+            position: relative;
+        }
+        .ai-pending-top-btn i {
+            color: #f59e0b;
+        }
+        .ai-pending-top-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #ef4444;
+            color: white;
+            font-size: 9px;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
         /* AI Chatbot Styles */
         .ai-chatbot-container {
             position: fixed;
@@ -7332,6 +7385,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s ease;
         }
         .chatbot-toggle-btn:hover {
             transform: scale(1.1);
@@ -7368,12 +7422,367 @@
             0%, 60%, 100% { transform: translateY(0); }
             30% { transform: translateY(-8px); }
         }
+        
+        /* Mobile Responsive - Chatbot */
+        @media (max-width: 768px) {
+            .ai-chatbot-container {
+                width: calc(100% - 20px);
+                right: 10px;
+                left: 10px;
+                bottom: 70px;
+                max-height: 75vh;
+                border-radius: 12px;
+            }
+            .chatbot-header {
+                padding: 10px 12px;
+            }
+            .chatbot-title {
+                font-size: 14px;
+            }
+            .chatbot-messages {
+                padding: 12px;
+                max-height: calc(75vh - 140px);
+            }
+            .message-text {
+                font-size: 13px;
+                padding: 8px 12px;
+                max-width: 90%;
+            }
+            .message-avatar {
+                width: 28px;
+                height: 28px;
+                font-size: 12px;
+            }
+            .chatbot-quick-actions {
+                padding: 6px 12px;
+                gap: 6px;
+            }
+            .chatbot-quick-actions button {
+                padding: 5px 10px;
+                font-size: 11px;
+            }
+            .chatbot-input-area {
+                padding: 10px 12px;
+            }
+            .chatbot-input-area input {
+                padding: 8px 14px;
+                font-size: 14px;
+            }
+            .chatbot-input-area .send-btn {
+                width: 36px;
+                height: 36px;
+            }
+            .chatbot-toggle-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+        
+        /* Extra small screens */
         @media (max-width: 480px) {
             .ai-chatbot-container {
                 width: calc(100% - 20px);
                 right: 10px;
+                left: 10px;
+                bottom: 60px;
+                max-height: 40vh;
+                border-radius: 12px;
+            }
+            .chatbot-messages {
+                max-height: calc(40vh - 100px);
+                padding: 8px;
+            }
+            .chatbot-header {
+                padding: 6px 10px;
+            }
+            .chatbot-title {
+                font-size: 12px;
+            }
+            .message-text {
+                font-size: 11px;
+                padding: 5px 8px;
+            }
+            .message-avatar {
+                width: 22px;
+                height: 22px;
+                font-size: 9px;
+            }
+            .chatbot-quick-actions {
+                display: none;
+            }
+            .chatbot-input-area {
+                padding: 6px 8px;
+            }
+            .chatbot-input-area input {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+            .chatbot-input-area .send-btn {
+                width: 30px;
+                height: 30px;
+                font-size: 11px;
+            }
+            .chatbot-toggle-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 18px;
+                bottom: 12px;
+                right: 12px;
+            }
+        }
+        
+        /* Landscape mode on phones - very compact */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .ai-chatbot-container {
+                width: 320px;
+                max-height: 90vh;
+                bottom: 5px;
+                right: 10px;
+                left: auto;
+                border-radius: 10px;
+            }
+            .chatbot-messages {
+                max-height: calc(90vh - 100px);
+                padding: 8px;
+            }
+            .chatbot-header {
+                padding: 6px 10px;
+            }
+            .chatbot-title {
+                font-size: 12px;
+            }
+            .message-text {
+                font-size: 11px;
+                padding: 5px 8px;
+            }
+            .message-avatar {
+                width: 20px;
+                height: 20px;
+                font-size: 9px;
+            }
+            .chatbot-quick-actions {
+                display: none;
+            }
+            .chatbot-input-area {
+                padding: 6px 8px;
+            }
+            .chatbot-input-area input {
+                padding: 5px 10px;
+                font-size: 12px;
+            }
+            .chatbot-input-area .send-btn {
+                width: 28px;
+                height: 28px;
+                font-size: 11px;
+            }
+            .chatbot-toggle-btn {
+                width: 40px;
+                height: 40px;
+                font-size: 16px;
+                bottom: 8px;
+                right: 8px;
+            }
+        }
+        
+        /* AI Pending Approvals Panel Styles */
+        .ai-pending-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ef4444;
+            color: white;
+            font-size: 11px;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        .ai-pending-container {
+            position: fixed;
+            bottom: 80px;
+            right: 90px;
+            width: 360px;
+            max-height: 450px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 10000;
+            overflow: hidden;
+        }
+        .ai-pending-container.show {
+            display: flex;
+        }
+        .ai-pending-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+        }
+        .ai-pending-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .ai-pending-close {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .ai-pending-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        .ai-pending-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            max-height: 380px;
+        }
+        .ai-pending-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: #9ca3af;
+        }
+        .ai-pending-empty i {
+            font-size: 48px;
+            color: #d1d5db;
+            margin-bottom: 12px;
+        }
+        .ai-pending-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .ai-pending-header-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        .ai-pending-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        .ai-pending-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .ai-pending-card .ai-pending-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+        .ai-pending-title-text {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1e293b;
+            margin-bottom: 2px;
+        }
+        .ai-pending-card .ai-pending-title {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1e293b;
+            margin-bottom: 2px;
+            display: block;
+        }
+        .ai-pending-preview {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .ai-pending-time {
+            font-size: 11px;
+            color: #9ca3af;
+        }
+        .ai-pending-time i {
+            margin-right: 4px;
+        }
+        .ai-pending-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .ai-btn-approve {
+            flex: 1;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        .ai-btn-approve:hover {
+            opacity: 0.9;
+        }
+        .ai-btn-edit, .ai-btn-reject {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ai-btn-edit {
+            color: #3b82f6;
+        }
+        .ai-btn-edit:hover {
+            background: #eff6ff;
+            border-color: #3b82f6;
+        }
+        .ai-btn-reject {
+            color: #ef4444;
+        }
+        .ai-btn-reject:hover {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+        @media (max-width: 480px) {
+            .ai-pending-container {
+                width: calc(100% - 20px);
+                right: 10px;
                 bottom: 80px;
-                max-height: 70vh;
+            }
+            .ai-pending-toggle-btn {
+                right: 80px;
+                bottom: 20px;
             }
         }
     </style>

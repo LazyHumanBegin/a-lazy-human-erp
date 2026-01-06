@@ -237,6 +237,11 @@ function forceLogoutOtherDevice() {
     localStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
     window.currentUser = null;
     
+    // Reload chatbot for new (null) user context
+    if (typeof reloadChatbotForUser === 'function') {
+        reloadChatbotForUser();
+    }
+    
     alert('You have been logged out because your account was accessed from another device.');
     showLoginPage();
 }
@@ -671,6 +676,11 @@ async function tryLoginWithCloudSync(email, password) {
             if (typeof updateCompanyNameInUI === 'function') updateCompanyNameInUI();
             if (typeof updateDashboard === 'function') updateDashboard();
             
+            // Reload chatbot with user-specific data
+            if (typeof reloadChatbotForUser === 'function') {
+                reloadChatbotForUser();
+            }
+            
             // AUTO CLOUD SYNC: Automatically enable cloud backup on login
             autoEnableCloudSync(user, password);
         }, 300);
@@ -730,6 +740,11 @@ function logout() {
     // Reset data
     if (typeof resetToEmptyData === 'function') {
         resetToEmptyData();
+    }
+    
+    // Reload chatbot for guest context (clears user-specific data from view)
+    if (typeof reloadChatbotForUser === 'function') {
+        reloadChatbotForUser();
     }
     
     if (typeof updateAuthUI === 'function') {

@@ -6,7 +6,7 @@
 
 // Auto-incrementing cache version based on deploy timestamp
 // This ensures cache is refreshed on every deployment
-const CACHE_VERSION = '20260104i'; // Update: YYYYMMDD format
+const CACHE_VERSION = '20260105b'; // Fix AI localhost detection & add stock transfer fallback
 const CACHE_NAME = `ezcubic-erp-${CACHE_VERSION}`;
 
 // Files to cache for offline fallback

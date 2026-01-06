@@ -234,11 +234,17 @@ function toggleSidebarLandscape() {
     // Save preference
     localStorage.setItem('ezcubic_sidebar_hidden', isHidden);
     
-    // Update button icon
+    // Update button icon (old toggle btn inside nav)
     const toggleBtn = document.getElementById('sidebarToggleBtn');
     if (toggleBtn) {
         toggleBtn.innerHTML = isHidden ? '<i class="fas fa-chevron-right"></i>' : '<i class="fas fa-chevron-left"></i>';
         toggleBtn.title = isHidden ? 'Show Sidebar' : 'Hide Sidebar';
+    }
+    
+    // Update floating nav toggle icon
+    const floatingToggle = document.getElementById('floatingNavToggle');
+    if (floatingToggle) {
+        floatingToggle.title = isHidden ? 'Show Sidebar' : 'Hide Sidebar';
     }
 }
 

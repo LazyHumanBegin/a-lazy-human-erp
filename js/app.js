@@ -81,7 +81,9 @@ function initializeApp() {
         initializeCharts();
         updateDashboard();
         populateYearSelector();
-        initializeChatbot();
+        if (typeof initializeChatbot === 'function') {
+            initializeChatbot();
+        }
         initDetailedBalanceSheet();
         
         // Initialize tax section if available

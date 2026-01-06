@@ -301,42 +301,78 @@ If NOT an action request, just chat normally. Keep it SHORT.`;
         }
     }
     
-    if (context.totalCustomers) {
-        contextSection += `\n\nCustomers: ${context.totalCustomers}`;
+    // INVENTORY/PRODUCTS - Full list for AI to reference
+    if (context.products && context.products.length > 0) {
+        contextSection += `\n\n📦 INVENTORY (${context.totalProducts} products):`;
+        context.products.forEach(p => {
+            contextSection += `\n• ${p.name} (SKU: ${p.sku || 'N/A'}) - RM${p.price}, Stock: ${p.quantity}`;
+        });
     }
     
-    if (context.totalProducts) {
-        contextSection += `\nProducts: ${context.totalProducts}`;
+    // Low stock alerts
+    if (context.lowStockItems && context.lowStockItems.length > 0) {
+        contextSection += `\n\n⚠️ LOW STOCK ALERTS:`;
+        context.lowStockItems.forEach(p => {
+            contextSection += `\n• ${p.name}: Only ${p.quantity} left (min: ${p.minStock})`;
+        });
     }
     
-    if (context.lowStockItems && context.lowStockItems > 0) {
-        contextSection += `\n⚠️ Low Stock Items: ${context.lowStockItems}`;
+    // Customers
+    if (context.customerList && context.customerList.length > 0) {
+        contextSection += `\n\n👥 CUSTOMERS (${context.totalCustomers} total):`;
+        context.customerList.slice(0, 10).forEach(c => {
+            contextSection += `\n• ${c.name}${c.phone ? ' - ' + c.phone : ''}`;
+        });
     }
     
-    if (context.pendingOrders && context.pendingOrders > 0) {
-        contextSection += `\n📦 Pending Orders: ${context.pendingOrders}`;
+    // Branches
+    if (context.branches && context.branches.length > 0) {
+        contextSection += `\n\n🏢 BRANCHES/OUTLETS:`;
+        context.branches.forEach(b => {
+            contextSection += `\n• ${b.name}${b.code ? ' (' + b.code + ')' : ''}`;
+        });
     }
     
-    if (context.overdueInvoices && context.overdueInvoices > 0) {
-        contextSection += `\n⚠️ Overdue Invoices: ${context.overdueInvoices}`;
+    // Suppliers
+    if (context.suppliers && context.suppliers.length > 0) {
+        contextSection += `\n\n📦 SUPPLIERS:`;
+        context.suppliers.slice(0, 5).forEach(s => {
+            contextSection += `\n• ${s.name}`;
+        });
+    }
+    
+    // Pending Orders
+    if (context.pendingOrders && context.pendingOrders.length > 0) {
+        contextSection += `\n\n📋 PENDING ORDERS (${context.pendingOrderCount}):`;
+        context.pendingOrders.slice(0, 5).forEach(o => {
+            contextSection += `\n• ${o.orderNo}: ${o.customer} - RM${o.total}`;
+        });
+    }
+    
+    // Overdue Invoices
+    if (context.overdueInvoices && context.overdueInvoices.length > 0) {
+        contextSection += `\n\n⚠️ OVERDUE INVOICES (${context.overdueInvoiceCount}):`;
+        context.overdueInvoices.slice(0, 5).forEach(inv => {
+            contextSection += `\n• ${inv.invoiceNo}: ${inv.customer} - RM${inv.amount}`;
+        });
     }
     
     if (context.recentTransactions && context.recentTransactions.length > 0) {
-        contextSection += `\n\nRecent Transactions:`;
+        contextSection += `\n\n💰 RECENT TRANSACTIONS:`;
         context.recentTransactions.slice(0, 5).forEach(tx => {
             contextSection += `\n• ${tx.type}: RM${tx.amount} - ${tx.description || tx.category}`;
         });
     }
     
     if (context.topCustomers && context.topCustomers.length > 0) {
-        contextSection += `\n\nTop Customers:`;
+        contextSection += `\n\n🏆 TOP CUSTOMERS:`;
         context.topCustomers.slice(0, 3).forEach((c, i) => {
             contextSection += `\n${i + 1}. ${c.name} - RM${c.total?.toLocaleString() || '0'}`;
         });
     }
 
     contextSection += `\n--- END BUSINESS DATA ---`;
-    contextSection += `\n\nUse this data to give personalized, relevant answers. Reference specific numbers when helpful.`;
+    contextSection += `\n\nWhen user asks about products/inventory/stock, list the items from the data above. Be specific with names and quantities.`;
 
     return basePrompt + contextSection;
 }

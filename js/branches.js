@@ -1913,15 +1913,31 @@ function renderBranchReports() {
 
 // ==================== HELPER FUNCTIONS ====================
 function getBranchInventoryValue(branchId) {
+    // Ensure branch stock is synced first
+    if (typeof syncAllBranchStockToProducts === 'function') {
+        syncAllBranchStockToProducts();
+    }
+    
     // Use branch stock system for accurate per-branch inventory
     const inventory = window.products || 
         (typeof products !== 'undefined' && products.length > 0 ? products : 
         JSON.parse(localStorage.getItem('ezcubic_products') || '[]'));
     
+    // Check if this is the default branch
+    const defaultBranch = branches.find(b => b.isDefault) || branches.find(b => b.id === 'BRANCH_HQ') || branches[0];
+    const isDefaultBranch = defaultBranch && defaultBranch.id === branchId;
+    
     return inventory.reduce((sum, product) => {
         // Get stock from branch stock system
-        const branchStock = getBranchStock(product.id, branchId);
-        const price = product.costPrice || product.price || 0;
+        let branchStock = getBranchStock(product.id, branchId);
+        
+        // If branch stock is 0 but product has stock, and this is the default branch,
+        // use product.stock (for products not yet allocated to branches)
+        if (branchStock === 0 && (product.stock || 0) > 0 && isDefaultBranch) {
+            branchStock = product.stock;
+        }
+        
+        const price = product.cost || product.costPrice || product.price || 0;
         return sum + (branchStock * price);
     }, 0);
 }
@@ -2200,6 +2216,7 @@ function syncAllBranchStockToProducts() {
     }
     
     let syncedCount = 0;
+    const defaultBranch = branchList.find(b => b.isDefault) || branchList.find(b => b.id === 'BRANCH_HQ') || branchList[0];
     
     productList.forEach(product => {
         if (!product.branchStock) {
@@ -2207,24 +2224,36 @@ function syncAllBranchStockToProducts() {
         }
         
         let totalStock = 0;
+        let hasAnyBranchStock = false;
         
         branchList.forEach(branch => {
             const key = `${product.id}_${branch.id}`;
             const qty = branchStockData[key] || 0;
             product.branchStock[branch.id] = qty;
             totalStock += qty;
+            if (qty > 0) hasAnyBranchStock = true;
         });
         
-        // Only update if we have branch stock data OR if total differs
-        if (Object.keys(branchStockData).length > 0 && totalStock !== product.stock) {
+        // If product has stock but NO branch stock allocated, allocate to default branch
+        if (product.stock > 0 && !hasAnyBranchStock && defaultBranch) {
+            const key = `${product.id}_${defaultBranch.id}`;
+            branchStockData[key] = product.stock;
+            product.branchStock[defaultBranch.id] = product.stock;
+            totalStock = product.stock;
+            syncedCount++;
+            console.log(`  Auto-allocated ${product.name}: ${product.stock} to ${defaultBranch.name}`);
+        }
+        // Update product.stock if branch total differs
+        else if (hasAnyBranchStock && totalStock !== product.stock) {
             product.stock = totalStock;
             product.updatedAt = new Date().toISOString();
             syncedCount++;
         }
     });
     
-    // Save updated products
+    // Save branch stock data if we auto-allocated
     if (syncedCount > 0) {
+        localStorage.setItem(stockKey, JSON.stringify(branchStockData));
         localStorage.setItem('ezcubic_products', JSON.stringify(productList));
         window.products = productList;
         if (typeof saveToUserTenant === 'function') {
@@ -2271,25 +2300,44 @@ window.getTotalBranchStock = getTotalBranchStock;
 
 function initializeBranchStockFromProducts() {
     // Initialize branch stock from existing products
-    // Distribute stock to default branch if not already set
-    if (typeof products === 'undefined' || !products.length) return;
+    // Distribute stock to default branch (HQ) - ALWAYS sync if product.stock > 0
+    const productList = window.products || [];
+    if (!productList.length) {
+        console.log('initializeBranchStockFromProducts: No products to sync');
+        return;
+    }
     
-    const defaultBranch = branches.find(b => b.isDefault) || branches[0];
-    if (!defaultBranch) return;
+    const branchList = window.branches || branches || [];
+    const defaultBranch = branchList.find(b => b.isDefault) || branchList.find(b => b.id === 'BRANCH_HQ') || branchList[0];
+    if (!defaultBranch) {
+        console.log('initializeBranchStockFromProducts: No default branch found');
+        return;
+    }
+    
+    console.log('initializeBranchStockFromProducts: Syncing to', defaultBranch.name, 'products:', productList.length);
     
     const stockKey = 'ezcubic_branch_stock';
     const stored = localStorage.getItem(stockKey);
     const branchStock = stored ? JSON.parse(stored) : {};
     
-    products.forEach(product => {
+    let syncCount = 0;
+    productList.forEach(product => {
         const key = `${product.id}_${defaultBranch.id}`;
-        // Only initialize if not already set
-        if (!(key in branchStock)) {
-            branchStock[key] = product.stock || 0;
+        const productStock = product.stock || 0;
+        const currentBranchStock = branchStock[key] || 0;
+        
+        // Sync if product has stock but branch stock is 0 or missing
+        if (productStock > 0 && currentBranchStock === 0) {
+            branchStock[key] = productStock;
+            syncCount++;
+            console.log(`  Synced ${product.name}: ${productStock} to ${defaultBranch.name}`);
         }
     });
     
-    localStorage.setItem(stockKey, JSON.stringify(branchStock));
+    if (syncCount > 0) {
+        localStorage.setItem(stockKey, JSON.stringify(branchStock));
+        console.log(`initializeBranchStockFromProducts: Synced ${syncCount} products`);
+    }
 }
 
 // ==================== TRANSFER STOCK UPDATES ====================

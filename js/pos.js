@@ -838,16 +838,48 @@ async function clearAllHeldSales() {
 
 // ==================== POS PRODUCTS ====================
 function loadPOSProducts() {
+    // Sync products from window in case tenant loaded new data
+    syncProductsFromWindow();
+    
+    // Initialize branch stock from products (ensures stock is allocated to default branch)
+    if (typeof initializeBranchStockFromProducts === 'function') {
+        initializeBranchStockFromProducts();
+    }
+    
     renderPOSProducts();
 }
+
+// Sync products from window.products to local scope
+function syncProductsFromWindow() {
+    if (Array.isArray(window.products) && window.products.length > 0) {
+        // Update core.js products if it exists AND is a different array
+        // IMPORTANT: Don't clear if products === window.products (same reference)
+        if (typeof products !== 'undefined' && products !== window.products) {
+            products.length = 0;
+            products.push(...window.products);
+        }
+        console.log('📦 POS synced products from window:', window.products.length);
+    }
+}
+window.syncProductsFromWindow = syncProductsFromWindow;
 
 function loadPOSCategories() {
     const container = document.getElementById('posCategories');
     if (!container) return;
     
-    // Use window.products as fallback
-    const productList = (typeof products !== 'undefined' && products.length > 0) ? products : (window.products || []);
-    const usedCategories = [...new Set(productList.filter(p => p.stock > 0).map(p => p.category))];
+    // ALWAYS prefer window.products - it's the most up-to-date source
+    const productList = window.products || [];
+    
+    // Get products with stock (using branch stock system OR product.stock as fallback)
+    const usedCategories = [...new Set(productList.filter(p => {
+        // Check branch stock first
+        if (typeof getTotalBranchStock === 'function') {
+            const branchStock = getTotalBranchStock(p.id);
+            if (branchStock > 0) return true;
+        }
+        // Fall back to product.stock
+        return (p.stock || 0) > 0;
+    }).map(p => p.category))];
     
     container.innerHTML = `
         <button class="pos-category-btn ${!currentPOSCategory ? 'active' : ''}" onclick="filterPOSCategory('')">All</button>
@@ -1298,8 +1330,8 @@ function renderPOSProducts(searchTerm = '') {
     const container = document.getElementById('posProductsGrid');
     if (!container) return;
     
-    // Use window.products as fallback in case local scope is stale
-    const productList = (typeof products !== 'undefined' && products.length > 0) ? products : (window.products || []);
+    // ALWAYS prefer window.products - it's the authoritative source after tenant load
+    const productList = window.products || [];
     
     const search = searchTerm || document.getElementById('posSearch')?.value?.toLowerCase() || '';
     const selectedOutlet = document.getElementById('posOutletFilter')?.value || 'all';
@@ -1321,23 +1353,22 @@ function renderPOSProducts(searchTerm = '') {
             productOutlets.includes('all') || 
             productOutlets.includes(selectedOutlet);
         
-        // Get stock using branch stock system
-        let stockAtOutlet = 0;
+        // Get stock - SIMPLIFIED: always fall back to product.stock if branch stock is 0
+        let stockAtOutlet = p.stock || 0; // Start with product.stock as baseline
+        
+        // Try to get branch-specific stock
         if (currentBranch && typeof getBranchStock === 'function') {
-            // Specific branch selected
-            stockAtOutlet = getBranchStock(p.id, currentBranch);
-        } else if (selectedOutlet === 'all' && typeof getTotalBranchStock === 'function') {
-            // All outlets - get total from branch stock system
-            stockAtOutlet = getTotalBranchStock(p.id);
-            // Fall back to product.stock if no branch stock exists
-            if (stockAtOutlet === 0 && (!window.branches || window.branches.length === 0)) {
-                stockAtOutlet = p.stock;
+            const branchStock = getBranchStock(p.id, currentBranch);
+            if (branchStock > 0) {
+                stockAtOutlet = branchStock;
             }
-        } else if (selectedOutlet !== 'all' && p.branchStock) {
-            // Fallback to old branchStock property
-            stockAtOutlet = p.branchStock[selectedOutlet] || 0;
-        } else {
-            stockAtOutlet = p.stock; // Default fallback
+            // If branch stock is 0, keep using product.stock (already set above)
+        } else if (selectedOutlet === 'all' && typeof getTotalBranchStock === 'function') {
+            const totalBranchStock = getTotalBranchStock(p.id);
+            if (totalBranchStock > 0) {
+                stockAtOutlet = totalBranchStock;
+            }
+            // If no branch stock, keep using product.stock (already set above)
         }
         
         const inStock = stockAtOutlet > 0;
@@ -1384,23 +1415,26 @@ function renderPOSProducts(searchTerm = '') {
     
     // Get stock display based on selected outlet using branch stock system
     const getStockDisplay = (product) => {
-        // If a specific branch is selected, show branch stock
+        // Use product.stock as baseline - simplest and most reliable
+        let stockToShow = product.stock || 0;
+        
+        // If a specific branch is selected, try to get branch stock
         if (currentBranch && typeof getBranchStock === 'function') {
-            return getBranchStock(product.id, currentBranch);
+            const branchStock = getBranchStock(product.id, currentBranch);
+            if (branchStock > 0) {
+                stockToShow = branchStock;
+            }
+            // If branch stock is 0, keep using product.stock
         }
         // For "All Outlets", calculate total from branch stock system
-        if (selectedOutlet === 'all' && typeof getTotalBranchStock === 'function') {
+        else if (typeof getTotalBranchStock === 'function') {
             const totalFromBranches = getTotalBranchStock(product.id);
-            // Use branch total if we have branches, otherwise fall back to product.stock
-            if (totalFromBranches > 0 || (window.branches && window.branches.length > 0)) {
-                return totalFromBranches;
+            if (totalFromBranches > 0) {
+                stockToShow = totalFromBranches;
             }
         }
-        // Fallback to old branchStock property
-        if (selectedOutlet !== 'all' && product.branchStock) {
-            return product.branchStock[selectedOutlet] || 0;
-        }
-        return product.stock;
+        
+        return stockToShow;
     };
     
     container.innerHTML = filtered.map(product => {
@@ -1433,15 +1467,25 @@ function addToCart(productId) {
     // Get current outlet/branch
     const currentBranchId = document.getElementById('posOutletFilter')?.value || '';
     
-    // Get available stock - check branch stock first, fallback to total stock
+    // Get available stock using proper branch stock API
     let availableStock = product.stock || 0;
     
-    // Only use branch-specific stock if:
-    // 1. A specific branch is selected (not 'all' or empty)
-    // 2. The product has branchStock defined
-    // 3. The branch actually has stock allocated
-    if (currentBranchId && currentBranchId !== 'all' && product.branchStock && product.branchStock[currentBranchId] !== undefined) {
-        availableStock = product.branchStock[currentBranchId] || 0;
+    // Use branch-specific stock if a specific branch is selected
+    if (currentBranchId && currentBranchId !== 'all') {
+        // Use getBranchStock which uses localStorage branch stock system
+        if (typeof getBranchStock === 'function') {
+            const branchStock = getBranchStock(productId, currentBranchId);
+            // If branch stock is 0 but product has stock, it might not be allocated yet
+            // Fall back to product.stock for the default branch
+            const defaultBranch = branches.find(b => b.isDefault);
+            if (branchStock === 0 && defaultBranch && currentBranchId === defaultBranch.id && product.stock > 0) {
+                availableStock = product.stock;
+            } else {
+                availableStock = branchStock;
+            }
+        } else if (product.branchStock && product.branchStock[currentBranchId] !== undefined) {
+            availableStock = product.branchStock[currentBranchId] || 0;
+        }
     }
     
     // Check if already in cart
@@ -1492,12 +1536,22 @@ function updateCartItemQuantity(productId, change) {
     // Get current outlet/branch
     const currentBranchId = document.getElementById('posOutletFilter')?.value || '';
     
-    // Get available stock - check branch stock first, fallback to total stock
+    // Get available stock using proper branch stock API
     let availableStock = product ? (product.stock || 0) : 999;
     
-    // Only use branch-specific stock if branch is selected AND has stock allocated
-    if (product && currentBranchId && currentBranchId !== 'all' && product.branchStock && product.branchStock[currentBranchId] !== undefined) {
-        availableStock = product.branchStock[currentBranchId] || 0;
+    // Use branch-specific stock if a specific branch is selected
+    if (product && currentBranchId && currentBranchId !== 'all') {
+        if (typeof getBranchStock === 'function') {
+            const branchStock = getBranchStock(product.id, currentBranchId);
+            const defaultBranch = branches.find(b => b.isDefault);
+            if (branchStock === 0 && defaultBranch && currentBranchId === defaultBranch.id && product.stock > 0) {
+                availableStock = product.stock;
+            } else {
+                availableStock = branchStock;
+            }
+        } else if (product.branchStock && product.branchStock[currentBranchId] !== undefined) {
+            availableStock = product.branchStock[currentBranchId] || 0;
+        }
     }
     
     if (newQty > availableStock) {

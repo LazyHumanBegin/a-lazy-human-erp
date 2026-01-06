@@ -677,6 +677,16 @@ async function loadUserTenantData(user) {
     // Clear the loading flag
     window._isLoadingUserData = false;
     
+    // CRITICAL: Sync core.js local variables with window globals
+    if (typeof window.syncCoreFromWindow === 'function') {
+        window.syncCoreFromWindow();
+    }
+    
+    // Sync branches module
+    if (typeof window.syncBranchesFromWindow === 'function') {
+        window.syncBranchesFromWindow();
+    }
+    
     console.log('✅ Tenant data loaded for:', user.tenantId);
 }
 

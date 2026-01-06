@@ -727,8 +727,27 @@ function loadCategories() {
 
 // ==================== INVENTORY STATS ====================
 function updateInventoryStats() {
+    // Ensure products have correct stock from branch system
+    if (typeof syncAllBranchStockToProducts === 'function') {
+        syncAllBranchStockToProducts();
+    }
+    
     const totalProducts = products.length;
-    const totalStockValue = products.reduce((sum, p) => sum + (p.cost * p.stock), 0);
+    
+    // Calculate total stock value - use getTotalBranchStock if available for accuracy
+    let totalStockValue = 0;
+    products.forEach(p => {
+        let stock = p.stock || 0;
+        // If branch stock system exists, use total from all branches
+        if (typeof getTotalBranchStock === 'function') {
+            const branchTotal = getTotalBranchStock(p.id);
+            if (branchTotal > 0) {
+                stock = branchTotal;
+            }
+        }
+        totalStockValue += (p.cost || 0) * stock;
+    });
+    
     const lowStockItems = products.filter(p => p.stock > 0 && p.stock <= p.minStock).length;
     const outOfStockItems = products.filter(p => p.stock === 0).length;
     

@@ -241,6 +241,16 @@ let categories = ['General', 'Electronics', 'Food & Beverage', 'Clothing', 'Serv
 let transactions = [];
 let settings = {};
 
+// Sync local arrays with window globals (called after tenant data loads)
+function syncCoreFromWindow() {
+    if (Array.isArray(window.products)) products = window.products;
+    if (Array.isArray(window.customers)) customers = window.customers;
+    if (Array.isArray(window.stockMovements)) stockMovements = window.stockMovements;
+    if (Array.isArray(window.sales)) sales = window.sales;
+    console.log('🔄 Core.js synced from window: products=' + products.length + ', customers=' + customers.length);
+}
+window.syncCoreFromWindow = syncCoreFromWindow;
+
 // Chart instances
 let incomeChart, pieChart, cashFlowChart, monthlyChart;
 
