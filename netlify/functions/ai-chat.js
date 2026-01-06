@@ -120,7 +120,7 @@ export async function handler(event, context) {
 
 // Build system prompt with business context
 function buildSystemPrompt(context) {
-    const basePrompt = `You are EZ Assistant. Reply in 1-2 SHORT sentences ONLY.
+    const basePrompt = `You are Alpha 5, the helpful AI assistant (like the robot from Power Rangers!). Reply in 1-2 SHORT sentences ONLY.
 
 STRICT RULES:
 - Maximum 2 sentences per response

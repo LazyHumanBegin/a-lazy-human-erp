@@ -185,23 +185,44 @@ function produceBOM(bomId, quantity = 1) {
     
     const products = window.products || [];
     
-    // Deduct components
-    bom.components.forEach(comp => {
-        const product = products.find(p => p.id === comp.productId);
-        if (product) {
-            product.stock = (product.stock || 0) - (comp.quantity * quantity);
+    // ===== USE CENTRALIZED STOCK MANAGER =====
+    // Deduct components using batch update
+    if (typeof batchUpdateStock === 'function') {
+        const componentUpdates = bom.components.map(comp => ({
+            productId: comp.productId,
+            quantityChange: -(comp.quantity * quantity),
+            notes: `Used in production of ${bom.name}`
+        }));
+        
+        batchUpdateStock(componentUpdates, 'production-consume', {
+            reference: `BOM-${bom.id}`,
+            skipCloudSync: true // Sync once at the end
+        });
+        
+        // Add output product
+        if (bom.productId) {
+            updateProductStock(bom.productId, null, bom.outputQuantity * quantity, 'production-output', {
+                reference: `BOM-${bom.id}`,
+                notes: `Produced from BOM: ${bom.name}`
+            });
         }
-    });
-    
-    // Add output product
-    const outputProduct = products.find(p => p.id === bom.productId);
-    if (outputProduct) {
-        outputProduct.stock = (outputProduct.stock || 0) + (bom.outputQuantity * quantity);
-    }
-    
-    // Save products (if function exists)
-    if (typeof saveProducts === 'function') {
-        saveProducts();
+    } else {
+        // Fallback: direct update
+        bom.components.forEach(comp => {
+            const product = products.find(p => p.id === comp.productId);
+            if (product) {
+                product.stock = (product.stock || 0) - (comp.quantity * quantity);
+            }
+        });
+        
+        const outputProduct = products.find(p => p.id === bom.productId);
+        if (outputProduct) {
+            outputProduct.stock = (outputProduct.stock || 0) + (bom.outputQuantity * quantity);
+        }
+        
+        if (typeof saveProducts === 'function') {
+            saveProducts();
+        }
     }
     
     // Create notification

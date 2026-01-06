@@ -180,7 +180,7 @@
                 <div class="tagline">Smart To Be Lazy</div>
                 <div class="version-cloud-wrapper" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 5px;">
                     <span class="version" id="appVersion">v--</span><!-- Auto-updated by JS from APP_VERSION -->
-                    <span id="cloudSyncBadge" class="cloud-sync-badge-inline" style="display: none;" title="Cloud Backup Active">
+                    <span id="cloudSyncBadge" class="cloud-sync-badge-inline" style="display: none;" title="Cloud Sync - Click to sync" onclick="window.forceSyncNow && window.forceSyncNow()">
                         <i class="fas fa-cloud"></i>
                     </span>
                 </div>
@@ -6889,12 +6889,13 @@
     <script src="js/aging-reports.js?v=2027001"></script>
     
     <!-- Phase 2: Operational Core -->
+    <script src="js/stock-manager.js?v=2032001"></script><!-- CENTRAL STOCK CONTROL - Must load first -->
     <script src="js/inventory-new.js?v=2027001"></script>
     <script src="js/stock.js?v=2027001"></script>
-    <script src="js/pos.js?v=2032024"></script>
+    <script src="js/pos.js?v=2032025"></script>
     <script src="js/orders.js?v=2027001"></script>
-    <script src="js/customers.js?v=2027001"></script>
-    <script src="js/crm.js?v=2032013"></script>
+    <script src="js/customers.js?v=2032001"></script>
+    <script src="js/crm.js?v=2032014"></script>
     <script src="js/suppliers.js?v=2027001"></script>
     <script src="js/quotations.js?v=2027001"></script>
     <script src="js/invoices.js?v=2027001"></script>
@@ -6957,6 +6958,9 @@
     
     <!-- Cloud Sync Utils Module (extracted from users.js) -->
     <script src="js/cloud-sync-utils/cloud-sync-utils.js?v=2032009"></script>
+    
+    <!-- Simple Cloud Sync - Cloud-First Approach -->
+    <script src="js/simple-sync.js?v=2032001"></script>
     
     <script src="js/platform-control.js?v=2027002"></script>
     
@@ -7106,7 +7110,7 @@
         <div class="chatbot-header">
             <div class="chatbot-title">
                 <i class="fas fa-robot"></i>
-                <span>EZ Assistant</span>
+                <span>Alpha 5</span>
                 <span class="ai-badge">AI</span>
             </div>
             <div class="chatbot-actions">
@@ -7125,7 +7129,7 @@
                         <i class="fas fa-robot"></i>
                     </div>
                     <div class="message-text">
-                        Hello! I'm your EZ Assistant powered by AI. I can help you with:
+                        Ay-yi-yi! Hello! I'm Alpha 5, your AI assistant! 🤖 I can help you with:
                         <ul style="margin-top: 8px; padding-left: 16px; font-size: 13px;">
                             <li>Business analytics & insights</li>
                             <li>Malaysian tax & accounting</li>

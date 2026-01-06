@@ -929,6 +929,17 @@ function createBillFromReceipt(receipt, po) {
 function updateInventoryStock(productId, quantity, type, notes) {
     if (!productId || productId === '_custom') return;
     
+    // ===== USE CENTRALIZED STOCK MANAGER =====
+    if (typeof updateProductStock === 'function') {
+        const quantityChange = type === 'in' ? quantity : -quantity;
+        updateProductStock(productId, null, quantityChange, type === 'in' ? 'purchase-receive' : 'adjustment', {
+            notes: notes,
+            reference: `PO-${Date.now()}`
+        });
+        return;
+    }
+    
+    // Fallback: legacy direct update
     const inventory = JSON.parse(localStorage.getItem('ezcubic_inventory') || '[]');
     const product = inventory.find(p => p.id === productId);
     
@@ -939,12 +950,10 @@ function updateInventoryStock(productId, quantity, type, notes) {
             product.stock = Math.max(0, (product.stock || 0) - quantity);
         }
         localStorage.setItem('ezcubic_inventory', JSON.stringify(inventory));
-        // Also save to tenant storage for multi-tenant isolation
         if (typeof saveToUserTenant === 'function') {
             saveToUserTenant();
         }
         
-        // Record stock movement
         if (typeof recordStockMovement === 'function') {
             recordStockMovement({
                 productId: productId,

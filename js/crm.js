@@ -102,8 +102,10 @@ function saveCRMCustomers() {
         console.log('✅ CRM Customers saved directly to tenant:', crmCustomers.length);
     }
     
-    // Trigger cloud sync for deletions
-    if (typeof window.fullCloudSync === 'function') {
+    // SIMPLE SYNC: Push to cloud immediately
+    if (typeof window.pushToCloud === 'function') {
+        window.pushToCloud(true);
+    } else if (typeof window.fullCloudSync === 'function') {
         setTimeout(() => {
             window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
         }, 100);

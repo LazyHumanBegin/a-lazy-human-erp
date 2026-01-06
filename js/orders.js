@@ -671,42 +671,53 @@ function voidOrder(orderId) {
     const branchId = order.branchId || 'BRANCH_HQ';
     const branchName = order.branchName || 'Main Branch';
     
-    order.items.forEach(item => {
-        const productIndex = products.findIndex(p => p.id === item.productId);
-        if (productIndex !== -1) {
-            // Add stock back using branch stock system
-            if (branchId && branchId !== 'all' && typeof adjustBranchStock === 'function') {
-                adjustBranchStock(item.productId, branchId, item.quantity);
-                
-                if (typeof getTotalBranchStock === 'function') {
-                    products[productIndex].stock = getTotalBranchStock(item.productId);
-                }
-            } else {
-                products[productIndex].stock = (products[productIndex].stock || 0) + item.quantity;
-            }
-            
-            // Record stock movement for the reversal
-            if (typeof recordStockMovement === 'function') {
-                recordStockMovement({
-                    productId: item.productId,
-                    productName: item.name,
-                    type: 'void_return',
-                    quantity: item.quantity,
-                    branchId: branchId,
-                    branchName: branchName,
-                    reason: 'Voided Sale',
-                    reference: order.receiptNo,
-                    notes: `Stock returned from voided sale ${order.receiptNo}`
-                });
-            }
-        }
-    });
-    
-    // Save products
-    if (typeof saveProducts === 'function') {
-        saveProducts();
+    // ===== USE CENTRALIZED STOCK MANAGER =====
+    if (typeof batchUpdateStock === 'function') {
+        const stockReturns = order.items.map(item => ({
+            productId: item.productId,
+            quantityChange: item.quantity, // Positive = return to stock
+            notes: `Returned from voided sale ${order.receiptNo}`
+        }));
+        
+        batchUpdateStock(stockReturns, 'void-return', {
+            branchId: branchId,
+            reference: order.receiptNo
+        });
     } else {
-        localStorage.setItem('ezcubic_products', JSON.stringify(products));
+        // Fallback: legacy method
+        order.items.forEach(item => {
+            const productIndex = products.findIndex(p => p.id === item.productId);
+            if (productIndex !== -1) {
+                if (branchId && branchId !== 'all' && typeof adjustBranchStock === 'function') {
+                    adjustBranchStock(item.productId, branchId, item.quantity);
+                    if (typeof getTotalBranchStock === 'function') {
+                        products[productIndex].stock = getTotalBranchStock(item.productId);
+                    }
+                } else {
+                    products[productIndex].stock = (products[productIndex].stock || 0) + item.quantity;
+                }
+                
+                if (typeof recordStockMovement === 'function') {
+                    recordStockMovement({
+                        productId: item.productId,
+                        productName: item.name,
+                        type: 'void_return',
+                        quantity: item.quantity,
+                        branchId: branchId,
+                        branchName: branchName,
+                        reason: 'Voided Sale',
+                        reference: order.receiptNo,
+                        notes: `Stock returned from voided sale ${order.receiptNo}`
+                    });
+                }
+            }
+        });
+        
+        if (typeof saveProducts === 'function') {
+            saveProducts();
+        } else {
+            localStorage.setItem('ezcubic_products', JSON.stringify(products));
+        }
     }
     
     // 3. Create reversal transaction (negative income)

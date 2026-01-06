@@ -230,42 +230,66 @@ function saveStockAdjustment(event) {
         return handleOutletTransfer(productId, product, quantity, notes);
     }
     
-    let newStock = product.stock;
-    let movementQty = quantity;
+    // ===== USE CENTRALIZED STOCK MANAGER =====
+    let quantityChange = 0;
+    let adjustReason = 'adjustment';
     
     switch (adjustmentType) {
         case 'in':
-            newStock = product.stock + quantity;
-            movementQty = quantity;
+            quantityChange = quantity;
+            adjustReason = reason || 'stock-in';
             break;
         case 'out':
-            if (quantity > product.stock) {
+            const available = typeof getAvailableStock === 'function' 
+                ? getAvailableStock(productId) 
+                : product.stock;
+            if (quantity > available) {
                 showToast('Cannot remove more than current stock!', 'error');
                 return;
             }
-            newStock = product.stock - quantity;
-            movementQty = -quantity;
+            quantityChange = -quantity;
+            adjustReason = reason || 'stock-out';
             break;
         case 'set':
-            movementQty = quantity - product.stock;
-            newStock = quantity;
+            const currentStock = typeof getAvailableStock === 'function' 
+                ? getAvailableStock(productId) 
+                : product.stock;
+            quantityChange = quantity - currentStock;
+            adjustReason = 'adjustment';
             break;
     }
     
-    // Update product stock
-    const index = products.findIndex(p => p.id === productId);
-    products[index].stock = newStock;
-    products[index].updatedAt = new Date().toISOString();
-    
-    // Record stock movement
-    recordStockMovement({
-        productId: productId,
-        productName: product.name,
-        type: adjustmentType === 'set' ? 'adjustment' : adjustmentType,
-        quantity: movementQty,
-        reason: reason,
-        notes: notes
-    });
+    // Use central stock manager if available
+    if (typeof updateProductStock === 'function') {
+        const result = updateProductStock(productId, null, quantityChange, adjustReason, {
+            notes: notes,
+            reference: `ADJ-${Date.now()}`
+        });
+        
+        if (!result.success) {
+            showToast(result.error || 'Stock adjustment failed', 'error');
+            return;
+        }
+    } else {
+        // Fallback: direct update
+        const index = products.findIndex(p => p.id === productId);
+        if (index !== -1) {
+            products[index].stock = Math.max(0, products[index].stock + quantityChange);
+            products[index].updatedAt = new Date().toISOString();
+        }
+        
+        // Record stock movement (legacy)
+        recordStockMovement({
+            productId: productId,
+            productName: product.name,
+            type: adjustmentType === 'set' ? 'adjustment' : adjustmentType,
+            quantity: quantityChange,
+            reason: reason,
+            notes: notes
+        });
+        
+        saveProducts();
+    }
     
     // Record purchase cost to accounting when stock is received
     if (adjustmentType === 'in' && reason === 'Purchase' && product.cost > 0) {
@@ -280,7 +304,6 @@ function saveStockAdjustment(event) {
             reference: `STK-${Date.now()}`,
             timestamp: new Date().toISOString()
         };
-        // Push to businessData.transactions for proper sync with All Transactions
         if (typeof businessData !== 'undefined' && businessData.transactions) {
             businessData.transactions.push(purchaseTransaction);
         } else {
@@ -289,7 +312,6 @@ function saveStockAdjustment(event) {
         saveData();
     }
     
-    saveProducts();
     renderProducts();
     renderStockMovements();
     updateStockStats();
@@ -342,45 +364,54 @@ function handleOutletTransfer(productId, product, quantity, notes) {
         toOutletName = toOutlet?.name || toOutletId;
     }
     
-    // Check source stock
-    let sourceStock = product.stock;
-    if (typeof getBranchStock === 'function') {
-        sourceStock = getBranchStock(productId, fromOutletId);
-    }
+    // Check source stock using central function
+    let sourceStock = typeof getAvailableStock === 'function' 
+        ? getAvailableStock(productId, fromOutletId)
+        : product.stock;
     
     if (quantity > sourceStock) {
         showToast(`Insufficient stock at ${fromOutletName}. Available: ${sourceStock} ${product.unit}`, 'error');
         return;
     }
     
-    // Perform the transfer using branch stock functions if available
-    if (typeof adjustBranchStock === 'function') {
-        // Decrease from source
-        adjustBranchStock(productId, fromOutletId, -quantity);
-        // Increase at destination
-        adjustBranchStock(productId, toOutletId, quantity);
+    // ===== USE CENTRALIZED TRANSFER FUNCTION =====
+    if (typeof transferStock === 'function') {
+        const result = transferStock(productId, fromOutletId, toOutletId, quantity, notes);
+        
+        if (!result.success) {
+            showToast(result.error || 'Transfer failed', 'error');
+            return;
+        }
+    } else {
+        // Fallback: use adjustBranchStock if available
+        if (typeof adjustBranchStock === 'function') {
+            adjustBranchStock(productId, fromOutletId, -quantity);
+            adjustBranchStock(productId, toOutletId, quantity);
+        }
+        
+        // Record stock movements (legacy)
+        recordStockMovement({
+            productId: productId,
+            productName: product.name,
+            type: 'transfer-out',
+            quantity: -quantity,
+            reason: 'Transfer',
+            notes: `Transferred to ${toOutletName}. ${notes}`,
+            reference: `TRF-${Date.now()}`
+        });
+        
+        recordStockMovement({
+            productId: productId,
+            productName: product.name,
+            type: 'transfer-in',
+            quantity: quantity,
+            reason: 'Transfer',
+            notes: `Received from ${fromOutletName}. ${notes}`,
+            reference: `TRF-${Date.now()}`
+        });
+        
+        saveProducts();
     }
-    
-    // Record stock movements for both outlets
-    recordStockMovement({
-        productId: productId,
-        productName: product.name,
-        type: 'transfer-out',
-        quantity: -quantity,
-        reason: 'Transfer',
-        notes: `Transferred to ${toOutletName}. ${notes}`,
-        reference: `TRF-${Date.now()}`
-    });
-    
-    recordStockMovement({
-        productId: productId,
-        productName: product.name,
-        type: 'transfer-in',
-        quantity: quantity,
-        reason: 'Transfer',
-        notes: `Received from ${fromOutletName}. ${notes}`,
-        reference: `TRF-${Date.now()}`
-    });
     
     // Create a branch transfer record if available
     if (typeof branchTransfers !== 'undefined') {
@@ -405,7 +436,6 @@ function handleOutletTransfer(productId, product, quantity, notes) {
         }
     }
     
-    saveProducts();
     renderProducts();
     renderStockMovements();
     updateStockStats();

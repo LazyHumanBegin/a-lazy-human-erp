@@ -69,8 +69,11 @@ function saveCustomers() {
         localStorage.setItem(tenantKey, JSON.stringify(tenantData));
         console.log('✅ Customers saved directly to tenant:', customers.length);
         
-        // Trigger cloud sync for cross-device synchronization
-        if (typeof window.fullCloudSync === 'function') {
+        // SIMPLE SYNC: Push to cloud immediately (async, don't wait)
+        if (typeof window.pushToCloud === 'function') {
+            window.pushToCloud(true); // true = show toast feedback
+        } else if (typeof window.fullCloudSync === 'function') {
+            // Fallback to old sync method
             setTimeout(() => {
                 window.fullCloudSync().catch(e => console.warn('Cloud sync failed:', e));
             }, 500);

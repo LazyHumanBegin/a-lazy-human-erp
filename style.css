@@ -545,6 +545,14 @@ body {
     color: #ef4444;
 }
 
+.cloud-sync-badge-inline.success {
+    color: #10b981;
+}
+
+.cloud-sync-badge-inline.pending {
+    color: #8b5cf6;
+}
+
 /* Legacy cloud-sync-badge for backwards compatibility */
 .cloud-sync-badge {
     display: inline-flex;

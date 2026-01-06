@@ -4672,7 +4672,7 @@ function handleGreetingIntent() {
     const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
     return {
         success: true,
-        message: `${greeting}! 👋 I'm your AI Business Partner. How can I help you today?`,
+        message: `${greeting}! 👋 I'm Alpha 5, your AI Business Partner! Ay-yi-yi, how can I help you today?`,
         source: 'local-greeting'
     };
 }
@@ -4904,7 +4904,7 @@ function generateChatbotFallback(message) {
     if (/^(hi|hello|hey|helo|hai|good\s*(morning|afternoon|evening|day)|howdy|yo|sup|apa khabar|selamat)[\s!?.]*$/i.test(lowerMessage)) {
         const hour = new Date().getHours();
         const timeGreet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-        return `${timeGreet}! 👋 I'm your AI Business Partner.\n\nI can help you:\n• 📊 View reports & analytics\n• 📦 Manage inventory & stock\n• �� Record expenses & income\n• 📄 Create invoices & quotations\n• 👥 Manage customers & suppliers\n• 🧭 Navigate anywhere\n\nJust talk naturally! What do you need?`;
+        return `${timeGreet}! 🤖 I'm Alpha 5, your AI Business Partner!\n\nI can help you:\n• 📊 View reports & analytics\n• 📦 Manage inventory & stock\n• 💰 Record expenses & income\n• 📄 Create invoices & quotations\n• 👥 Manage customers & suppliers\n• 🧭 Navigate anywhere\n\nAy-yi-yi, just talk naturally! What do you need?`;
     }
     
     if (lowerMessage.includes('how are you') || lowerMessage.includes('how r u')) {
@@ -4913,6 +4913,51 @@ function generateChatbotFallback(message) {
     
     if (lowerMessage.includes('thank') || lowerMessage.includes('tq') || lowerMessage.includes('terima kasih')) {
         return `You're welcome! 😊 Let me know if you need anything else.`;
+    }
+
+    // ==================== ABOUT US / SYSTEM INFO (Local - No API needed) ====================
+    // Who created / who made / developer / creator
+    if (lowerMessage.includes('who create') || lowerMessage.includes('who made') || lowerMessage.includes('who build') || 
+        lowerMessage.includes('who develop') || lowerMessage.includes('creator') || lowerMessage.includes('developer') ||
+        lowerMessage.includes('siapa buat') || lowerMessage.includes('siapa cipta')) {
+        return `This system was created by **"A Lazy Human Begin"** 🦥\n\nOur motto: **"Smart to be Lazy"**\n\nWe believe in working smart so you can focus on what matters most - growing your business! 🚀`;
+    }
+    
+    // Who is founder / master / owner
+    if (lowerMessage.includes('founder') || lowerMessage.includes('master') || lowerMessage.includes('owner') ||
+        lowerMessage.includes('boss') || lowerMessage.includes('who behind')) {
+        return `Ay-yi-yi! My master is **Jeremy Tan** - he built it all! 💪\n\nFrom concept to code, one person's vision to make business management simple and transparent for everyone. And he created me, Alpha 5, to help you! 🤖`;
+    }
+    
+    // Why created / purpose / mission
+    if (lowerMessage.includes('why create') || lowerMessage.includes('why made') || lowerMessage.includes('why build') ||
+        lowerMessage.includes('purpose') || lowerMessage.includes('mission') || lowerMessage.includes('kenapa buat') ||
+        lowerMessage.includes('what is the goal') || lowerMessage.includes('why this system')) {
+        return `**Our Purpose:**\n\n"We want to make every transaction clear, for partner trust, for self monitor, easier for everything." 📊\n\nAy-yi-yi, no more confusion! No more hidden numbers. Just clarity! ✨`;
+    }
+    
+    // Story / origin / background / why this concept
+    if (lowerMessage.includes('story') || lowerMessage.includes('origin') || lowerMessage.includes('background') ||
+        lowerMessage.includes('how it start') || lowerMessage.includes('why this concept') || lowerMessage.includes('inspiration')) {
+        return `**The Real Story:**\n\nAy-yi-yi! 😔 The founder was cheated by a business partner & got played around by investors - just because he didn't understand how accounting works.\n\nSo he built this system to make sure NO ONE else goes through that. Every ringgit tracked. Every transaction clear. Trust through transparency! 💪`;
+    }
+    
+    // What is smart to be lazy / concept / philosophy
+    if (lowerMessage.includes('smart to be lazy') || lowerMessage.includes('concept') || lowerMessage.includes('philosophy') ||
+        lowerMessage.includes('tagline') || lowerMessage.includes('slogan')) {
+        return `**"Smart to be Lazy"** 🦥\n\nWork smart, automate the boring stuff, so you have time for what actually matters!\n\nThat's why I'm here - Alpha 5 does the hard work so you can be lazy! Ay-yi-yi! 😎`;
+    }
+    
+    // Inappropriate / off-topic questions - polite deflection
+    if (lowerMessage.includes('politics') || lowerMessage.includes('religion') || lowerMessage.includes('sex') ||
+        lowerMessage.includes('gambling') || lowerMessage.includes('illegal') || lowerMessage.includes('hack') ||
+        lowerMessage.includes('crack') || lowerMessage.includes('pirate') || lowerMessage.includes('cheat')) {
+        const deflections = [
+            `Ay-yi-yi! My master doesn't allow me to answer that - it's out of my control! 🙈 Let's focus on business! 💼`,
+            `Ay-yi-yi! Let's stay focused on helping your business grow! 📈 What can I help with?`,
+            `Ay-yi-yi! That's outside my expertise! I'm better at inventory, sales, and keeping your finances clear 📊`
+        ];
+        return deflections[Math.floor(Math.random() * deflections.length)];
     }
 
     // ==================== HELP ====================
@@ -5868,7 +5913,7 @@ function clearChatHistory() {
                         <i class="fas fa-robot"></i>
                     </div>
                     <div class="message-text">
-                        Hello! I'm your EZCubic AI Assistant. I can help you with:
+                        Ay-yi-yi! Hello! I'm Alpha 5, your AI assistant! 🤖 I can help you with:
                         <ul style="margin-top: 5px; padding-left: 15px;">
                             <li>Accounting advice for Malaysian businesses</li>
                             <li>Tax calculation explanations</li>

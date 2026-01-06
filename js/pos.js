@@ -1465,27 +1465,16 @@ function addToCart(productId) {
     if (!product) return;
     
     // Get current outlet/branch
-    const currentBranchId = document.getElementById('posOutletFilter')?.value || '';
+    const currentBranchId = document.getElementById('posOutletFilter')?.value || 'BRANCH_HQ';
     
-    // Get available stock using proper branch stock API
-    let availableStock = product.stock || 0;
-    
-    // Use branch-specific stock if a specific branch is selected
-    if (currentBranchId && currentBranchId !== 'all') {
-        // Use getBranchStock which uses localStorage branch stock system
-        if (typeof getBranchStock === 'function') {
-            const branchStock = getBranchStock(productId, currentBranchId);
-            // If branch stock is 0 but product has stock, it might not be allocated yet
-            // Fall back to product.stock for the default branch
-            const defaultBranch = branches.find(b => b.isDefault);
-            if (branchStock === 0 && defaultBranch && currentBranchId === defaultBranch.id && product.stock > 0) {
-                availableStock = product.stock;
-            } else {
-                availableStock = branchStock;
-            }
-        } else if (product.branchStock && product.branchStock[currentBranchId] !== undefined) {
-            availableStock = product.branchStock[currentBranchId] || 0;
-        }
+    // ===== USE CENTRALIZED STOCK CHECK =====
+    let availableStock;
+    if (typeof getAvailableStock === 'function') {
+        // Use central stock manager
+        availableStock = getAvailableStock(productId, currentBranchId !== 'all' ? currentBranchId : null);
+    } else {
+        // Fallback: use product.stock
+        availableStock = product.stock || 0;
     }
     
     // Check if already in cart
@@ -1534,24 +1523,14 @@ function updateCartItemQuantity(productId, change) {
     }
     
     // Get current outlet/branch
-    const currentBranchId = document.getElementById('posOutletFilter')?.value || '';
+    const currentBranchId = document.getElementById('posOutletFilter')?.value || 'BRANCH_HQ';
     
-    // Get available stock using proper branch stock API
-    let availableStock = product ? (product.stock || 0) : 999;
-    
-    // Use branch-specific stock if a specific branch is selected
-    if (product && currentBranchId && currentBranchId !== 'all') {
-        if (typeof getBranchStock === 'function') {
-            const branchStock = getBranchStock(product.id, currentBranchId);
-            const defaultBranch = branches.find(b => b.isDefault);
-            if (branchStock === 0 && defaultBranch && currentBranchId === defaultBranch.id && product.stock > 0) {
-                availableStock = product.stock;
-            } else {
-                availableStock = branchStock;
-            }
-        } else if (product.branchStock && product.branchStock[currentBranchId] !== undefined) {
-            availableStock = product.branchStock[currentBranchId] || 0;
-        }
+    // ===== USE CENTRALIZED STOCK CHECK =====
+    let availableStock;
+    if (typeof getAvailableStock === 'function') {
+        availableStock = getAvailableStock(productId, currentBranchId !== 'all' ? currentBranchId : null);
+    } else {
+        availableStock = product ? (product.stock || 0) : 999;
     }
     
     if (newQty > availableStock) {
@@ -2334,52 +2313,41 @@ function processPayment(event) {
     sales.push(sale);
     localStorage.setItem(SALES_KEY, JSON.stringify(sales));
     
-    // Update stock using branch stock system
-    currentCart.forEach(item => {
-        const productIndex = products.findIndex(p => p.id === item.productId);
-        if (productIndex !== -1) {
-            // Use centralized branch stock system
-            if (branchId && branchId !== 'all' && typeof adjustBranchStock === 'function') {
-                // Deduct from branch-specific stock
-                adjustBranchStock(item.productId, branchId, -item.quantity);
-                
-                // Update total stock in product (sum of all branches)
-                if (typeof getTotalBranchStock === 'function') {
-                    products[productIndex].stock = getTotalBranchStock(item.productId);
-                }
-            } else {
-                // Fallback to simple stock deduction from total stock
-                products[productIndex].stock = Math.max(0, (products[productIndex].stock || 0) - item.quantity);
-                
-                // Also adjust default branch stock
-                if (typeof adjustBranchStock === 'function') {
-                    const defaultBranchId = typeof getCurrentBranchId === 'function' ? getCurrentBranchId() : 'BRANCH_HQ';
-                    adjustBranchStock(item.productId, defaultBranchId, -item.quantity);
-                }
-            }
-            
-            // Record stock movement with branch info
-            if (typeof recordStockMovement === 'function') {
-                recordStockMovement({
-                    productId: item.productId,
-                    productName: item.name,
-                    type: 'sale',
-                    quantity: -item.quantity,
-                    branchId: branchId,
-                    branchName: branchName,
-                    reason: 'POS Sale',
-                    reference: sale.receiptNo,
-                    notes: `Sold at ${branchName} to ${sale.customerName}`
-                });
-            }
+    // ===== STOCK DEDUCTION - USING CENTRALIZED STOCK MANAGER =====
+    // FIX: Use single source of truth for stock operations
+    if (typeof batchUpdateStock === 'function') {
+        // Build updates array for batch processing
+        const stockUpdates = currentCart.map(item => ({
+            productId: item.productId,
+            quantityChange: -item.quantity, // Negative for sale
+            notes: `Sold to ${customerName}`
+        }));
+        
+        // Batch deduct stock - all or nothing
+        const stockResult = batchUpdateStock(stockUpdates, 'sale', {
+            branchId: branchId || 'BRANCH_HQ',
+            reference: sale.receiptNo
+        });
+        
+        if (!stockResult.success) {
+            console.warn('⚠️ Stock deduction had issues:', stockResult);
+        } else {
+            console.log('✅ Stock deducted for sale:', sale.receiptNo);
         }
-    });
-    
-    // Save updated products to localStorage
-    if (typeof saveProducts === 'function') {
-        saveProducts();
     } else {
-        localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+        // Fallback to old method if stock-manager not loaded
+        console.warn('⚠️ Stock manager not available, using legacy stock deduction');
+        currentCart.forEach(item => {
+            const productIndex = products.findIndex(p => p.id === item.productId);
+            if (productIndex !== -1) {
+                products[productIndex].stock = Math.max(0, (products[productIndex].stock || 0) - item.quantity);
+            }
+        });
+        if (typeof saveProducts === 'function') {
+            saveProducts();
+        } else {
+            localStorage.setItem(PRODUCTS_KEY, JSON.stringify(products));
+        }
     }
     
     // ===== CRM MEMBERSHIP: REDEEM POINTS =====

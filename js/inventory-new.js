@@ -107,6 +107,11 @@ function saveProducts() {
         tenantData.updatedAt = new Date().toISOString();
         localStorage.setItem(tenantKey, JSON.stringify(tenantData));
         console.log('✅ Products saved directly to tenant:', products.length);
+        
+        // SIMPLE SYNC: Push to cloud immediately
+        if (typeof window.pushToCloud === 'function') {
+            window.pushToCloud(true);
+        }
     }
     
     // Note: Don't call saveToUserTenant - it would overwrite with stale data
