@@ -5985,6 +5985,397 @@ function updateRecentChatPreview() {
     `).join('');
 }
 
+// ==================== ALPHA 5 PROACTIVE ALERTS (Tier 4.5 Feature) ====================
+
+// Proactive alert state
+let proactiveAlertsShown = false;
+let lastProactiveCheck = null;
+
+// Main proactive check function - runs on app load
+function alpha5ProactiveCheck() {
+    // Don't check if already shown today or within last hour
+    const lastCheck = localStorage.getItem('alpha5_last_proactive_check');
+    const now = Date.now();
+    if (lastCheck && (now - parseInt(lastCheck)) < 3600000) { // 1 hour cooldown
+        return;
+    }
+    
+    // Only run if user is logged in
+    if (!window.currentUser) return;
+    
+    const alerts = [];
+    
+    // 1. Check overdue invoices
+    try {
+        const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+        const overdue = invoices.filter(inv => {
+            if (inv.status === 'paid' || inv.status === 'cancelled') return false;
+            const dueDate = new Date(inv.dueDate || inv.date);
+            return dueDate < new Date();
+        });
+        if (overdue.length > 0) {
+            const totalOverdue = overdue.reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
+            alerts.push({
+                type: 'warning',
+                icon: 'fa-file-invoice-dollar',
+                title: `${overdue.length} Overdue Invoice${overdue.length > 1 ? 's' : ''}`,
+                message: `Total: RM ${totalOverdue.toLocaleString('en-MY', {minimumFractionDigits: 2})}`,
+                action: 'showSection("invoices")',
+                actionLabel: 'View Invoices'
+            });
+        }
+    } catch (e) { console.log('Proactive check: invoices error', e); }
+    
+    // 2. Check bills due within 3 days
+    try {
+        const bills = JSON.parse(localStorage.getItem('bills') || '[]');
+        const dueSoon = bills.filter(bill => {
+            if (bill.status === 'paid') return false;
+            const dueDate = new Date(bill.dueDate);
+            const daysUntilDue = Math.ceil((dueDate - new Date()) / (1000 * 60 * 60 * 24));
+            return daysUntilDue <= 3 && daysUntilDue >= 0;
+        });
+        if (dueSoon.length > 0) {
+            const totalDue = dueSoon.reduce((sum, bill) => sum + (parseFloat(bill.amount) || 0), 0);
+            alerts.push({
+                type: 'urgent',
+                icon: 'fa-exclamation-triangle',
+                title: `${dueSoon.length} Bill${dueSoon.length > 1 ? 's' : ''} Due Soon!`,
+                message: `RM ${totalDue.toLocaleString('en-MY', {minimumFractionDigits: 2})} due within 3 days`,
+                action: 'showSection("bills")',
+                actionLabel: 'View Bills'
+            });
+        }
+    } catch (e) { console.log('Proactive check: bills error', e); }
+    
+    // 3. Check low stock items
+    try {
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        const lowStock = products.filter(p => {
+            const qty = parseFloat(p.quantity) || 0;
+            const reorderLevel = parseFloat(p.reorderLevel) || parseFloat(p.minStock) || 5;
+            return qty <= reorderLevel && qty >= 0;
+        });
+        if (lowStock.length > 0) {
+            alerts.push({
+                type: 'warning',
+                icon: 'fa-boxes',
+                title: `${lowStock.length} Item${lowStock.length > 1 ? 's' : ''} Low Stock`,
+                message: lowStock.slice(0, 3).map(p => p.name).join(', ') + (lowStock.length > 3 ? '...' : ''),
+                action: 'showSection("inventory")',
+                actionLabel: 'View Inventory'
+            });
+        }
+    } catch (e) { console.log('Proactive check: products error', e); }
+    
+    // 4. Check inactive customers (no orders in 30 days)
+    try {
+        const customers = JSON.parse(localStorage.getItem('customers') || '[]');
+        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const activeCustomerIds = new Set(
+            orders
+                .filter(o => new Date(o.date) >= thirtyDaysAgo)
+                .map(o => o.customerId)
+        );
+        
+        const inactiveCustomers = customers.filter(c => 
+            c.id && !activeCustomerIds.has(c.id) && customers.length > 5
+        );
+        
+        if (inactiveCustomers.length >= 3) {
+            alerts.push({
+                type: 'info',
+                icon: 'fa-user-clock',
+                title: `${inactiveCustomers.length} Inactive Customers`,
+                message: 'No orders in 30 days - time for follow-up?',
+                action: 'showSection("crm")',
+                actionLabel: 'Open CRM'
+            });
+        }
+    } catch (e) { console.log('Proactive check: customers error', e); }
+    
+    // 5. Check if no expenses recorded in 7 days
+    try {
+        const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const recentExpenses = transactions.filter(t => 
+            t.type === 'expense' && new Date(t.date) >= sevenDaysAgo
+        );
+        
+        if (recentExpenses.length === 0 && transactions.length > 10) {
+            alerts.push({
+                type: 'info',
+                icon: 'fa-receipt',
+                title: 'No Expenses This Week',
+                message: 'Remember to record your business expenses!',
+                action: 'showSection("transactions")',
+                actionLabel: 'Add Expense'
+            });
+        }
+    } catch (e) { console.log('Proactive check: transactions error', e); }
+    
+    // 6. Sales trend analysis (simple)
+    try {
+        const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+        const now = new Date();
+        const thisMonth = transactions.filter(t => {
+            const d = new Date(t.date);
+            return t.type === 'income' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+        const lastMonth = transactions.filter(t => {
+            const d = new Date(t.date);
+            const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            return t.type === 'income' && d.getMonth() === lastMonthDate.getMonth() && d.getFullYear() === lastMonthDate.getFullYear();
+        });
+        
+        const thisMonthTotal = thisMonth.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        const lastMonthTotal = lastMonth.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        
+        if (lastMonthTotal > 0 && thisMonthTotal > 0) {
+            const dayOfMonth = now.getDate();
+            const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+            const projectedTotal = (thisMonthTotal / dayOfMonth) * daysInMonth;
+            const percentChange = ((projectedTotal - lastMonthTotal) / lastMonthTotal) * 100;
+            
+            if (percentChange > 20) {
+                alerts.push({
+                    type: 'success',
+                    icon: 'fa-chart-line',
+                    title: '📈 Sales Trending Up!',
+                    message: `Projected ${percentChange.toFixed(0)}% higher than last month`,
+                    action: 'showSection("reports")',
+                    actionLabel: 'View Reports'
+                });
+            } else if (percentChange < -20) {
+                alerts.push({
+                    type: 'warning',
+                    icon: 'fa-chart-line',
+                    title: '📉 Sales Trending Down',
+                    message: `${Math.abs(percentChange).toFixed(0)}% below last month's pace`,
+                    action: 'showSection("reports")',
+                    actionLabel: 'View Reports'
+                });
+            }
+        }
+    } catch (e) { console.log('Proactive check: sales trend error', e); }
+    
+    // Show alerts if any
+    if (alerts.length > 0) {
+        localStorage.setItem('alpha5_last_proactive_check', now.toString());
+        showAlpha5ProactiveAlerts(alerts);
+    }
+}
+
+// Display proactive alerts popup
+function showAlpha5ProactiveAlerts(alerts) {
+    // Remove existing popup
+    const existing = document.getElementById('alpha5ProactivePopup');
+    if (existing) existing.remove();
+    
+    const popup = document.createElement('div');
+    popup.id = 'alpha5ProactivePopup';
+    popup.innerHTML = `
+        <div style="
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            width: 360px;
+            max-height: 500px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            z-index: 10001;
+            overflow: hidden;
+            animation: slideInUp 0.4s ease;
+        ">
+            <div style="
+                background: linear-gradient(135deg, #6366f1, #8b5cf6);
+                color: white;
+                padding: 16px 20px;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+            ">
+                <div style="
+                    width: 45px;
+                    height: 45px;
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 20px;
+                ">
+                    🤖
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 700; font-size: 16px;">Ay-yi-yi! Alpha 5 Alert</div>
+                    <div style="font-size: 12px; opacity: 0.9;">${alerts.length} thing${alerts.length > 1 ? 's' : ''} need your attention</div>
+                </div>
+                <button onclick="dismissAlpha5Alerts()" style="
+                    background: rgba(255,255,255,0.2);
+                    border: none;
+                    color: white;
+                    width: 30px;
+                    height: 30px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 16px;
+                ">×</button>
+            </div>
+            <div style="max-height: 350px; overflow-y: auto; padding: 12px;">
+                ${alerts.map(alert => `
+                    <div style="
+                        background: ${alert.type === 'urgent' ? '#fef2f2' : alert.type === 'warning' ? '#fffbeb' : alert.type === 'success' ? '#f0fdf4' : '#f8fafc'};
+                        border-left: 4px solid ${alert.type === 'urgent' ? '#ef4444' : alert.type === 'warning' ? '#f59e0b' : alert.type === 'success' ? '#22c55e' : '#6366f1'};
+                        padding: 12px;
+                        margin-bottom: 10px;
+                        border-radius: 8px;
+                    ">
+                        <div style="display: flex; align-items: flex-start; gap: 10px;">
+                            <i class="fas ${alert.icon}" style="
+                                color: ${alert.type === 'urgent' ? '#ef4444' : alert.type === 'warning' ? '#f59e0b' : alert.type === 'success' ? '#22c55e' : '#6366f1'};
+                                font-size: 18px;
+                                margin-top: 2px;
+                            "></i>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; color: #1e293b; font-size: 14px; margin-bottom: 4px;">
+                                    ${alert.title}
+                                </div>
+                                <div style="color: #64748b; font-size: 13px; margin-bottom: 8px;">
+                                    ${alert.message}
+                                </div>
+                                <button onclick="${alert.action}; dismissAlpha5Alerts();" style="
+                                    background: ${alert.type === 'urgent' ? '#ef4444' : alert.type === 'warning' ? '#f59e0b' : alert.type === 'success' ? '#22c55e' : '#6366f1'};
+                                    color: white;
+                                    border: none;
+                                    padding: 6px 14px;
+                                    border-radius: 6px;
+                                    font-size: 12px;
+                                    font-weight: 600;
+                                    cursor: pointer;
+                                ">
+                                    ${alert.actionLabel} →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="
+                padding: 12px 16px;
+                background: #f8fafc;
+                border-top: 1px solid #e2e8f0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            ">
+                <span style="color: #64748b; font-size: 12px;">
+                    <i class="fas fa-clock"></i> Checked just now
+                </span>
+                <button onclick="dismissAlpha5Alerts(true)" style="
+                    background: none;
+                    border: none;
+                    color: #6366f1;
+                    font-size: 12px;
+                    cursor: pointer;
+                    font-weight: 600;
+                ">
+                    Dismiss for 24h
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Add animation styles
+    if (!document.getElementById('alpha5AlertStyles')) {
+        const styles = document.createElement('style');
+        styles.id = 'alpha5AlertStyles';
+        styles.textContent = `
+            @keyframes slideInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+            }
+        `;
+        document.head.appendChild(styles);
+    }
+    
+    document.body.appendChild(popup);
+    
+    // Play notification sound if available
+    try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2Onp6LfXNxgImPjoR5c3V+h46OhHt0dX6GjY2EfHV2f4aNjYR8dXZ/ho2NhHx1dn+GjY2Ee3V2foaNjYR8dXV/ho2MhHx1dX+GjYyEfHV1f4aMjIN8dXV/hoyMg3x1dX+GjIyDfHV1f4aMjIN8dXV/hoyMg3x1dX+GjIyDfHV1f4aMi4N8dXV/houLg3x0dX+Gi4uDfHR1f4aLi4N8dHV/houLg3x0dX+Gi4uDfHR0f4aLi4N8dHR/houKg3x0dH+GioqDfHR0f4aKioN8dHR/hoqKg3x0dH+GioqDfHR0f4aKioN8dHR/hoqKgnx0dH+GiomCfHRzf4aJiYJ8dHN/homJgnx0c3+GiYmCfHRzf4aJiYJ8dHN/homIgXxzcn+GiIiBfHNyf4aIiIF8c3J/hoiIgXxzcn+GiIiBfHNyf4aIiIF8c3J/hoiHgXxzcX+Gh4eBfHNxf4aHh4F8c3F/hoeHgXxzcX+Gh4eBfHNxf4aHhoF8c3B/hoaGgXxzcH+GhoaBfHNwf4aGhoF8c3B/hoaGgXxzcH+GhoaBfHJwf4aGhYB8cnB/hYWFgHxycH+FhYWAfHJwf4WFhYB8cnB/hYWFgHxycH+FhYWAfHJvf4WFhYB8cm9/hYWEgHxyb3+FhISAfHJvf4WEhIB8cm9/hYSEgHxyb3+FhISAfHJvf4WEhH98cm9/hYSDf3xyb3+Fg4N/fHJvf4WDg398cm9/hYODf3xyb3+Fg4N/fHJuf4WDg398cm5/hYODf3xybX+Fg4N/fHJtf4WDg398cm1/hYODf3xybX+Fg4J/fHJtf4WCgn98cm1/hYKCf3xybX+FgoJ/fHJtf4WCgn98cm1/hYKCf3xybX+FgoJ/fHJtf4WCgn98cm1/hYKCfnxybX+Fgn9+fHFtf4WBf358cW1/hYF/fnxxbX+FgX9+fHFtf4WBf358cW1/hYF/fnxxbX+FgX9+fHFtf4WBf358cW1/hYF/fnxxbX+FgX9+fHFtf4WBf358cW1/hYF/fnxxbX+FgX9+fHFtf4WBfn18cW1+hYB+fXxxbX6FgH59fHFtfoWAfn18cW1+hYB+fXxxbX6FgH59fHFtfoV/fn18cW1+hX9+fXxxbX6Ff359fHFtfoV/fn18cW1+hX9+fXxxbH6Ff359fHBsfoV/fX18cGx+hH99fXxwbH6Ef319fHBsfoR/fX18cGx+hH99fXxwbH6Ef319fHBsfoR/fX18cGx+hH99fXxwbH6Ef319fHBsfoR/fX18cGx+hH99fXxwbH6Ef319fG9rfoR+fX18b2t+hH59fXxva36Efn19fG9rfoR+fX18b2t+hH59fXxva36Efn19fG9rfoR+fX18b2t+hH59fXxva36Efn19fG9rfoR+fX18b2t+hH59fXxva36Dfn19fG9rfoN+fX18b2t+g359fXxva36Dfn19fG9rfoN+fX18b2t+g359fXxva36Dfn19fG9rfoN+fX18b2p+g359fXxvanqDfXx9fG9qeoN9fH18b2p6g318fXxvan6Dfn19fG9qfoN+fX18b2p+g359fXxvanqDfXx9fG9qeoN9fH18b2p6g318fXxvanqDfXx8fG9qeoN9fHx8b2p6gnx8fHxvanqCfHx8fG9qeoJ8fHx8b2p6gnx8fHxvanqCfHx8fG9qeoJ8fHx8b2l6gnx8fHxvaXqCfHx8fG9peoJ8fHx8b2l6gnx8fHxvaXqCfHx8fG9peoJ8fHx8b2l6gnx8fHxvaXqCfHx8fG9peoJ8fHx8b2l6gnx8fHxvaXqCfHx8fG9peoJ8fHx8b2l6gnx8fHxvaXqCfHx8fG9peoJ8fHx8b2l6gnx8fHxvaXqCfHx8fG9peoJ8fHx7b2l6gnx8fHtvaXqCe3x8e29peoJ7fHx7b2l6gnt8fHtvaXqCe3x8e29peoJ7fHx7b2h5gXt7e3tvZ3mBent7e29neYF6e3t7b2d5gXp7e3tvZ3mBent7e29neYF6e3t7b2d5gXp7e3tvZ3mBent7e29neYF6e3t7b2d5gXp7e3tvZ3mBent7e29neYF6e3t7b2d5gXp7e3tvZ3mBent7em9neYB6ent6b2d5gHp6e3pvZ3mAenp7em9neYB6ent6b2Z5gHp6e3pvZnmAenp7em9meYB6ent6b2Z5gHp6e3pvZnmAenp6em9meYB5enp6b2Z4gHl6enpvZniAeXp6em9md4B5eXl5b2Z3f3l5eXlvZnd/eXl5eW9md395eXl5b2Z3f3l5eXlvZnd/eXl5eW9ld395eXl5b2V3f3h5eXlvZXd/eHl5eW9ld394eXl5b2V3f3h5eXlvZXd/eHl5eW9ld394eXh4b2V2fnh4eHhvZXZ+eHh4eG9ldn54eHh4b2V2fnh4eHhvZXZ+eHh4eG9ldn54eHh4b2R2fnd4eHhvZHZ+d3h4eG9kdn53eHh4b2R2fnd4eHhvZHZ+d3h3d29kdX53d3d3b2R1fnd3d3dvZHV+d3d3d29kdX53d3d3b2R1fnd3d3dvZHV+d3d3d29jdX52d3d3b2N1fnZ3d3dvY3V+dnd3d29jdX52d3d3b2N1fnZ3d3dvY3V+dnd3d29jdX52dnZ2b2N0fnV2dnZvY3R+dXZ2dm9jdH51dnZ2b2N0fnV2dnZvY3R+dXZ2dm9jdH51dnZ2b2J0fXV2dnZvYnR9dXZ2dm9idH11dnV1b2J0fXV1dXVvYnR9dXV1dW9idH11dXV1b2JzfXR1dXVvYnN9dHV1dW9ic310dXV1b2JzfXR1dXVvYnN9dHV1dW9ic310dXR0b2JzfHR0dHRvYnN8dHR0dG9ic3x0dHR0b2JzfHR0dHRvYnN8dHR0dG9ic3x0dHR0b2FzfHRzc3NvYXN8c3Nzc29hc3xzc3Nzb2FzfHNzc3NvYXN8c3Nzc29hc3xzc3Nzb2Fyenc=');
+        audio.volume = 0.3;
+        audio.play().catch(() => {}); // Ignore if blocked
+    } catch (e) {}
+}
+
+// Dismiss alerts
+function dismissAlpha5Alerts(dismissFor24h = false) {
+    const popup = document.getElementById('alpha5ProactivePopup');
+    if (popup) {
+        popup.style.animation = 'slideOutDown 0.3s ease forwards';
+        setTimeout(() => popup.remove(), 300);
+    }
+    
+    if (dismissFor24h) {
+        // Set cooldown for 24 hours
+        localStorage.setItem('alpha5_last_proactive_check', (Date.now() + 82800000).toString()); // 23 hours from now
+    }
+}
+
+// Add slideOutDown animation
+if (!document.getElementById('alpha5SlideOut')) {
+    const style = document.createElement('style');
+    style.id = 'alpha5SlideOut';
+    style.textContent = `
+        @keyframes slideOutDown {
+            from { opacity: 1; transform: translateY(0); }
+            to { opacity: 0; transform: translateY(30px); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+// Initialize proactive checks after app loads
+function initAlpha5Proactive() {
+    // Wait for app to fully load, then check
+    setTimeout(() => {
+        if (window.currentUser) {
+            alpha5ProactiveCheck();
+        }
+    }, 3000); // 3 seconds after load
+    
+    // Also check every 30 minutes while app is open
+    setInterval(() => {
+        if (window.currentUser && document.visibilityState === 'visible') {
+            alpha5ProactiveCheck();
+        }
+    }, 1800000); // 30 minutes
+}
+
+// Auto-initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAlpha5Proactive);
+} else {
+    initAlpha5Proactive();
+}
+
 // ==================== EXPORT FUNCTIONS TO WINDOW ====================
 // Must be at end of file after all functions are defined
 window.initializeChatbot = initializeChatbot;
@@ -5995,4 +6386,7 @@ window.sendChatMessage = sendChatMessage;
 window.handleChatbotKeyPress = handleChatbotKeyPress;
 window.askQuickQuestion = askQuickQuestion;
 window.clearChatHistory = clearChatHistory;
+window.alpha5ProactiveCheck = alpha5ProactiveCheck;
+window.dismissAlpha5Alerts = dismissAlpha5Alerts;
 console.log('🤖 chatbot.js loaded successfully, toggleChatbot:', typeof toggleChatbot);
+console.log('🚀 Alpha 5 Proactive Alerts initialized (Tier 4.5)');
