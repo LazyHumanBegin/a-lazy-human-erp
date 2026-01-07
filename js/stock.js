@@ -3,7 +3,7 @@
  * Stock movements, adjustments, low stock alerts, valuation
  */
 
-const STOCK_MOVEMENTS_KEY = 'ezcubic_stock_movements';
+// Use STOCK_MOVEMENTS_KEY from stock-manager.js (loaded first)
 let stockMovements = [];
 
 // ==================== STOCK INITIALIZATION ====================
