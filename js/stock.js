@@ -293,31 +293,45 @@ function saveStockAdjustment(event) {
         saveProducts();
     }
     
-    // Record purchase cost to accounting when stock is received (Stock In)
-    // This records the expense so it shows in financials/reports
+    // ==================== COGS ACCOUNTING (v2.8.2) ====================
+    // Stock In: NO immediate expense - inventory is an ASSET
+    // Cost will be recorded as COGS (Cost of Goods Sold) when item is SOLD
+    // This is proper accrual accounting method
     if (adjustmentType === 'in' && product.cost > 0) {
         const purchaseCost = product.cost * quantity;
-        const purchaseTransaction = {
+        // Just log for reference - no expense recorded
+        console.log(`📦 Stock In: ${quantity}x ${product.name} @ RM${product.cost} = RM${purchaseCost} (added to inventory asset)`);
+        showToast(`Stock in: ${quantity}x ${product.name} added to inventory (Cost: RM${purchaseCost.toFixed(2)})`, 'info');
+    }
+    
+    // Stock Out: Record COGS expense when items leave inventory
+    if (adjustmentType === 'out' && product.cost > 0) {
+        const cogsCost = product.cost * quantity;
+        const cogsTransaction = {
             id: generateUUID(),
             date: new Date().toISOString().split('T')[0],
-            amount: purchaseCost,
-            category: 'Inventory Purchase',
-            description: `Stock Purchase: ${product.name} (${quantity} ${product.unit || 'units'})`,
+            amount: cogsCost,
+            category: 'Cost of Goods Sold',
+            description: `COGS: ${product.name} (${quantity} ${product.unit || 'units'})`,
             type: 'expense',
-            reference: `STK-${Date.now().toString().slice(-6)}`,
-            reason: reason || 'Stock In',
+            reference: `COGS-${Date.now().toString().slice(-6)}`,
+            reason: reason || 'Stock Out',
+            productId: product.id,
+            productName: product.name,
+            quantity: quantity,
+            unitCost: product.cost,
             timestamp: new Date().toISOString(),
             createdBy: window.currentUser?.name || 'System'
         };
         if (typeof businessData !== 'undefined' && businessData.transactions) {
-            businessData.transactions.push(purchaseTransaction);
+            businessData.transactions.push(cogsTransaction);
         } else if (typeof transactions !== 'undefined') {
-            transactions.push(purchaseTransaction);
+            transactions.push(cogsTransaction);
         }
         saveData();
         
-        // Show notification about cost recorded
-        showToast(`Stock in: RM${purchaseCost.toFixed(2)} recorded as purchase expense`, 'info');
+        console.log(`📤 Stock Out: ${quantity}x ${product.name} - COGS RM${cogsCost.toFixed(2)} recorded`);
+        showToast(`COGS: RM${cogsCost.toFixed(2)} recorded for ${product.name}`, 'info');
     }
     
     renderProducts();

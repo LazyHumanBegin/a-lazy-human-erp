@@ -3627,6 +3627,35 @@ function executeStockOut(action) {
             
             product.stock = currentQty - quantity;
             
+            // ===== COGS Recording (v2.8.2) =====
+            // Record Cost of Goods Sold when stock is removed
+            if (product.cost > 0) {
+                const cogsCost = product.cost * quantity;
+                const cogsTransaction = {
+                    id: 'cogs_' + Date.now(),
+                    date: new Date().toISOString().split('T')[0],
+                    amount: cogsCost,
+                    category: 'Cost of Goods Sold',
+                    description: `COGS: ${product.name} (${quantity} ${product.unit || 'units'})`,
+                    type: 'expense',
+                    reference: `COGS-${Date.now().toString().slice(-6)}`,
+                    reason: action.reason || 'Stock Out via AI',
+                    productId: product.id,
+                    productName: product.name,
+                    quantity: quantity,
+                    unitCost: product.cost,
+                    timestamp: new Date().toISOString(),
+                    createdBy: window.currentUser?.name || 'AI Assistant'
+                };
+                
+                if (typeof businessData !== 'undefined' && businessData.transactions) {
+                    businessData.transactions.push(cogsTransaction);
+                }
+                if (typeof saveData === 'function') saveData();
+                
+                console.log(`📤 AI Stock Out: COGS RM${cogsCost.toFixed(2)} recorded for ${product.name}`);
+            }
+            
             // Use proper save function if available
             if (typeof saveProducts === 'function') {
                 saveProducts();
@@ -3645,9 +3674,10 @@ function executeStockOut(action) {
             if (typeof renderProducts === 'function') renderProducts();
             if (typeof renderInventory === 'function') renderInventory();
             
+            const cogsMsg = product.cost > 0 ? ` (COGS: RM${(product.cost * quantity).toFixed(2)})` : '';
             return {
                 isAction: true,
-                message: `Done! ✅ Removed ${quantity} units from "${product.name}" (now: ${product.stock}) 📦⬇️`
+                message: `Done! ✅ Removed ${quantity} units from "${product.name}" (now: ${product.stock})${cogsMsg} 📦⬇️`
             };
         } else {
             return {

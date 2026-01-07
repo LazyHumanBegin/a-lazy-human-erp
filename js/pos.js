@@ -2379,6 +2379,45 @@ function processPayment(event) {
         }
     }
     
+    // ===== COGS (Cost of Goods Sold) Recording (v2.8.2) =====
+    // Record COGS for each item sold - proper accrual accounting
+    let totalCOGS = 0;
+    currentCart.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        if (product && product.cost > 0) {
+            const itemCOGS = product.cost * item.quantity;
+            totalCOGS += itemCOGS;
+        }
+    });
+    
+    if (totalCOGS > 0) {
+        const cogsTransaction = {
+            id: generateUUID(),
+            date: new Date().toISOString().split('T')[0],
+            amount: totalCOGS,
+            category: 'Cost of Goods Sold',
+            description: `COGS for Sale #${sale.receiptNo} (${currentCart.length} items)`,
+            type: 'expense',
+            reference: sale.receiptNo,
+            saleId: sale.id,
+            itemCount: currentCart.length,
+            timestamp: new Date().toISOString(),
+            createdBy: window.currentUser?.name || 'POS System'
+        };
+        
+        if (typeof businessData !== 'undefined' && businessData.transactions) {
+            businessData.transactions.push(cogsTransaction);
+        } else {
+            transactions.push(cogsTransaction);
+        }
+        
+        // Store COGS in sale record for reports
+        sale.cogs = totalCOGS;
+        sale.grossProfit = total - totalCOGS;
+        
+        console.log(`📊 COGS recorded: RM${totalCOGS.toFixed(2)} for sale ${sale.receiptNo}`);
+    }
+    
     // ===== CRM MEMBERSHIP: REDEEM POINTS =====
     // Deduct redeemed points from customer account
     if (customerId && window.posRedeemedPoints > 0 && window.posRedeemCustomerId === customerId) {
