@@ -141,10 +141,17 @@ async function isCloudReachable() {
         const client = getSimpleSyncSupabaseClient();
         if (!client) return false;
         
-        // Quick health check
-        const { error } = await client.from('users').select('id').limit(1);
-        return !error;
+        // Quick health check using tenant_data table (which we know exists)
+        const { error } = await client.from('tenant_data').select('id').limit(1);
+        
+        // If error is just "no rows", that's still connected
+        if (error && error.code !== 'PGRST116') {
+            console.log('☁️ Cloud check failed:', error.message);
+            return false;
+        }
+        return true;
     } catch (e) {
+        console.log('☁️ Cloud check error:', e.message);
         return false;
     }
 }
