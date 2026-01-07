@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.5.5';
+const APP_VERSION = '2.5.7';
 window.APP_VERSION = APP_VERSION;
 
 /**
