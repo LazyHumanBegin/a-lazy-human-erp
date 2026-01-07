@@ -544,6 +544,12 @@ function renderStockMovements() {
     const tbody = document.getElementById('stockMovementsBody');
     if (!tbody) return;
     
+    // CRITICAL: Always sync from window.stockMovements before rendering
+    // This ensures we see the latest movements recorded by batchUpdateStock
+    if (Array.isArray(window.stockMovements) && window.stockMovements.length > 0) {
+        stockMovements = window.stockMovements;
+    }
+    
     const fromDate = document.getElementById('stockDateFrom')?.value;
     const toDate = document.getElementById('stockDateTo')?.value;
     const typeFilter = document.getElementById('movementTypeFilter')?.value;
@@ -938,8 +944,11 @@ window.handleOutletTransfer = handleOutletTransfer;
 
 // ==================== STOCK VALUATION ====================
 function renderStockValuation() {
-    const costValue = products.reduce((sum, p) => sum + (p.cost * p.stock), 0);
-    const retailValue = products.reduce((sum, p) => sum + (p.price * p.stock), 0);
+    // CRITICAL: Sync from window.products to get latest stock values
+    const productList = window.products || products || [];
+    
+    const costValue = productList.reduce((sum, p) => sum + (p.cost * p.stock), 0);
+    const retailValue = productList.reduce((sum, p) => sum + (p.price * p.stock), 0);
     const potentialProfit = retailValue - costValue;
     
     const costEl = document.getElementById('totalCostValue');
@@ -952,7 +961,7 @@ function renderStockValuation() {
     
     // Category breakdown
     const categoryValuation = {};
-    products.forEach(p => {
+    productList.forEach(p => {
         const category = p.category || 'Uncategorized'; // Fix: handle undefined category
         if (!categoryValuation[category]) {
             categoryValuation[category] = { cost: 0, retail: 0, count: 0 };
