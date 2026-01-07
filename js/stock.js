@@ -952,12 +952,13 @@ function renderStockValuation() {
     // Category breakdown
     const categoryValuation = {};
     products.forEach(p => {
-        if (!categoryValuation[p.category]) {
-            categoryValuation[p.category] = { cost: 0, retail: 0, count: 0 };
+        const category = p.category || 'Uncategorized'; // Fix: handle undefined category
+        if (!categoryValuation[category]) {
+            categoryValuation[category] = { cost: 0, retail: 0, count: 0 };
         }
-        categoryValuation[p.category].cost += p.cost * p.stock;
-        categoryValuation[p.category].retail += p.price * p.stock;
-        categoryValuation[p.category].count += p.stock;
+        categoryValuation[category].cost += p.cost * p.stock;
+        categoryValuation[category].retail += p.price * p.stock;
+        categoryValuation[category].count += p.stock;
     });
     
     const container = document.getElementById('stockValuationChart');

@@ -6632,7 +6632,11 @@ function generateChatbotFallback(message) {
                 `Create KPI: ${name || 'Sales Target'} - Target: ${target}`);
             return `✅ KPI "${name || 'Sales Target'}" (Target: ${target}) queued! Check Pending.`;
         }
-        if (typeof showSection === 'function') { showSection('kpi'); }
+        // KPI is a tab inside Payroll section, not a standalone section
+        if (typeof showSection === 'function') { showSection('payroll'); }
+        setTimeout(() => {
+            if (typeof showPayrollTab === 'function') showPayrollTab('kpi');
+        }, 100);
         return `📊 Opening KPI...\n\nOr say: "Create KPI Sales Target 10000"`;
     }
 
@@ -6668,6 +6672,35 @@ function generateChatbotFallback(message) {
         }
         if (typeof showSection === 'function') { showSection('payroll'); }
         return `📅 Opening HR/Leave...\n\nSay: "Apply leave for Ahmad from Jan 10 to Jan 12"`;
+    }
+
+    // ==================== ADD TO POS CART ====================
+    // AI can add items directly to POS cart
+    if ((lowerMessage.includes('add to cart') || lowerMessage.includes('add to pos') || 
+         lowerMessage.includes('order') && (lowerMessage.includes('pos') || qty) ||
+         (lowerMessage.match(/add\s+\d+/) && findProduct(lowerMessage)))) {
+        const product = findProduct(lowerMessage);
+        const quantity = extractQty(lowerMessage) || 1;
+        
+        if (product) {
+            // Navigate to POS first
+            if (typeof showSection === 'function') { showSection('pos'); }
+            
+            // Wait a bit for POS to initialize, then add to cart
+            setTimeout(() => {
+                if (typeof addToCart === 'function') {
+                    for (let i = 0; i < quantity; i++) {
+                        addToCart(product.id);
+                    }
+                }
+            }, 300);
+            
+            return `🛒 Added ${quantity}x **${product.name}** to POS cart!\n\n💰 Price: RM${(product.price * quantity).toFixed(2)}\n\nReady to checkout when you're done adding items.`;
+        }
+        
+        // No product found, just open POS
+        if (typeof showSection === 'function') { showSection('pos'); }
+        return `🛒 **POS** opened!\n\nTo add items, say:\n• "Add 2 coffee to cart"\n• "Order 3 iPhone"\n• "Add Nasi Lemak to POS"`;
     }
 
     // ==================== QUICK POS SALE ====================

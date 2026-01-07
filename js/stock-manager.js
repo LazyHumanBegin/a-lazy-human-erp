@@ -347,6 +347,12 @@ function saveProductsToStorage(syncToCloud = true) {
         businessData.products = window.products;
     }
     
+    // CRITICAL: Sync core.js products array with window.products
+    // This ensures POS, Inventory, and other modules see the updated stock
+    if (typeof window.syncCoreFromWindow === 'function') {
+        window.syncCoreFromWindow();
+    }
+    
     // Save to tenant storage
     const user = window.currentUser;
     if (user?.tenantId) {

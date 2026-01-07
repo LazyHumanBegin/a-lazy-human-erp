@@ -2396,7 +2396,7 @@ function processPayment(event) {
             date: new Date().toISOString().split('T')[0],
             amount: totalCOGS,
             category: 'Cost of Goods Sold',
-            description: `COGS for Sale #${sale.receiptNo} (${currentCart.length} items)`,
+            description: `COGS: Sale #${sale.receiptNo}`,
             type: 'expense',
             reference: sale.receiptNo,
             saleId: sale.id,
