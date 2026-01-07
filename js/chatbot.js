@@ -2499,48 +2499,166 @@ function doPOSSale(action) {
 function doStockIn(action) {
     const productName = action.product || action.name;
     const quantity = parseInt(action.quantity) || 0;
+    const reason = action.reason || 'stock-in';
+    const notes = action.notes || 'Added via AI Assistant';
     
-    // Find product and update stock
-    if (window.products) {
-        const product = window.products.find(p => 
-            p.name?.toLowerCase().includes(productName?.toLowerCase()) || 
-            p.sku?.toLowerCase() === productName?.toLowerCase()
-        );
-        
-        if (product) {
-            product.stock = (product.stock || 0) + quantity;
-            if (typeof saveProducts === 'function') saveProducts();
-            if (typeof renderProducts === 'function') renderProducts();
-            return { product, quantityAdded: quantity };
-        }
+    if (!productName) {
+        throw new Error('Product name is required');
+    }
+    if (quantity <= 0) {
+        throw new Error('Quantity must be greater than 0');
     }
     
-    throw new Error(`Product "${productName}" not found`);
+    // Find product
+    if (!window.products || window.products.length === 0) {
+        throw new Error('No products in inventory. Add products first.');
+    }
+    
+    const product = window.products.find(p => 
+        p.name?.toLowerCase().includes(productName.toLowerCase()) || 
+        p.sku?.toLowerCase() === productName.toLowerCase()
+    );
+    
+    if (!product) {
+        // Suggest similar products
+        const similar = window.products.filter(p => 
+            p.name?.toLowerCase().includes(productName.substring(0, 3).toLowerCase())
+        ).slice(0, 3).map(p => p.name);
+        
+        throw new Error(`Product "${productName}" not found.${similar.length > 0 ? ` Did you mean: ${similar.join(', ')}?` : ''}`);
+    }
+    
+    // Use centralized stock manager if available
+    if (typeof updateProductStock === 'function') {
+        const result = updateProductStock(product.id, null, quantity, reason, {
+            notes: notes,
+            reference: `AI-IN-${Date.now()}`
+        });
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Stock update failed');
+        }
+    } else {
+        // Fallback: direct update
+        const index = window.products.findIndex(p => p.id === product.id);
+        if (index !== -1) {
+            window.products[index].stock = (window.products[index].stock || 0) + quantity;
+            window.products[index].updatedAt = new Date().toISOString();
+        }
+        
+        // Record stock movement
+        if (typeof recordStockMovement === 'function') {
+            recordStockMovement({
+                productId: product.id,
+                productName: product.name,
+                type: 'in',
+                quantity: quantity,
+                reason: reason,
+                notes: notes,
+                reference: `AI-IN-${Date.now()}`
+            });
+        }
+        
+        if (typeof saveProducts === 'function') saveProducts();
+    }
+    
+    // Refresh UI
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof renderStockMovements === 'function') renderStockMovements();
+    if (typeof updateStockStats === 'function') updateStockStats();
+    
+    return { 
+        product: product.name, 
+        quantityAdded: quantity, 
+        newStock: product.stock 
+    };
 }
 
 function doStockOut(action) {
     const productName = action.product || action.name;
     const quantity = parseInt(action.quantity) || 0;
+    const reason = action.reason || 'stock-out';
+    const notes = action.notes || 'Removed via AI Assistant';
     
-    if (window.products) {
-        const product = window.products.find(p => 
-            p.name?.toLowerCase().includes(productName?.toLowerCase()) || 
-            p.sku?.toLowerCase() === productName?.toLowerCase()
-        );
-        
-        if (product) {
-            if ((product.stock || 0) >= quantity) {
-                product.stock = (product.stock || 0) - quantity;
-                if (typeof saveProducts === 'function') saveProducts();
-                if (typeof renderProducts === 'function') renderProducts();
-                return { product, quantityRemoved: quantity };
-            } else {
-                throw new Error(`Insufficient stock. Available: ${product.stock}`);
-            }
-        }
+    if (!productName) {
+        throw new Error('Product name is required');
+    }
+    if (quantity <= 0) {
+        throw new Error('Quantity must be greater than 0');
     }
     
-    throw new Error(`Product "${productName}" not found`);
+    // Find product
+    if (!window.products || window.products.length === 0) {
+        throw new Error('No products in inventory. Add products first.');
+    }
+    
+    const product = window.products.find(p => 
+        p.name?.toLowerCase().includes(productName.toLowerCase()) || 
+        p.sku?.toLowerCase() === productName.toLowerCase()
+    );
+    
+    if (!product) {
+        // Suggest similar products
+        const similar = window.products.filter(p => 
+            p.name?.toLowerCase().includes(productName.substring(0, 3).toLowerCase())
+        ).slice(0, 3).map(p => p.name);
+        
+        throw new Error(`Product "${productName}" not found.${similar.length > 0 ? ` Did you mean: ${similar.join(', ')}?` : ''}`);
+    }
+    
+    // Check available stock (use centralized function if available)
+    const availableStock = typeof getAvailableStock === 'function' 
+        ? getAvailableStock(product.id) 
+        : (product.stock || 0);
+    
+    if (quantity > availableStock) {
+        throw new Error(`Insufficient stock! Available: ${availableStock} ${product.unit || 'units'}`);
+    }
+    
+    // Use centralized stock manager if available
+    if (typeof updateProductStock === 'function') {
+        const result = updateProductStock(product.id, null, -quantity, reason, {
+            notes: notes,
+            reference: `AI-OUT-${Date.now()}`
+        });
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Stock update failed');
+        }
+    } else {
+        // Fallback: direct update
+        const index = window.products.findIndex(p => p.id === product.id);
+        if (index !== -1) {
+            window.products[index].stock = (window.products[index].stock || 0) - quantity;
+            window.products[index].updatedAt = new Date().toISOString();
+        }
+        
+        // Record stock movement
+        if (typeof recordStockMovement === 'function') {
+            recordStockMovement({
+                productId: product.id,
+                productName: product.name,
+                type: 'out',
+                quantity: -quantity,
+                reason: reason,
+                notes: notes,
+                reference: `AI-OUT-${Date.now()}`
+            });
+        }
+        
+        if (typeof saveProducts === 'function') saveProducts();
+    }
+    
+    // Refresh UI
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof renderStockMovements === 'function') renderStockMovements();
+    if (typeof updateStockStats === 'function') updateStockStats();
+    
+    return { 
+        product: product.name, 
+        quantityRemoved: quantity, 
+        remainingStock: product.stock 
+    };
 }
 
 // Legacy execute functions (keep for backwards compatibility)
@@ -3516,35 +3634,91 @@ function executeAddBranch(action) {
 // Execute: Stock Transfer between branches
 function executeStockTransfer(action) {
     try {
-        if (!action.product && !action.item) {
-            return { isAction: true, message: "Need product to transfer! Try: 'transfer 10 iPhone to Penang branch'" };
-        }
-        
-        const productName = action.product || action.item;
-        const quantity = parseInt(action.quantity) || parseInt(action.amount) || 1;
+        const productName = action.product || action.item || action.name;
+        const quantity = parseInt(action.quantity) || parseInt(action.amount) || 0;
         const toBranch = action.to || action.branch || action.destination;
-        const fromBranch = action.from || 'HQ';
+        const fromBranch = action.from || action.source || 'HQ';
+        const notes = action.notes || 'Created via AI Assistant';
+        
+        // Validate inputs
+        if (!productName) {
+            return { isAction: true, message: "❌ Need product to transfer!\n\nTry: 'transfer 10 Beer to Penang branch'" };
+        }
+        if (quantity <= 0) {
+            return { isAction: true, message: "❌ Need a valid quantity!\n\nTry: 'transfer 10 Beer to Penang'" };
+        }
+        if (!toBranch) {
+            return { isAction: true, message: "❌ Need destination branch!\n\nTry: 'transfer 10 Beer to Penang'" };
+        }
         
         // Find product
         const products = window.products || [];
+        if (products.length === 0) {
+            return { isAction: true, message: "❌ No products in inventory. Add products first!" };
+        }
+        
         const product = products.find(p => 
             p.name?.toLowerCase().includes(productName.toLowerCase()) ||
             p.sku?.toLowerCase().includes(productName.toLowerCase())
         );
         
         if (!product) {
-            return { isAction: true, message: `Couldn't find product "${productName}". Check inventory.` };
+            // Suggest similar products
+            const similar = products.filter(p => 
+                p.name?.toLowerCase().includes(productName.substring(0, 3).toLowerCase())
+            ).slice(0, 3).map(p => p.name);
+            
+            return { 
+                isAction: true, 
+                message: `❌ Product "${productName}" not found.${similar.length > 0 ? `\n\nDid you mean: ${similar.join(', ')}?` : '\n\nCheck your inventory.'}`
+            };
         }
         
         // Find branches
         const branches = window.branches || [];
-        const sourceBranch = branches.find(b => b.name?.toLowerCase().includes(fromBranch.toLowerCase()) || b.code?.toLowerCase().includes(fromBranch.toLowerCase())) || { id: 'BRANCH_HQ', name: 'HQ' };
-        const destBranch = branches.find(b => b.name?.toLowerCase().includes(toBranch?.toLowerCase()) || b.code?.toLowerCase().includes(toBranch?.toLowerCase()));
+        
+        // Try to match source branch
+        const sourceBranch = branches.find(b => 
+            b.name?.toLowerCase().includes(fromBranch.toLowerCase()) || 
+            b.code?.toLowerCase().includes(fromBranch.toLowerCase())
+        ) || { id: 'BRANCH_HQ', name: 'HQ', code: 'HQ' };
+        
+        // Try to match destination branch
+        const destBranch = branches.find(b => 
+            b.name?.toLowerCase().includes(toBranch.toLowerCase()) || 
+            b.code?.toLowerCase().includes(toBranch.toLowerCase())
+        );
         
         if (!destBranch) {
-            return { isAction: true, message: `Couldn't find destination branch "${toBranch}". Check branch list.` };
+            const branchNames = branches.slice(0, 5).map(b => b.name).join(', ') || 'No branches set up';
+            return { 
+                isAction: true, 
+                message: `❌ Branch "${toBranch}" not found.\n\nAvailable branches: ${branchNames}`
+            };
         }
         
+        // Check source has enough stock
+        const sourceStock = typeof getAvailableStock === 'function' 
+            ? getAvailableStock(product.id, sourceBranch.id) 
+            : (product.stock || 0);
+        
+        if (quantity > sourceStock) {
+            return { 
+                isAction: true, 
+                message: `❌ Insufficient stock at ${sourceBranch.name}!\n\nAvailable: ${sourceStock} ${product.unit || 'units'}\nRequested: ${quantity}`
+            };
+        }
+        
+        // Use centralized transfer function if available
+        if (typeof transferStock === 'function') {
+            const result = transferStock(product.id, sourceBranch.id, destBranch.id, quantity, notes);
+            
+            if (!result.success) {
+                return { isAction: true, message: `❌ Transfer failed: ${result.error}` };
+            }
+        }
+        
+        // Create transfer record
         const transfer = {
             id: 'transfer_' + Date.now(),
             transferNumber: 'TRF-' + Date.now().toString().slice(-6),
@@ -3557,7 +3731,7 @@ function executeStockTransfer(action) {
             toBranchId: destBranch.id,
             toBranchName: destBranch.name,
             status: 'pending',
-            notes: action.notes || 'Created via AI Assistant',
+            notes: notes,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -3573,16 +3747,31 @@ function executeStockTransfer(action) {
             localStorage.setItem('ezcubic_branch_transfers', JSON.stringify(window.branchTransfers));
         }
         
+        // Record stock movements
+        if (typeof recordStockMovement === 'function') {
+            recordStockMovement({
+                productId: product.id,
+                productName: product.name,
+                type: 'transfer-out',
+                quantity: -quantity,
+                reason: 'Transfer',
+                notes: `Transferred to ${destBranch.name}`,
+                reference: transfer.transferNumber
+            });
+        }
+        
         // Refresh UI
         if (typeof renderTransfers === 'function') renderTransfers();
+        if (typeof renderProducts === 'function') renderProducts();
+        if (typeof renderStockMovements === 'function') renderStockMovements();
         
         return {
             isAction: true,
-            message: `Done! ✅ Stock transfer created: ${transfer.transferNumber} 📦\n${quantity}x ${product.name}\nFrom: ${sourceBranch.name} → To: ${destBranch.name}\nStatus: Pending approval`
+            message: `✅ Stock transfer created: **${transfer.transferNumber}**\n\n📦 **${quantity}x ${product.name}**\n📤 From: ${sourceBranch.name}\n📥 To: ${destBranch.name}\n📋 Status: Pending approval`
         };
     } catch (e) {
         console.error('Error creating transfer:', e);
-        return { isAction: true, message: `Oops! Couldn't create transfer: ${e.message}` };
+        return { isAction: true, message: `❌ Transfer failed: ${e.message}` };
     }
 }
 
@@ -4578,6 +4767,97 @@ async function getAIResponse(message) {
 // Try local handling first for common patterns
 function tryLocalFirst(message) {
     const lower = message.toLowerCase().trim();
+    const products = window.products || [];
+    const customers = window.customers || [];
+    const suppliers = window.suppliers || [];
+    const branches = window.branches || [];
+    
+    // Format currency helper
+    const formatRM = (amt) => 'RM ' + (parseFloat(amt) || 0).toFixed(2);
+    
+    // ==================== PRODUCT/INVENTORY QUERIES ====================
+    // Handle these locally for instant, accurate response with full data
+    
+    if (lower.includes('what product') || lower.includes('list product') || lower.includes('show product') ||
+        lower.includes('my product') || lower.includes('all product') || lower.includes('my inventory') ||
+        lower.includes('what do i have') || lower.includes('product i have') || lower.includes('show me product') ||
+        lower.includes('inventory list') || lower.includes('what item') || lower.includes('list item') ||
+        lower.includes('show inventory')) {
+        if (products.length === 0) {
+            return `📦 **No products yet!**\n\nAdd your first product:\n• Say "add product Laptop RM2000"\n• Or go to **Inventory** section`;
+        }
+        const list = products.slice(0, 15).map((p, i) => 
+            `${i+1}. **${p.name}** - ${p.stock || 0} ${p.unit || 'pcs'} @ ${formatRM(p.price)}`
+        ).join('\n');
+        const more = products.length > 15 ? `\n\n...and ${products.length - 15} more products` : '';
+        const totalValue = products.reduce((sum, p) => sum + ((p.stock || 0) * (p.price || 0)), 0);
+        return `📦 **Your Products (${products.length})**\n\n${list}${more}\n\n💰 Total Inventory Value: ${formatRM(totalValue)}`;
+    }
+    
+    // Low stock query
+    if (lower.includes('low stock') || lower.includes('restock') || lower.includes('stock alert') ||
+        lower.includes('running low') || lower.includes('need to reorder') || lower.includes('habis stock')) {
+        const lowStock = products.filter(p => (p.stock || 0) <= (p.minStock || 5));
+        if (lowStock.length === 0) {
+            return `✅ **All stock levels OK!**\n\n${products.length} products monitored.\n\n💡 Tip: Set minimum stock levels in Inventory to get alerts.`;
+        }
+        const list = lowStock.slice(0, 10).map((p, i) => 
+            `${i+1}. **${p.name}** - ${p.stock || 0} left (min: ${p.minStock || 5})`
+        ).join('\n');
+        return `⚠️ **Low Stock Alert (${lowStock.length})**\n\n${list}\n\n💡 Say "stock in 10 [product]" to restock.`;
+    }
+    
+    // Check specific product stock
+    if ((lower.includes('stock') || lower.includes('how many') || lower.includes('berapa')) && 
+        !lower.includes('stock in') && !lower.includes('stock out') && !lower.includes('transfer')) {
+        // Try to find product name in message
+        const product = products.find(p => 
+            lower.includes(p.name?.toLowerCase()) || 
+            lower.includes(p.sku?.toLowerCase())
+        );
+        if (product) {
+            return `📦 **${product.name}**\n\n• Stock: **${product.stock || 0}** ${product.unit || 'pcs'}\n• Price: ${formatRM(product.price)}\n• Cost: ${formatRM(product.cost || 0)}\n• Min Stock: ${product.minStock || 5}\n• SKU: ${product.sku || 'N/A'}`;
+        }
+    }
+    
+    // ==================== CUSTOMER QUERIES ====================
+    if (lower.includes('what customer') || lower.includes('list customer') || lower.includes('show customer') ||
+        lower.includes('my customer') || lower.includes('all customer') || lower.includes('customer list')) {
+        if (customers.length === 0) {
+            return `👥 **No customers yet!**\n\nAdd your first customer:\n• Say "add customer Ahmad 012-3456789"\n• Or go to **CRM** section`;
+        }
+        const list = customers.slice(0, 10).map((c, i) => 
+            `${i+1}. **${c.name}** - ${c.phone || c.email || 'No contact'}`
+        ).join('\n');
+        const more = customers.length > 10 ? `\n\n...and ${customers.length - 10} more` : '';
+        return `👥 **Your Customers (${customers.length})**\n\n${list}${more}`;
+    }
+    
+    // ==================== SUPPLIER QUERIES ====================
+    if (lower.includes('what supplier') || lower.includes('list supplier') || lower.includes('show supplier') ||
+        lower.includes('my supplier') || lower.includes('all supplier') || lower.includes('supplier list')) {
+        if (suppliers.length === 0) {
+            return `🏭 **No suppliers yet!**\n\nAdd your first supplier:\n• Say "add supplier ABC Trading"\n• Or go to **Inventory → Suppliers**`;
+        }
+        const list = suppliers.slice(0, 10).map((s, i) => 
+            `${i+1}. **${s.name}** - ${s.phone || s.email || 'No contact'}`
+        ).join('\n');
+        const more = suppliers.length > 10 ? `\n\n...and ${suppliers.length - 10} more` : '';
+        return `🏭 **Your Suppliers (${suppliers.length})**\n\n${list}${more}`;
+    }
+    
+    // ==================== BRANCH QUERIES ====================
+    if (lower.includes('what branch') || lower.includes('list branch') || lower.includes('show branch') ||
+        lower.includes('my branch') || lower.includes('all branch') || lower.includes('branch list') ||
+        lower.includes('what outlet') || lower.includes('list outlet') || lower.includes('my outlet')) {
+        if (branches.length === 0) {
+            return `🏢 **No branches yet!**\n\nYou're using single-location mode.\n\nTo add branches:\n• Say "add branch Penang"\n• Or go to **Settings → Branches**`;
+        }
+        const list = branches.slice(0, 10).map((b, i) => 
+            `${i+1}. **${b.name}** (${b.code}) - ${b.status || 'active'}`
+        ).join('\n');
+        return `🏢 **Your Branches (${branches.length})**\n\n${list}`;
+    }
     
     // Quick patterns that local can definitely handle
     const quickPatterns = [
