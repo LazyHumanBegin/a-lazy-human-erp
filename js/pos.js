@@ -2837,6 +2837,72 @@ ${companyName}
     showNotification('Email Opened', 'Your email app should open with the receipt details. Add the customer email and send.', 'success');
 }
 
+// ==================== WHATSAPP RECEIPT ====================
+function shareReceiptWhatsApp() {
+    const sale = window.lastReceipt;
+    if (!sale) {
+        showNotification('Error', 'No receipt to share', 'error');
+        return;
+    }
+
+    // Get company settings
+    const companySettings = JSON.parse(localStorage.getItem('companySettings') || '{}');
+    const companyName = companySettings.businessName || settings.businessName || 'A Lazy Human Business';
+    const branchName = sale.branchName || 'Main';
+
+    // Build items list
+    let itemsList = '';
+    sale.items.forEach(item => {
+        itemsList += `• ${item.name} × ${item.quantity} = RM ${(item.quantity * item.price).toFixed(2)}\n`;
+    });
+
+    // Build WhatsApp message
+    let message = `*${companyName}*\n`;
+    if (branchName !== 'Main') {
+        message += `📍 _${branchName}_\n`;
+    }
+    message += `━━━━━━━━━━━━━━━━\n`;
+    message += `🧾 *Receipt: ${sale.receiptNo}*\n`;
+    message += `📅 ${sale.date}${sale.time ? ' ' + sale.time : ''}\n`;
+    message += `👤 ${sale.customerName}\n`;
+    if (sale.salesperson) {
+        message += `🙋 Served by: ${sale.salesperson}\n`;
+    }
+    message += `\n*Items:*\n`;
+    message += itemsList;
+    message += `\n━━━━━━━━━━━━━━━━\n`;
+    
+    if (sale.discount > 0) {
+        message += `Discount: -RM ${sale.discount.toFixed(2)}\n`;
+    }
+    message += `Tax (6%): RM ${sale.tax.toFixed(2)}\n`;
+    message += `*TOTAL: RM ${sale.total.toFixed(2)}*\n`;
+    message += `━━━━━━━━━━━━━━━━\n\n`;
+    
+    message += `💳 Payment: ${sale.paymentMethod.charAt(0).toUpperCase() + sale.paymentMethod.slice(1)}\n`;
+    if (sale.paymentMethod === 'cash') {
+        message += `💵 Received: RM ${sale.amountReceived.toFixed(2)}\n`;
+        message += `💰 Change: RM ${sale.change.toFixed(2)}\n`;
+    }
+    
+    // Membership info
+    if (sale.pointsEarned || sale.pointsRedeemed) {
+        message += `\n🎁 *Membership*\n`;
+        if (sale.membershipTier) message += `⭐ ${sale.membershipTier} Member\n`;
+        if (sale.pointsRedeemed) message += `🎁 Redeemed: -${sale.pointsRedeemed} pts\n`;
+        if (sale.pointsEarned) message += `✨ Earned: +${sale.pointsEarned} pts\n`;
+    }
+    
+    message += `\nThank you! 🙏\n`;
+    message += `_Terima kasih atas pembelian anda!_`;
+
+    // Open WhatsApp
+    const encoded = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    
+    showToast('Opening WhatsApp...', 'success');
+}
+
 // ==================== SALES HISTORY ====================
 function loadSales() {
     const stored = localStorage.getItem(SALES_KEY);
@@ -3029,6 +3095,7 @@ window.showItemMemo = showItemMemo;
 // Note: applyDiscount was removed - discount is applied via cartDiscount input field
 window.printReceipt = printReceipt;
 window.emailReceipt = emailReceipt;
+window.shareReceiptWhatsApp = shareReceiptWhatsApp;
 window.loadSales = loadSales;
 window.loadPOSCustomers = loadPOSCustomers;
 window.loadPOSBranchSelector = loadPOSBranchSelector;
