@@ -1404,10 +1404,24 @@ function confirmTransfer(transferId) {
     const transfer = branchTransfers.find(t => t.id === transferId);
     if (!transfer || transfer.status !== 'pending') return;
     
-    // Check if transfer has items
+    // Check if transfer has items - support legacy format (flat productId) and new format (items array)
     if (!transfer.items || !Array.isArray(transfer.items) || transfer.items.length === 0) {
-        showToast('This transfer has no items to process', 'error');
-        return;
+        // Try to recover from legacy format where productId/quantity were flat on transfer
+        if (transfer.productId && transfer.quantity) {
+            console.log('🔧 Converting legacy transfer format to items array');
+            transfer.items = [{
+                productId: transfer.productId,
+                productName: transfer.productName || 'Unknown',
+                productSku: transfer.productSku || '',
+                quantity: transfer.quantity,
+                unit: transfer.unit || 'pcs'
+            }];
+            // Save the fix
+            saveBranchData();
+        } else {
+            showToast('This transfer has no items to process', 'error');
+            return;
+        }
     }
     
     if (confirm(`Confirm transfer ${transfer.transferNumber || transfer.id}? This will start the transfer process.`)) {

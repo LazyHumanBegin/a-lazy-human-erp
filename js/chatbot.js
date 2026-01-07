@@ -3901,10 +3901,13 @@ function executeStockTransfer(action) {
         const transfer = {
             id: 'transfer_' + Date.now(),
             transferNumber: 'TRF-' + Date.now().toString().slice(-6),
-            productId: product.id,
-            productName: product.name,
-            productSku: product.sku,
-            quantity: quantity,
+            items: [{
+                productId: product.id,
+                productName: product.name,
+                productSku: product.sku || '',
+                quantity: quantity,
+                unit: product.unit || 'pcs'
+            }],
             fromBranchId: sourceBranch.id,
             fromBranchName: sourceBranch.name,
             toBranchId: destBranch.id,
