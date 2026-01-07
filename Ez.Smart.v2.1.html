@@ -6690,9 +6690,12 @@
             <div id="receiptContent" class="receipt-preview">
                 <!-- Receipt content generated dynamically -->
             </div>
-            <div class="modal-footer" style="justify-content: center; gap: 10px;">
-                <button class="btn-outline" onclick="shareReceiptWhatsApp()" style="background: #25D366; color: white; border: none;">
-                    <i class="fab fa-whatsapp"></i> WhatsApp
+            <div class="modal-footer" style="justify-content: center; gap: 8px; flex-wrap: wrap;">
+                <button class="btn-outline" onclick="shareReceiptWhatsApp()" style="background: #25D366; color: white; border: none;" title="Download PDF & Share via WhatsApp">
+                    <i class="fab fa-whatsapp"></i> Share
+                </button>
+                <button class="btn-outline" onclick="generateReceiptPDF()" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: none;" title="Save Receipt as PDF">
+                    <i class="fas fa-file-pdf"></i> PDF
                 </button>
                 <button class="btn-outline" onclick="emailReceipt()" style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border: none;">
                     <i class="fas fa-envelope"></i> Email

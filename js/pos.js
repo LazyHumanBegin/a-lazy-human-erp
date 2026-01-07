@@ -2837,6 +2837,171 @@ ${companyName}
     showNotification('Email Opened', 'Your email app should open with the receipt details. Add the customer email and send.', 'success');
 }
 
+// ==================== DOWNLOAD RECEIPT PDF ====================
+function generateReceiptPDF() {
+    const sale = window.lastReceipt;
+    if (!sale) {
+        showNotification('Error', 'No receipt to download', 'error');
+        return;
+    }
+
+    // Get company settings
+    const companySettings = JSON.parse(localStorage.getItem('companySettings') || '{}');
+    const settings = window.businessData?.settings || {};
+    const companyName = companySettings.businessName || settings.businessName || 'A Lazy Human Business';
+    const companyAddress = settings.businessAddress || '';
+    const companyPhone = settings.businessPhone || '';
+    const companyEmail = settings.businessEmail || '';
+    const branchName = sale.branchName || 'Main';
+
+    // Build items HTML
+    let itemsHtml = sale.items.map((item, i) => `
+        <tr>
+            <td>${i + 1}</td>
+            <td>${escapeHtml(item.name)}</td>
+            <td class="text-center">${item.quantity}</td>
+            <td class="text-right">RM ${item.price.toFixed(2)}</td>
+            <td class="text-right">RM ${(item.quantity * item.price).toFixed(2)}</td>
+        </tr>
+    `).join('');
+
+    // Build PDF content
+    const pdfContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Receipt ${sale.receiptNo}</title>
+            <style>
+                * { margin: 0; padding: 0; box-sizing: border-box; }
+                body { font-family: 'Segoe UI', Arial, sans-serif; color: #333; background: white; }
+                .page { max-width: 400px; margin: 0 auto; padding: 30px; }
+                
+                .header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px dashed #333; }
+                .header h1 { font-size: 20px; color: #333; margin-bottom: 5px; }
+                .header p { font-size: 11px; color: #666; line-height: 1.4; }
+                .branch { font-size: 12px; color: #666; margin-top: 5px; }
+                
+                .receipt-info { text-align: center; margin-bottom: 15px; font-size: 12px; }
+                .receipt-no { font-size: 14px; font-weight: bold; color: #333; }
+                .date-time { color: #666; margin-top: 3px; }
+                .customer { margin-top: 5px; }
+                
+                .divider { border-top: 1px dashed #999; margin: 10px 0; }
+                
+                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 11px; }
+                th { background: #f5f5f5; padding: 8px 5px; text-align: left; font-size: 10px; text-transform: uppercase; border-bottom: 1px solid #ddd; }
+                td { padding: 6px 5px; border-bottom: 1px solid #eee; }
+                .text-right { text-align: right; }
+                .text-center { text-align: center; }
+                
+                .totals { margin-top: 10px; font-size: 12px; }
+                .totals .row { display: flex; justify-content: space-between; padding: 5px 0; }
+                .totals .row.grand { background: #333; color: white; padding: 10px; margin-top: 8px; font-weight: bold; font-size: 14px; }
+                
+                .payment-info { margin-top: 15px; padding: 10px; background: #f8f8f8; border-radius: 5px; font-size: 11px; }
+                .payment-info .row { display: flex; justify-content: space-between; padding: 3px 0; }
+                
+                .membership { margin-top: 10px; padding: 10px; background: #fff3cd; border-radius: 5px; font-size: 11px; }
+                .membership h4 { font-size: 10px; text-transform: uppercase; color: #856404; margin-bottom: 5px; }
+                .membership .row { display: flex; justify-content: space-between; padding: 2px 0; color: #856404; }
+                
+                .footer { margin-top: 20px; padding-top: 15px; border-top: 2px dashed #333; text-align: center; font-size: 12px; }
+                .footer p { margin-bottom: 5px; }
+                .thank-you { font-size: 14px; font-weight: bold; margin-bottom: 5px; }
+                .malay { font-style: italic; color: #666; font-size: 11px; }
+                
+                @media print { 
+                    body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+                    .page { padding: 10px; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="page">
+                <div class="header">
+                    <h1>${escapeHtml(companyName)}</h1>
+                    ${companyAddress ? `<p>${escapeHtml(companyAddress)}</p>` : ''}
+                    ${companyPhone ? `<p>Tel: ${escapeHtml(companyPhone)}</p>` : ''}
+                    ${companyEmail ? `<p>Email: ${escapeHtml(companyEmail)}</p>` : ''}
+                    ${branchName !== 'Main' ? `<p class="branch">📍 ${escapeHtml(branchName)}</p>` : ''}
+                </div>
+                
+                <div class="receipt-info">
+                    <div class="receipt-no">Receipt: ${escapeHtml(sale.receiptNo)}</div>
+                    <div class="date-time">${sale.date}${sale.time ? ' ' + sale.time : ''}</div>
+                    <div class="customer">Customer: ${escapeHtml(sale.customerName || 'Walk-in')}</div>
+                    ${sale.salesperson ? `<div>Served by: ${escapeHtml(sale.salesperson)}</div>` : ''}
+                </div>
+                
+                <div class="divider"></div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Item</th>
+                            <th class="text-center">Qty</th>
+                            <th class="text-right">Price</th>
+                            <th class="text-right">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+                
+                <div class="totals">
+                    <div class="row"><span>Subtotal:</span><span>RM ${sale.subtotal.toFixed(2)}</span></div>
+                    ${sale.discount > 0 ? `<div class="row"><span>Discount:</span><span>- RM ${sale.discount.toFixed(2)}</span></div>` : ''}
+                    <div class="row"><span>Tax (6% SST):</span><span>RM ${sale.tax.toFixed(2)}</span></div>
+                    <div class="row grand"><span>TOTAL</span><span>RM ${sale.total.toFixed(2)}</span></div>
+                </div>
+                
+                <div class="payment-info">
+                    <div class="row"><span>Payment Method:</span><span>${sale.paymentMethod.charAt(0).toUpperCase() + sale.paymentMethod.slice(1)}</span></div>
+                    ${sale.paymentMethod === 'cash' ? `
+                        <div class="row"><span>Amount Received:</span><span>RM ${sale.amountReceived.toFixed(2)}</span></div>
+                        <div class="row"><span>Change:</span><span>RM ${sale.change.toFixed(2)}</span></div>
+                    ` : ''}
+                </div>
+                
+                ${(sale.pointsEarned || sale.pointsRedeemed || sale.membershipTier) ? `
+                <div class="membership">
+                    <h4>🎁 Membership Rewards</h4>
+                    ${sale.membershipTier ? `<div class="row"><span>⭐ Tier:</span><span>${sale.membershipTier}</span></div>` : ''}
+                    ${sale.pointsRedeemed ? `<div class="row"><span>Points Redeemed:</span><span>-${sale.pointsRedeemed} pts</span></div>` : ''}
+                    ${sale.pointsEarned ? `<div class="row"><span>Points Earned:</span><span>+${sale.pointsEarned} pts</span></div>` : ''}
+                    ${sale.totalPoints ? `<div class="row"><span>Total Balance:</span><span>${sale.totalPoints} pts</span></div>` : ''}
+                </div>
+                ` : ''}
+                
+                <div class="footer">
+                    <p class="thank-you">Thank You! 🙏</p>
+                    <p class="malay">Terima kasih atas pembelian anda!</p>
+                    <p style="margin-top: 10px; font-size: 10px; color: #999;">${escapeHtml(companyName)}</p>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+
+    // Create and trigger download
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+        printWindow.document.write(pdfContent);
+        printWindow.document.close();
+        
+        // Auto-trigger print (which can save as PDF)
+        setTimeout(() => {
+            printWindow.print();
+        }, 300);
+        
+        showToast('Receipt ready to save as PDF! 📄', 'success');
+    } else {
+        showNotification('Error', 'Please allow popups to download receipt', 'error');
+    }
+}
+
 // ==================== WHATSAPP RECEIPT ====================
 function shareReceiptWhatsApp() {
     const sale = window.lastReceipt;
@@ -2844,6 +3009,10 @@ function shareReceiptWhatsApp() {
         showNotification('Error', 'No receipt to share', 'error');
         return;
     }
+    
+    // Download receipt PDF first
+    generateReceiptPDF();
+    showToast('Receipt ready! Opening WhatsApp...', 'info');
 
     // Get company settings
     const companySettings = JSON.parse(localStorage.getItem('companySettings') || '{}');
@@ -2894,13 +3063,14 @@ function shareReceiptWhatsApp() {
     }
     
     message += `\nThank you! 🙏\n`;
-    message += `_Terima kasih atas pembelian anda!_`;
+    message += `_Terima kasih atas pembelian anda!_\n\n`;
+    message += `📎 _Please attach the downloaded receipt PDF_`;
 
-    // Open WhatsApp
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
-    
-    showToast('Opening WhatsApp...', 'success');
+    // Open WhatsApp with delay (after PDF opens)
+    setTimeout(() => {
+        const encoded = encodeURIComponent(message);
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    }, 800);
 }
 
 // ==================== SALES HISTORY ====================
@@ -3095,6 +3265,7 @@ window.showItemMemo = showItemMemo;
 // Note: applyDiscount was removed - discount is applied via cartDiscount input field
 window.printReceipt = printReceipt;
 window.emailReceipt = emailReceipt;
+window.generateReceiptPDF = generateReceiptPDF;
 window.shareReceiptWhatsApp = shareReceiptWhatsApp;
 window.loadSales = loadSales;
 window.loadPOSCustomers = loadPOSCustomers;
