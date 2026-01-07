@@ -783,7 +783,7 @@ function viewQuotationDetail(quotationId) {
             </div>
             <div class="quotation-detail-actions">
                 ${quotation.status !== 'accepted' ? `
-                    <button class="btn-secondary" onclick="showQuotationModal('${quotation.id}')">
+                    <button class="btn-secondary" onclick="closeModal('quotationDetailModal'); setTimeout(() => showQuotationModal('${quotation.id}'), 150);">
                         <i class="fas fa-edit"></i> Edit
                     </button>
                 ` : `

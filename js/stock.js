@@ -291,25 +291,31 @@ function saveStockAdjustment(event) {
         saveProducts();
     }
     
-    // Record purchase cost to accounting when stock is received
-    if (adjustmentType === 'in' && reason === 'Purchase' && product.cost > 0) {
+    // Record purchase cost to accounting when stock is received (Stock In)
+    // This records the expense so it shows in financials/reports
+    if (adjustmentType === 'in' && product.cost > 0) {
         const purchaseCost = product.cost * quantity;
         const purchaseTransaction = {
             id: generateUUID(),
             date: new Date().toISOString().split('T')[0],
             amount: purchaseCost,
             category: 'Inventory Purchase',
-            description: `Stock Purchase: ${product.name} (${quantity} units)`,
+            description: `Stock Purchase: ${product.name} (${quantity} ${product.unit || 'units'})`,
             type: 'expense',
-            reference: `STK-${Date.now()}`,
-            timestamp: new Date().toISOString()
+            reference: `STK-${Date.now().toString().slice(-6)}`,
+            reason: reason || 'Stock In',
+            timestamp: new Date().toISOString(),
+            createdBy: window.currentUser?.name || 'System'
         };
         if (typeof businessData !== 'undefined' && businessData.transactions) {
             businessData.transactions.push(purchaseTransaction);
-        } else {
+        } else if (typeof transactions !== 'undefined') {
             transactions.push(purchaseTransaction);
         }
         saveData();
+        
+        // Show notification about cost recorded
+        showToast(`Stock in: RM${purchaseCost.toFixed(2)} recorded as purchase expense`, 'info');
     }
     
     renderProducts();

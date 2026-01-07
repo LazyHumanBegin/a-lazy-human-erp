@@ -101,6 +101,36 @@ function updateProductStock(productId, branchId, quantityChange, reason, options
         timestamp: new Date().toISOString()
     });
     
+    // ===== RECORD PURCHASE EXPENSE FOR STOCK IN =====
+    // When stock is added (positive quantityChange) and product has cost, record expense
+    if (quantityChange > 0 && (reason === 'stock-in' || reason === 'purchase' || reason === 'Purchase') && product.cost > 0) {
+        const purchaseCost = product.cost * quantityChange;
+        const purchaseTransaction = {
+            id: 'TX' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+            type: 'expense',
+            amount: purchaseCost,
+            description: `Stock Purchase: ${product.name} (${quantityChange} ${product.unit || 'units'})`,
+            category: 'Inventory Purchase',
+            date: new Date().toISOString().split('T')[0],
+            reference: options.reference || `STK-${Date.now().toString().slice(-6)}`,
+            branchId: branchId,
+            createdAt: new Date().toISOString(),
+            createdBy: window.currentUser?.name || 'System'
+        };
+        
+        // Add to transactions
+        if (window.businessData && window.businessData.transactions) {
+            window.businessData.transactions.push(purchaseTransaction);
+        } else if (window.transactions) {
+            window.transactions.push(purchaseTransaction);
+        }
+        
+        // Save
+        if (typeof saveData === 'function') saveData();
+        
+        console.log('📊 Purchase expense recorded:', purchaseCost, 'for', product.name);
+    }
+    
     // Save products (this triggers cloud sync)
     saveProductsToStorage(!options.skipCloudSync);
     

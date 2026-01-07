@@ -550,11 +550,90 @@ function approveAIAction(pendingId) {
     
     if (result.success) {
         showNotification(`✅ Approved: ${pending.description}`, 'success');
+        
+        // SMART FOLLOW-UP: After stock in, offer transfer to outlets if user has multiple branches
+        if (pending.action.action === 'stock_in') {
+            // Check if cost was recorded
+            const costRecorded = result.result?.costRecorded;
+            if (!costRecorded && costRecorded !== 0) {
+                // Show warning that no cost was recorded
+                setTimeout(() => {
+                    addChatMessage(`⚠️ No cost recorded. Set in **Inventory** or say "stock in 10 Beer cost RM5"`, false);
+                }, 300);
+            }
+            
+            offerStockTransferAfterStockIn(pending.action, result.result);
+        }
     } else {
         showNotification(`❌ Failed: ${result.error}`, 'error');
     }
     
     return result;
+}
+
+// Smart follow-up: Offer stock transfer to outlets after stock in
+function offerStockTransferAfterStockIn(action, result) {
+    const branches = window.branches || [];
+    const activeBranches = branches.filter(b => b.status === 'active' && b.id !== 'BRANCH_HQ');
+    
+    // Only show if user has more than 1 outlet (besides HQ)
+    if (activeBranches.length === 0) return;
+    
+    const productName = action.product || action.name;
+    const quantity = parseInt(action.quantity) || 0;
+    const newStock = result?.newStock || quantity;
+    
+    // Build branch options
+    const branchList = activeBranches.slice(0, 5).map(b => b.name).join(', ');
+    
+    // Add follow-up message to chat
+    setTimeout(() => {
+        const followUpMessage = `✅ **+${quantity} ${productName}** to HQ (Total: ${newStock})\n\n` +
+            `🏢 ${activeBranches.length} outlet(s): ${branchList}\n` +
+            `Transfer? "transfer 10 ${productName} to [outlet]" or "split to all"`;
+        
+        addChatMessage(followUpMessage, false);
+        
+        // Show quick action buttons
+        showStockTransferQuickActions(productName, activeBranches, newStock);
+    }, 500);
+}
+
+// Show quick action buttons for stock transfer
+function showStockTransferQuickActions(productName, branches, availableStock) {
+    const actionsContainer = document.getElementById('chatbotSmartActions');
+    if (!actionsContainer) return;
+    
+    // Create quick transfer buttons
+    const quickActions = [];
+    
+    // Add "Split equally" option if multiple branches
+    if (branches.length > 1 && availableStock >= branches.length) {
+        const perBranch = Math.floor(availableStock / branches.length);
+        quickActions.push({
+            label: `📦 Split ${perBranch} each to ${branches.length} outlets`,
+            query: `split ${availableStock} ${productName} equally to all outlets`
+        });
+    }
+    
+    // Add individual branch transfer options (max 3)
+    branches.slice(0, 3).forEach(branch => {
+        quickActions.push({
+            label: `➡️ Transfer to ${branch.name}`,
+            query: `transfer ${productName} to ${branch.name}`
+        });
+    });
+    
+    // Add "No transfer needed" option
+    quickActions.push({
+        label: `✓ No transfer needed`,
+        query: `ok, no transfer needed`
+    });
+    
+    actionsContainer.innerHTML = quickActions.map(action => 
+        `<button class="smart-action-btn" onclick="askQuickQuestion('${action.query}')">${action.label}</button>`
+    ).join('');
+    actionsContainer.style.display = 'flex';
 }
 
 // Reject a pending action
@@ -1032,6 +1111,22 @@ function showChatbot() {
 }
 
 // ==================== MESSAGE HANDLING ====================
+
+// Simple markdown parser for chat messages
+function parseMarkdown(text) {
+    if (!text) return '';
+    let html = escapeHTML(text);
+    // Bold: **text** or __text__
+    html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    html = html.replace(/__(.+?)__/g, '<strong>$1</strong>');
+    // Italic: *text* or _text_
+    html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+    html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+    // Line breaks
+    html = html.replace(/\n/g, '<br>');
+    return html;
+}
+
 function addChatMessage(message, isUser = true) {
     const messagesContainer = document.getElementById('chatbotMessages');
     const now = new Date();
@@ -1046,12 +1141,16 @@ function addChatMessage(message, isUser = true) {
     
     const messageElement = document.createElement('div');
     messageElement.className = `chatbot-message ${isUser ? 'user' : 'bot'}`;
+    
+    // Use markdown parser for bot messages, escape for user messages
+    const displayText = isUser ? escapeHTML(messageText) : parseMarkdown(messageText);
+    
     messageElement.innerHTML = `
         <div class="message-content">
             <div class="message-avatar">
                 <i class="fas fa-${isUser ? 'user' : 'robot'}"></i>
             </div>
-            <div class="message-text">${escapeHTML(messageText)}</div>
+            <div class="message-text">${displayText}</div>
         </div>
         <div class="message-time">${timeString}</div>
     `;
@@ -2238,17 +2337,62 @@ function doCreateInvoice(action) {
 }
 
 function doCreateQuotation(action) {
+    // Generate proper quotation number
+    let quotationNo = 'QT' + Date.now().toString().slice(-6);
+    if (typeof generateQuotationNo === 'function') {
+        try { quotationNo = generateQuotationNo(); } catch(e) {}
+    }
+    
+    const amount = parseFloat(action.total) || parseFloat(action.amount) || 0;
+    const customerName = action.customer || action.customerName || '';
+    
+    // Build items array with proper structure
+    let items = [];
+    if (Array.isArray(action.items) && action.items.length > 0) {
+        items = action.items.map(item => ({
+            description: item.description || item.name || 'Item',
+            quantity: parseFloat(item.quantity) || 1,
+            unitPrice: parseFloat(item.unitPrice) || parseFloat(item.price) || 0,
+            lineTotal: (parseFloat(item.quantity) || 1) * (parseFloat(item.unitPrice) || parseFloat(item.price) || 0)
+        }));
+    } else if (amount > 0) {
+        // Create single item from total amount
+        items = [{
+            description: action.title || action.subject || `Quotation for ${customerName}`,
+            quantity: 1,
+            unitPrice: amount,
+            lineTotal: amount
+        }];
+    }
+    
+    const subtotal = items.reduce((sum, item) => sum + (item.lineTotal || 0), 0);
+    
+    // Set valid date 30 days from now
+    const validDate = new Date();
+    validDate.setDate(validDate.getDate() + 30);
+    
     const quotation = {
-        id: 'QUO' + Date.now(),
-        quoteNo: action.quoteNo || 'QUO-' + Date.now().toString().slice(-6),
-        customer: action.customer || '',
-        title: action.title || '',
-        items: action.items || [],
-        subtotal: parseFloat(action.subtotal) || parseFloat(action.total) || 0,
-        total: parseFloat(action.total) || 0,
+        id: 'QT' + Date.now(),
+        quotationNo: quotationNo,
+        customerId: action.customerId || '',
+        customerName: customerName,
+        customerCompany: action.company || '',
+        salesperson: action.salesperson || '',
+        date: new Date().toISOString().split('T')[0],
+        validUntil: action.validUntil || validDate.toISOString().split('T')[0],
+        subject: action.title || action.subject || '',
+        items: items,
+        subtotal: subtotal,
+        discount: 0,
+        discountAmount: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        totalAmount: subtotal,
+        notes: action.notes || '',
+        terms: '',
         status: 'draft',
-        validUntil: action.validUntil || '',
         createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         createdBy: 'AI Assistant'
     };
     
@@ -2257,6 +2401,7 @@ function doCreateQuotation(action) {
     
     if (typeof saveQuotations === 'function') saveQuotations();
     if (typeof renderQuotations === 'function') renderQuotations();
+    if (typeof updateQuotationStats === 'function') updateQuotationStats();
     
     return quotation;
 }
@@ -2528,6 +2673,10 @@ function doStockIn(action) {
         throw new Error(`Product "${productName}" not found.${similar.length > 0 ? ` Did you mean: ${similar.join(', ')}?` : ''}`);
     }
     
+    // Get cost price for accounting
+    const costPrice = parseFloat(action.cost) || parseFloat(product.cost) || 0;
+    const totalCost = costPrice * quantity;
+    
     // Use centralized stock manager if available
     if (typeof updateProductStock === 'function') {
         const result = updateProductStock(product.id, null, quantity, reason, {
@@ -2562,6 +2711,35 @@ function doStockIn(action) {
         if (typeof saveProducts === 'function') saveProducts();
     }
     
+    // ===== RECORD PURCHASE EXPENSE TO FINANCIALS =====
+    // When stock in, record the cost as inventory purchase expense
+    if (totalCost > 0) {
+        const purchaseTransaction = {
+            id: 'TX' + Date.now(),
+            type: 'expense',
+            amount: totalCost,
+            description: `Stock Purchase: ${product.name} (${quantity} ${product.unit || 'units'})`,
+            category: 'Inventory Purchase',
+            date: new Date().toISOString().split('T')[0],
+            reference: `STK-IN-${Date.now().toString().slice(-6)}`,
+            createdAt: new Date().toISOString(),
+            createdBy: 'AI Assistant'
+        };
+        
+        // Add to businessData transactions
+        if (window.businessData && window.businessData.transactions) {
+            window.businessData.transactions.push(purchaseTransaction);
+        } else if (window.transactions) {
+            window.transactions.push(purchaseTransaction);
+        }
+        
+        // Save
+        if (typeof saveData === 'function') saveData();
+        if (typeof updateDashboard === 'function') updateDashboard();
+        
+        console.log('📊 Stock purchase recorded:', purchaseTransaction);
+    }
+    
     // Refresh UI
     if (typeof renderProducts === 'function') renderProducts();
     if (typeof renderStockMovements === 'function') renderStockMovements();
@@ -2570,7 +2748,8 @@ function doStockIn(action) {
     return { 
         product: product.name, 
         quantityAdded: quantity, 
-        newStock: product.stock 
+        newStock: product.stock,
+        costRecorded: totalCost > 0 ? totalCost : null
     };
 }
 
@@ -4859,6 +5038,84 @@ function tryLocalFirst(message) {
         return `🏢 **Your Branches (${branches.length})**\n\n${list}`;
     }
     
+    // ==================== BRANCH STOCK QUERIES ====================
+    if (lower.includes('branch stock') || lower.includes('outlet stock') || lower.includes('stock by branch') ||
+        lower.includes('show branch stock') || lower.includes('stock at branch')) {
+        if (branches.length === 0) {
+            return `🏢 No branches set up. Using single-location mode.`;
+        }
+        
+        // Show stock summary by branch
+        let summary = `🏢 **Stock by Branch**\n\n`;
+        branches.forEach(branch => {
+            const branchProducts = products.filter(p => p.branchStock && p.branchStock[branch.id] > 0);
+            const totalItems = branchProducts.reduce((sum, p) => sum + (p.branchStock[branch.id] || 0), 0);
+            summary += `**${branch.name}**: ${totalItems} items (${branchProducts.length} products)\n`;
+        });
+        return summary;
+    }
+    
+    // ==================== SPLIT STOCK TO ALL OUTLETS ====================
+    if ((lower.includes('split') && (lower.includes('outlet') || lower.includes('branch') || lower.includes('all'))) ||
+        (lower.includes('distribute') && (lower.includes('outlet') || lower.includes('branch')))) {
+        
+        const activeBranches = branches.filter(b => b.status === 'active' && b.id !== 'BRANCH_HQ');
+        if (activeBranches.length === 0) {
+            return `🏢 No outlets to split to. Add outlets first with "add branch [name]"`;
+        }
+        
+        // Try to extract product name and quantity
+        const qtyMatch = lower.match(/(\d+)/);
+        const quantity = qtyMatch ? parseInt(qtyMatch[1]) : 0;
+        
+        // Find product in message
+        const product = products.find(p => lower.includes(p.name?.toLowerCase()));
+        
+        if (!product) {
+            return `📦 **Split Stock** - Which product?\n\nExample: "split 100 Beer equally to all outlets"`;
+        }
+        
+        if (quantity <= 0) {
+            return `📦 **Split ${product.name}** - How many to split?\n\nExample: "split 100 ${product.name} to all outlets"`;
+        }
+        
+        const perBranch = Math.floor(quantity / activeBranches.length);
+        const remainder = quantity % activeBranches.length;
+        
+        if (perBranch <= 0) {
+            return `❌ Not enough to split. Need at least ${activeBranches.length} units for ${activeBranches.length} outlets.`;
+        }
+        
+        // Queue transfers for each branch
+        activeBranches.forEach((branch, i) => {
+            const branchQty = i === 0 ? perBranch + remainder : perBranch; // First branch gets remainder
+            queueAIAction({
+                action: 'stock_transfer',
+                product: product.name,
+                quantity: branchQty,
+                from: 'HQ',
+                to: branch.name
+            }, `Transfer ${branchQty}x ${product.name} → ${branch.name}`);
+        });
+        
+        return `✅ **Split Queued!**\n\n📦 **${product.name}** x ${quantity}\n\n` +
+            activeBranches.map((b, i) => `• ${b.name}: ${i === 0 ? perBranch + remainder : perBranch}`).join('\n') +
+            `\n\n📋 Check **Pending** to approve all transfers.`;
+    }
+    
+    // ==================== NO TRANSFER NEEDED ====================
+    if (lower.includes('no transfer') || lower.includes('no need transfer') || lower.includes('no transfer needed') ||
+        (lower.includes('ok') && lower.includes('no')) || lower === 'ok' || lower === 'done' || lower === 'thanks') {
+        return `✅ Stock stays at HQ. Transfer anytime with "transfer [qty] [product] to [outlet]"`;
+    }
+    
+    // ==================== SKIP COST FOR STOCK IN ====================
+    if (lower.includes('skip cost') || lower.includes('no cost') || lower.includes('without cost')) {
+        // Set a flag to skip cost requirement
+        window._skipStockInCost = true;
+        return `✅ Will skip cost. Note: Won't appear in expense reports.`;
+    }
+    
     // Quick patterns that local can definitely handle
     const quickPatterns = [
         // Greetings
@@ -4888,10 +5145,11 @@ function handleActionIntent(intent) {
     
     const action = intent.action;
     const entities = intent.entities;
+    const products = window.products || [];
     
     // ==================== VALIDATION: Ask for missing info ====================
     
-    // Stock In - requires product and quantity
+    // Stock In - requires product, quantity, and cost (if not set)
     if (action === 'stock_in') {
         if (!entities.product && !entities.name) {
             return {
@@ -4906,6 +5164,32 @@ function handleActionIntent(intent) {
                 message: `📥 **Stock In ${entities.product || entities.name}** - How many?\n\nExample: "stock in 10 ${entities.product || entities.name}"`,
                 source: 'local-clarify'
             };
+        }
+        
+        // Check if product has cost price set
+        const productName = entities.product || entities.name;
+        const product = products.find(p => 
+            p.name?.toLowerCase().includes(productName.toLowerCase()) ||
+            p.sku?.toLowerCase() === productName.toLowerCase()
+        );
+        
+        if (product) {
+            const hasCost = product.cost && parseFloat(product.cost) > 0;
+            const providedCost = entities.cost || entities.costPrice || entities.unitCost;
+            
+            // If product has no cost AND user didn't provide cost, ask for it
+            if (!hasCost && !providedCost) {
+                return {
+                    success: true,
+                    message: `📥 **Stock In ${entities.quantity}x ${product.name}**\n\n⚠️ No cost price set for this product!\n\nWhat's the cost per unit?\n• "stock in ${entities.quantity} ${product.name} cost RM5"\n• Or say "skip cost" to continue without recording expense`,
+                    source: 'local-clarify'
+                };
+            }
+            
+            // If user provided cost, save it to entities for later use
+            if (providedCost) {
+                entities.cost = parseFloat(providedCost);
+            }
         }
     }
     
@@ -5401,15 +5685,15 @@ function generateChatbotFallback(message) {
     if (/^(hi|hello|hey|helo|hai|good\s*(morning|afternoon|evening|day)|howdy|yo|sup|apa khabar|selamat)[\s!?.]*$/i.test(lowerMessage)) {
         const hour = new Date().getHours();
         const timeGreet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-        return `${timeGreet}! 🤖 I'm Alpha 5, your AI Business Partner!\n\nI can help you:\n• 📊 View reports & analytics\n• 📦 Manage inventory & stock\n• 💰 Record expenses & income\n• 📄 Create invoices & quotations\n• 👥 Manage customers & suppliers\n• 🧭 Navigate anywhere\n\nAy-yi-yi, just talk naturally! What do you need?`;
+        return `${timeGreet}! 🤖 **Alpha 5** here!\n\n📊 Reports • 📦 Stock • 💰 Expenses • 📄 Invoices\n\nJust ask naturally!`;
     }
     
     if (lowerMessage.includes('how are you') || lowerMessage.includes('how r u')) {
-        return `I'm great, ready to help! 😊 What can I do for you today?`;
+        return `Great! 😊 What can I help with?`;
     }
     
     if (lowerMessage.includes('thank') || lowerMessage.includes('tq') || lowerMessage.includes('terima kasih')) {
-        return `You're welcome! 😊 Let me know if you need anything else.`;
+        return `You're welcome! 😊 Need anything else?`;
     }
 
     // ==================== ABOUT US / SYSTEM INFO (Local - No API needed) ====================
@@ -5417,7 +5701,7 @@ function generateChatbotFallback(message) {
     if (lowerMessage.includes('who create') || lowerMessage.includes('who made') || lowerMessage.includes('who build') || 
         lowerMessage.includes('who develop') || lowerMessage.includes('creator') || lowerMessage.includes('developer') ||
         lowerMessage.includes('siapa buat') || lowerMessage.includes('siapa cipta')) {
-        return `This system was created by **"A Lazy Human Begin"** 🦥\n\nOur motto: **"Smart to be Lazy"**\n\nWe believe in working smart so you can focus on what matters most - growing your business! 🚀`;
+        return `Created by **"A Lazy Human Begin"** 🦥\nMotto: **"Smart to be Lazy"** 🚀`;
     }
     
     // Who is founder / master / owner
@@ -5492,7 +5776,7 @@ function generateChatbotFallback(message) {
     if ((lowerMessage.includes('create') || lowerMessage.includes('make') || lowerMessage.includes('want') || lowerMessage.includes('need') || lowerMessage.includes('help')) && 
         (lowerMessage.includes('invoice') || lowerMessage.includes('invois')) && 
         !findCustomer(lowerMessage) && !amount) {
-        return `📄 **Creating Invoice**\n\nI need a bit more info:\n• **Customer name** (required)\n• **Amount** (required)\n\n**Examples:**\n• "create invoice for Ahmad RM2000"\n• "invoice Ali RM500"\n• "new invoice for Siti Corp RM1500"\n\nOr say **"open invoices"** to create manually.`;
+        return `📄 Invoice? Example: "invoice Ahmad RM2000"`;
     }
     
     // STOCK - vague intent detection
@@ -5500,19 +5784,19 @@ function generateChatbotFallback(message) {
         !lowerMessage.includes('in') && !lowerMessage.includes('out') && !lowerMessage.includes('transfer') &&
         !lowerMessage.includes('low') && !lowerMessage.includes('check') && !lowerMessage.includes('show') && 
         !lowerMessage.includes('level') && !lowerMessage.includes('what')) {
-        return `📦 Stock?\n• "stock in 10 Beer" or "sold 5 Wine"\n• "low stock?" or "show stock"\n• "open inventory"`;
+        return `📦 Stock: "stock in 10 Beer" | "low stock?" | "open inventory"`;
     }
     
     // STOCK IN - has intent but missing info
     if ((lowerMessage.includes('stock in') || lowerMessage.includes('add stock') || lowerMessage.includes('restock')) && 
         !findProduct(lowerMessage) && !extractQty(lowerMessage)) {
-        return `📥 Stock in what? Example: "stock in 10 Beer"`;
+        return `📥 Stock in what? E.g. "stock in 10 Beer"`;
     }
     
     // STOCK OUT - has intent but missing info
     if ((lowerMessage.includes('stock out') || lowerMessage.includes('remove stock') || lowerMessage.includes('deduct')) && 
         !findProduct(lowerMessage) && !extractQty(lowerMessage)) {
-        return `📤 Stock out what? Example: "sold 5 Wine"`;
+        return `📤 Stock out what? E.g. "sold 5 Wine"`;
     }
     
     // CUSTOMER - vague intent detection
@@ -5520,14 +5804,14 @@ function generateChatbotFallback(message) {
         !lowerMessage.includes('add') && !lowerMessage.includes('create') && !lowerMessage.includes('new') && !lowerMessage.includes('tambah') &&
         !lowerMessage.includes('find') && !lowerMessage.includes('search') && !lowerMessage.includes('show') && 
         !lowerMessage.includes('top') && !lowerMessage.includes('how many') && !lowerMessage.includes('list')) {
-        return `👥 Customer?\n• "add customer John 0123456789"\n• "show customers" or "top customers"\n• "open customers"`;
+        return `👥 Customer: "add customer John 0123456" | "show customers"`;
     }
     
     // CUSTOMER - has action but missing info
     if ((lowerMessage.includes('add') || lowerMessage.includes('create') || lowerMessage.includes('new')) && 
         (lowerMessage.includes('customer') || lowerMessage.includes('client')) && 
         !lowerMessage.match(/customer\s+[a-zA-Z]/i)) {
-        return `👤 Add who? Example: "add customer Ahmad 0123456789"`;
+        return `👤 Add who? E.g. "add customer Ahmad 0123456"`;
     }
     
     // PRODUCT - vague intent detection
@@ -5535,14 +5819,14 @@ function generateChatbotFallback(message) {
         !lowerMessage.includes('add') && !lowerMessage.includes('create') && !lowerMessage.includes('new') &&
         !lowerMessage.includes('show') && !lowerMessage.includes('list') && !lowerMessage.includes('what') &&
         !lowerMessage.includes('find') && !lowerMessage.includes('search')) {
-        return `📦 Product?\n• "add product Laptop RM2500"\n• "show products" or "low stock?"\n• "open inventory"`;
+        return `📦 Product: "add product Laptop RM2500" | "show products"`;
     }
     
     // EXPENSE - vague intent detection  
     if ((lowerMessage.includes('expense') || lowerMessage.includes('perbelanjaan') || lowerMessage.includes('belanja')) && 
         !lowerMessage.includes('add') && !lowerMessage.includes('record') && !amount &&
         !lowerMessage.includes('show') && !lowerMessage.includes('total') && !lowerMessage.includes('how much')) {
-        return `💸 Expense?\n• "petrol RM50" or "lunch RM15"\n• "show expenses"\n• "open transactions"`;
+        return `💸 Expense: "petrol RM50" | "show expenses"`;
     }
     
     // SUPPLIER - vague intent detection
@@ -5550,14 +5834,14 @@ function generateChatbotFallback(message) {
         !lowerMessage.includes('add') && !lowerMessage.includes('create') && !lowerMessage.includes('new') &&
         !lowerMessage.includes('find') && !lowerMessage.includes('show') && !lowerMessage.includes('list') &&
         !lowerMessage.includes('pay') && !lowerMessage.includes('paid')) {
-        return `🚚 Supplier?\n• "add supplier ABC Trading"\n• "show suppliers"\n• "open suppliers"`;
+        return `🚚 Supplier: "add supplier ABC Trading" | "show suppliers"`;
     }
     
     // BILL - vague intent detection
     if ((lowerMessage.includes('bill') && !lowerMessage.includes('bills')) && 
         !lowerMessage.includes('add') && !lowerMessage.includes('create') && !lowerMessage.includes('new') && !lowerMessage.includes('pay') &&
         !amount) {
-        return `📃 Bill?\n• "add bill RM500 from TNB"\n• "unpaid bills" or "paid TNB"\n• "open bills"`;
+        return `📃 Bill: "add bill RM500 from TNB" | "unpaid bills"`;
     }
     
     // ORDER - vague intent detection
@@ -5980,56 +6264,56 @@ function generateChatbotFallback(message) {
     // Balance Sheet
     if (lowerMessage.includes('balance sheet') || (lowerMessage.includes('balance') && lowerMessage.includes('sheet'))) {
         if (typeof showSection === 'function') { showSection('balance-sheet'); }
-        return `📊 **Balance Sheet** - Opening now!\n\n• **Assets** = What you own\n• **Liabilities** = What you owe\n• **Equity** = Assets - Liabilities\n\nThis shows your financial position at a point in time.`;
+        return `📊 **Balance Sheet** opened!\nAssets - Liabilities = Equity`;
     }
     
     // POS
     if (lowerMessage.includes('pos') || lowerMessage.includes('point of sale') || lowerMessage.includes('cashier') ||
         (lowerMessage.includes('how') && lowerMessage.includes('sell'))) {
         if (typeof showSection === 'function') { showSection('pos'); }
-        return `🛒 **POS** - Opening now!\n\n1. Click products to add to cart\n2. Adjust quantity if needed\n3. Select payment method\n4. Complete sale!\n\nOr tell me: "sold 5 Wine"`;
+        return `🛒 **POS** opened! Click products → Add to cart → Complete sale`;
     }
     
     // Inventory
     if ((lowerMessage.includes('inventory') || lowerMessage.includes('stock management')) && 
         (lowerMessage.includes('how') || lowerMessage.includes('help') || lowerMessage.includes('use') || lowerMessage.includes('open') || lowerMessage.includes('go'))) {
         if (typeof showSection === 'function') { showSection('inventory'); }
-        return `📦 **Inventory** - Opening now!\n\n• Add products with name, SKU, price\n• Set min stock for alerts\n• Stock In/Out to adjust\n• Transfer between outlets\n\nOr tell me: "stock in 10 Wine"`;
+        return `📦 **Inventory** opened! Manage products, stock in/out, transfers`;
     }
     
     // CRM / Customers
     if ((lowerMessage.includes('crm') || lowerMessage.includes('customer')) && 
         (lowerMessage.includes('how') || lowerMessage.includes('help') || lowerMessage.includes('use') || lowerMessage.includes('open') || lowerMessage.includes('go') || lowerMessage.includes('manage'))) {
         if (typeof showSection === 'function') { showSection('crm'); }
-        return `👥 **Customers** - Opening now!\n\n• Add customer details\n• Track purchase history\n• View top buyers\n• Set credit limits\n\nOr tell me: "add customer John 0123456789"`;
+        return `👥 **Customers** opened! Add customers, track history`;
     }
     
     // Quotations
     if ((lowerMessage.includes('quotation') || lowerMessage.includes('quote')) && 
         (lowerMessage.includes('how') || lowerMessage.includes('help') || lowerMessage.includes('use') || lowerMessage.includes('open') || lowerMessage.includes('go'))) {
         if (typeof showSection === 'function') { showSection('quotations'); }
-        return `📝 **Quotations** - Opening now!\n\n1. Click New Quotation\n2. Select customer\n3. Add items\n4. Set validity\n5. Save & send!\n\nOr tell me: "create quotation for John RM500"`;
+        return `📝 **Quotations** opened! Create quotes for customers`;
     }
     
     // Invoices
     if (lowerMessage.includes('invoice') && 
         (lowerMessage.includes('how') || lowerMessage.includes('help') || lowerMessage.includes('use') || lowerMessage.includes('open') || lowerMessage.includes('go'))) {
         if (typeof showSection === 'function') { showSection('invoices'); }
-        return `📄 **Invoices** - Opening now!\n\n1. Create from quotation or new\n2. Add line items\n3. Set payment terms\n4. Send to customer\n\nOr tell me: "create invoice for Ali RM1000"`;
+        return `📄 **Invoices** opened! Create & track invoices`;
     }
     
     // Orders
     if (lowerMessage.includes('order') && !lowerMessage.includes('purchase') &&
         (lowerMessage.includes('how') || lowerMessage.includes('help') || lowerMessage.includes('use') || lowerMessage.includes('open') || lowerMessage.includes('go'))) {
         if (typeof showSection === 'function') { showSection('orders'); }
-        return `📋 **Orders** - Opening now!\n\n• Track order status\n• Convert to invoice\n• Mark as delivered\n\nOr tell me: "pending orders?"`;
+        return `📋 **Orders** opened! Track & fulfill orders`;
     }
     
     // Bills
     if (lowerMessage.includes('bill') && 
         (lowerMessage.includes('how') || lowerMessage.includes('help') || lowerMessage.includes('use') || lowerMessage.includes('open') || lowerMessage.includes('go') || lowerMessage.includes('manage'))) {
         if (typeof showSection === 'function') { showSection('bills'); }
-        return `📃 **Bills** - Opening now!\n\n• Add supplier bills\n• Set due dates\n• Track payments\n• See overdue\n\nOr tell me: "add bill RM500 from TNB"`;
+        return `📃 **Bills** opened! Track supplier bills & payments`;
     }
     
     // Reports

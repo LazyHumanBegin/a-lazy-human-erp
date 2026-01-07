@@ -1340,6 +1340,9 @@ function renderPOSProducts(searchTerm = '') {
     const currentBranch = selectedOutlet !== 'all' ? selectedOutlet : 
         (typeof getCurrentBranchId === 'function' ? getCurrentBranchId() : null);
     
+    // Check if we're filtering by a specific branch (not "all")
+    const isFilteringByBranch = selectedOutlet !== 'all' && currentBranch;
+    
     let filtered = productList.filter(p => {
         const matchesSearch = !search || 
             p.name.toLowerCase().includes(search) ||
@@ -1353,22 +1356,34 @@ function renderPOSProducts(searchTerm = '') {
             productOutlets.includes('all') || 
             productOutlets.includes(selectedOutlet);
         
-        // Get stock - SIMPLIFIED: always fall back to product.stock if branch stock is 0
-        let stockAtOutlet = p.stock || 0; // Start with product.stock as baseline
+        // Get stock based on selection
+        let stockAtOutlet = 0;
         
-        // Try to get branch-specific stock
-        if (currentBranch && typeof getBranchStock === 'function') {
-            const branchStock = getBranchStock(p.id, currentBranch);
-            if (branchStock > 0) {
-                stockAtOutlet = branchStock;
+        if (isFilteringByBranch) {
+            // SPECIFIC BRANCH SELECTED: Only show products with stock at THIS branch
+            // Check product.branchStock first (new system)
+            if (p.branchStock && typeof p.branchStock === 'object') {
+                stockAtOutlet = p.branchStock[currentBranch] || 0;
             }
-            // If branch stock is 0, keep using product.stock (already set above)
-        } else if (selectedOutlet === 'all' && typeof getTotalBranchStock === 'function') {
-            const totalBranchStock = getTotalBranchStock(p.id);
-            if (totalBranchStock > 0) {
-                stockAtOutlet = totalBranchStock;
+            // Also check getBranchStock function (legacy system)
+            else if (typeof getBranchStock === 'function') {
+                stockAtOutlet = getBranchStock(p.id, currentBranch);
             }
-            // If no branch stock, keep using product.stock (already set above)
+            // DO NOT fall back to product.stock - if branch has 0, show 0
+        } else {
+            // "ALL OUTLETS" SELECTED: Show total stock across all branches
+            // Try branch stock total first
+            if (p.branchStock && typeof p.branchStock === 'object') {
+                stockAtOutlet = Object.values(p.branchStock).reduce((sum, qty) => sum + (qty || 0), 0);
+            }
+            // Also check getTotalBranchStock function
+            else if (typeof getTotalBranchStock === 'function') {
+                stockAtOutlet = getTotalBranchStock(p.id);
+            }
+            // Fall back to product.stock only for "all" view
+            if (stockAtOutlet === 0) {
+                stockAtOutlet = p.stock || 0;
+            }
         }
         
         const inStock = stockAtOutlet > 0;
@@ -1376,11 +1391,17 @@ function renderPOSProducts(searchTerm = '') {
     });
     
     if (filtered.length === 0) {
+        const noStockAtBranch = isFilteringByBranch && productList.length > 0;
+        const branchName = window.branches?.find(b => b.id === currentBranch)?.name || selectedOutlet;
+        
         container.innerHTML = `
             <div class="pos-empty">
                 <i class="fas fa-box-open"></i>
-                <p>${productList.length === 0 ? 'No products in inventory' : 'No products found at this outlet'}</p>
-                ${productList.length === 0 ? `<a href="#" onclick="showSection('inventory')">Add Products</a>` : ''}
+                <p>${productList.length === 0 ? 'No products in inventory' : 
+                    noStockAtBranch ? `No products with stock at ${branchName}` : 
+                    'No products found'}</p>
+                ${productList.length === 0 ? `<a href="#" onclick="showSection('inventory')">Add Products</a>` : 
+                    noStockAtBranch ? `<p style="font-size:12px;margin-top:10px;">💡 Transfer stock to this branch first</p>` : ''}
             </div>
         `;
         return;
@@ -1415,22 +1436,30 @@ function renderPOSProducts(searchTerm = '') {
     
     // Get stock display based on selected outlet using branch stock system
     const getStockDisplay = (product) => {
-        // Use product.stock as baseline - simplest and most reliable
-        let stockToShow = product.stock || 0;
+        let stockToShow = 0;
         
-        // If a specific branch is selected, try to get branch stock
-        if (currentBranch && typeof getBranchStock === 'function') {
-            const branchStock = getBranchStock(product.id, currentBranch);
-            if (branchStock > 0) {
-                stockToShow = branchStock;
+        // If a specific branch is selected, show ONLY that branch's stock
+        if (isFilteringByBranch) {
+            // Check product.branchStock first (new system)
+            if (product.branchStock && typeof product.branchStock === 'object') {
+                stockToShow = product.branchStock[currentBranch] || 0;
             }
-            // If branch stock is 0, keep using product.stock
+            // Also check getBranchStock function (legacy system)
+            else if (typeof getBranchStock === 'function') {
+                stockToShow = getBranchStock(product.id, currentBranch);
+            }
+            // DO NOT fall back - if branch has 0, show 0
         }
-        // For "All Outlets", calculate total from branch stock system
-        else if (typeof getTotalBranchStock === 'function') {
-            const totalFromBranches = getTotalBranchStock(product.id);
-            if (totalFromBranches > 0) {
-                stockToShow = totalFromBranches;
+        // For "All Outlets", show total from all branches
+        else {
+            if (product.branchStock && typeof product.branchStock === 'object') {
+                stockToShow = Object.values(product.branchStock).reduce((sum, qty) => sum + (qty || 0), 0);
+            } else if (typeof getTotalBranchStock === 'function') {
+                stockToShow = getTotalBranchStock(product.id);
+            }
+            // Fall back to product.stock for "all" view
+            if (stockToShow === 0) {
+                stockToShow = product.stock || 0;
             }
         }
         
