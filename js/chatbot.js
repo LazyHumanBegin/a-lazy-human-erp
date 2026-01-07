@@ -5707,7 +5707,7 @@ function generateChatbotFallback(message) {
     // Who is founder / master / owner
     if (lowerMessage.includes('founder') || lowerMessage.includes('master') || lowerMessage.includes('owner') ||
         lowerMessage.includes('boss') || lowerMessage.includes('who behind')) {
-        return `Ay-yi-yi! My master is **Jeremy Tan** - he built it all! 💪\n\nFrom concept to code, one person's vision to make business management simple and transparent for everyone. And he created me, Alpha 5, to help you! 🤖`;
+        return `Ay-yi-yi! My creator is **Jeremy Tan** - a lazy Malaysian who dreams of winning the lotto! 🎰\n\nBut until that lucky day comes, he built EZ Smart to help SMEs like you! Smart to be Lazy! 🦥`;
     }
     
     // Why created / purpose / mission
