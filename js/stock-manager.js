@@ -86,19 +86,34 @@ function updateProductStock(productId, branchId, quantityChange, reason, options
         total: product.stock
     });
     
-    // Record stock movement
+    // Map reason to type for stock.js compatibility
+    const typeMap = {
+        'transfer-in': 'transfer_in',
+        'transfer-out': 'transfer_out',
+        'stock-in': 'in',
+        'stock-out': 'out',
+        'sale': 'sale',
+        'adjustment': 'adjustment',
+        'purchase': 'in'
+    };
+    const movementType = typeMap[reason] || reason;
+    
+    // Record stock movement with fields compatible with stock.js
     recordStockMovement({
         productId: product.id,
         productName: product.name,
         branchId: branchId,
-        quantityChange: quantityChange,
+        type: movementType,                          // For stock.js compatibility
+        quantity: quantityChange,                    // For stock.js compatibility
+        quantityChange: quantityChange,              // Keep for reference
         previousStock: currentBranchStock,
         newStock: product.branchStock[branchId],
         reason: reason,
         reference: options.reference || '',
         notes: options.notes || '',
-        userId: window.currentUser?.id || 'system',
-        timestamp: new Date().toISOString()
+        date: new Date().toISOString(),              // For stock.js compatibility
+        timestamp: new Date().toISOString(),
+        userId: window.currentUser?.id || 'system'
     });
     
     // ===== RECORD PURCHASE EXPENSE FOR STOCK IN =====

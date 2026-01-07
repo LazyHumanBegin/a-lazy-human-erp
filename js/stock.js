@@ -533,10 +533,15 @@ function renderStockMovements() {
     const typeFilter = document.getElementById('movementTypeFilter')?.value;
     
     let filtered = stockMovements.filter(m => {
-        const date = new Date(m.date);
+        const movementDate = m.date || m.timestamp;
+        const date = new Date(movementDate);
         const matchesDate = (!fromDate || date >= new Date(fromDate)) && 
                            (!toDate || date <= new Date(toDate + 'T23:59:59'));
-        const matchesType = !typeFilter || m.type === typeFilter;
+        // Support both type and reason fields
+        const movementType = m.type || m.reason || '';
+        const matchesType = !typeFilter || movementType === typeFilter || 
+                           movementType.replace('-', '_') === typeFilter ||
+                           movementType.replace('_', '-') === typeFilter;
         return matchesDate && matchesType;
     });
     
@@ -553,20 +558,32 @@ function renderStockMovements() {
     }
     
     tbody.innerHTML = filtered.map(movement => {
-        const typeClass = getMovementTypeClass(movement.type);
-        const typeIcon = getMovementTypeIcon(movement.type);
+        // Support both old (type) and new (reason) field names
+        const movementType = movement.type || movement.reason || 'adjustment';
+        const typeClass = getMovementTypeClass(movementType);
+        const typeIcon = getMovementTypeIcon(movementType);
+        
+        // Support both quantity and quantityChange
+        const qty = movement.quantity !== undefined ? movement.quantity : movement.quantityChange;
+        
+        // Get branch name if available
+        const branchName = movement.branchId ? 
+            (window.branches?.find(b => b.id === movement.branchId)?.name || movement.branchId) : '';
         
         return `
             <tr>
-                <td>${formatDate(new Date(movement.date))}</td>
-                <td>${escapeHtml(movement.productName)}</td>
+                <td>${formatDate(new Date(movement.date || movement.timestamp))}</td>
+                <td>
+                    ${escapeHtml(movement.productName)}
+                    ${branchName ? `<br><small style="color:#64748b;">@ ${escapeHtml(branchName)}</small>` : ''}
+                </td>
                 <td>
                     <span class="movement-type ${typeClass}">
-                        <i class="fas ${typeIcon}"></i> ${capitalizeFirst(movement.type)}
+                        <i class="fas ${typeIcon}"></i> ${capitalizeFirst(movementType.replace('_', ' ').replace('-', ' '))}
                     </span>
                 </td>
-                <td class="${movement.quantity >= 0 ? 'positive' : 'negative'}">
-                    ${movement.quantity >= 0 ? '+' : ''}${movement.quantity}
+                <td class="${qty >= 0 ? 'positive' : 'negative'}">
+                    ${qty >= 0 ? '+' : ''}${qty}
                 </td>
                 <td>${movement.reference || '-'}</td>
                 <td>${movement.notes || movement.reason || '-'}</td>
@@ -577,24 +594,42 @@ function renderStockMovements() {
 
 function getMovementTypeClass(type) {
     switch (type) {
-        case 'in': return 'type-in';
-        case 'out': return 'type-out';
+        case 'in': 
+        case 'stock-in':
+        case 'purchase':
+            return 'type-in';
+        case 'out': 
+        case 'stock-out':
+            return 'type-out';
         case 'sale': return 'type-sale';
         case 'adjustment': return 'type-adjustment';
-        case 'transfer_out': return 'type-out';
-        case 'transfer_in': return 'type-in';
+        case 'transfer_out': 
+        case 'transfer-out':
+            return 'type-out';
+        case 'transfer_in': 
+        case 'transfer-in':
+            return 'type-in';
         default: return '';
     }
 }
 
 function getMovementTypeIcon(type) {
     switch (type) {
-        case 'in': return 'fa-arrow-down';
-        case 'out': return 'fa-arrow-up';
+        case 'in': 
+        case 'stock-in':
+        case 'purchase':
+            return 'fa-arrow-down';
+        case 'out': 
+        case 'stock-out':
+            return 'fa-arrow-up';
         case 'sale': return 'fa-shopping-cart';
         case 'adjustment': return 'fa-edit';
-        case 'transfer_out': return 'fa-truck-loading';
-        case 'transfer_in': return 'fa-dolly';
+        case 'transfer_out': 
+        case 'transfer-out':
+            return 'fa-truck-loading';
+        case 'transfer_in': 
+        case 'transfer-in':
+            return 'fa-dolly';
         default: return 'fa-exchange-alt';
     }
 }
