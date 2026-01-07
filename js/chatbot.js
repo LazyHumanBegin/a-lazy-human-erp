@@ -4606,14 +4606,231 @@ function handleActionIntent(intent) {
         return { success: false, useSmartFallback: true };
     }
     
+    const action = intent.action;
+    const entities = intent.entities;
+    
+    // ==================== VALIDATION: Ask for missing info ====================
+    
+    // Stock In - requires product and quantity
+    if (action === 'stock_in') {
+        if (!entities.product && !entities.name) {
+            return {
+                success: true,
+                message: `📥 **Stock In** - What product?\n\nExample: "stock in 10 Beer" or "received 50 Widget A"`,
+                source: 'local-clarify'
+            };
+        }
+        if (!entities.quantity || entities.quantity <= 0) {
+            return {
+                success: true,
+                message: `📥 **Stock In ${entities.product || entities.name}** - How many?\n\nExample: "stock in 10 ${entities.product || entities.name}"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Stock Out - requires product and quantity
+    if (action === 'stock_out') {
+        if (!entities.product && !entities.name) {
+            return {
+                success: true,
+                message: `📤 **Stock Out** - What product?\n\nExample: "stock out 5 Wine" or "sold 10 Beer"`,
+                source: 'local-clarify'
+            };
+        }
+        if (!entities.quantity || entities.quantity <= 0) {
+            return {
+                success: true,
+                message: `📤 **Stock Out ${entities.product || entities.name}** - How many?\n\nExample: "sold 5 ${entities.product || entities.name}"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Stock Transfer - requires product, quantity, and destination
+    if (action === 'stock_transfer' || action === 'transfer_stock') {
+        if (!entities.product && !entities.name) {
+            return {
+                success: true,
+                message: `🔄 **Stock Transfer** - What product?\n\nExample: "transfer 10 Wine to Penang"`,
+                source: 'local-clarify'
+            };
+        }
+        if (!entities.quantity || entities.quantity <= 0) {
+            return {
+                success: true,
+                message: `🔄 **Transfer ${entities.product || entities.name}** - How many?\n\nExample: "transfer 10 ${entities.product || entities.name} to Penang"`,
+                source: 'local-clarify'
+            };
+        }
+        if (!entities.to && !entities.destination && !entities.branch) {
+            const branches = JSON.parse(localStorage.getItem('branches') || '[]');
+            const branchNames = branches.slice(0, 3).map(b => b.name).join(', ');
+            return {
+                success: true,
+                message: `🔄 **Transfer ${entities.quantity}x ${entities.product || entities.name}** - To which branch?\n\nAvailable: ${branchNames || 'No branches set up'}`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Add Expense - requires amount
+    if (action === 'add_expense') {
+        if (!entities.amount || entities.amount <= 0) {
+            return {
+                success: true,
+                message: `💸 **Add Expense** - How much?\n\nExample: "RM50 for lunch" or "petrol expense RM80"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Add Income - requires amount
+    if (action === 'add_income') {
+        if (!entities.amount || entities.amount <= 0) {
+            return {
+                success: true,
+                message: `💰 **Add Income** - How much?\n\nExample: "income RM500 from sales" or "received RM1000"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Create Invoice - requires customer or amount
+    if (action === 'create_invoice') {
+        if (!entities.customer && !entities.amount) {
+            return {
+                success: true,
+                message: `📄 **Create Invoice** - For whom and how much?\n\nExample: "invoice Ahmad RM500" or "create invoice for ABC Sdn Bhd RM1000"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Create Quotation - requires customer or amount
+    if (action === 'create_quotation') {
+        if (!entities.customer && !entities.amount) {
+            return {
+                success: true,
+                message: `📋 **Create Quotation** - For whom and how much?\n\nExample: "quotation for Ali RM2000" or "quote Siti RM500"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Add Customer - requires name
+    if (action === 'add_customer') {
+        if (!entities.name && !entities.customer) {
+            return {
+                success: true,
+                message: `👤 **Add Customer** - What's their name?\n\nExample: "add customer Ahmad" or "new customer ABC Trading 0123456789"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Add Supplier - requires name
+    if (action === 'add_supplier') {
+        if (!entities.name && !entities.supplier) {
+            return {
+                success: true,
+                message: `🏭 **Add Supplier** - What's their name?\n\nExample: "add supplier XYZ Wholesale" or "new supplier ABC Trading"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Add Product - requires name AND price
+    if (action === 'add_product') {
+        const productName = entities.name || entities.product;
+        const productPrice = entities.price || entities.sellingPrice || entities.amount;
+        
+        if (!productName) {
+            return {
+                success: true,
+                message: `📦 **Add Product** - What's the product name?\n\nExample: "add product Widget" or "new item Beer"\n\nI'll ask for price next!`,
+                source: 'local-clarify'
+            };
+        }
+        if (!productPrice || productPrice <= 0) {
+            return {
+                success: true,
+                message: `📦 **Add Product: ${productName}** - What's the selling price?\n\nExample: "add product ${productName} RM25" or "${productName} price RM50"`,
+                source: 'local-clarify'
+            };
+        }
+        
+        // Optional: Ask for cost price if not provided (for profit calculation)
+        const costPrice = entities.cost || entities.costPrice;
+        if (!costPrice && productPrice > 0) {
+            // Don't block - just queue with price only, cost is optional
+            entities.price = productPrice;
+            entities.name = productName;
+        }
+    }
+    
+    // Add Bill - requires name and amount
+    if (action === 'add_bill') {
+        if (!entities.name && !entities.description && !entities.vendor) {
+            return {
+                success: true,
+                message: `📋 **Add Bill** - Who is the bill from?\n\nExample: "add bill TNB RM200" or "bill Telekom RM150 due 15th"`,
+                source: 'local-clarify'
+            };
+        }
+        if (!entities.amount || entities.amount <= 0) {
+            const billName = entities.name || entities.description || entities.vendor;
+            return {
+                success: true,
+                message: `📋 **Add Bill: ${billName}** - How much?\n\nExample: "bill ${billName} RM200" or "${billName} bill RM150"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Create Order - requires customer
+    if (action === 'create_order') {
+        if (!entities.customer && !entities.name) {
+            return {
+                success: true,
+                message: `🛒 **Create Order** - For which customer?\n\nExample: "create order for Ahmad" or "new order Ali RM500"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Add Employee - requires name
+    if (action === 'add_employee') {
+        if (!entities.name && !entities.employee) {
+            return {
+                success: true,
+                message: `👤 **Add Employee** - What's their name?\n\nExample: "add employee Ahmad" or "new staff Siti salary RM3000"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // Create Project - requires name
+    if (action === 'create_project') {
+        if (!entities.name && !entities.project) {
+            return {
+                success: true,
+                message: `📁 **Create Project** - What's the project name?\n\nExample: "create project Website Design" or "new project for Client ABC"`,
+                source: 'local-clarify'
+            };
+        }
+    }
+    
+    // ==================== All validations passed - Queue the action ====================
+    
     // Build action object and queue it
-    const action = {
-        action: intent.action,
-        ...intent.entities
+    const actionObj = {
+        action: action,
+        ...entities
     };
     
-    const description = buildActionDescription(action);
-    queueAIAction(action, description);
+    const description = buildActionDescription(actionObj);
+    queueAIAction(actionObj, description);
     
     return {
         success: true,
