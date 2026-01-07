@@ -16,6 +16,7 @@
 // ==================== CONSTANTS ====================
 const DEFAULT_BRANCH_ID = 'BRANCH_HQ';
 const STOCK_MOVEMENTS_KEY = 'ezcubic_stock_movements';
+let stockMovements = [];
 
 // ==================== CORE STOCK FUNCTION ====================
 

@@ -8,7 +8,7 @@ const BALANCE_HISTORY_KEY = 'ezcubic_balance_history';
 const OPENING_BALANCE_KEY = 'ezcubic_opening_balances';
 const PRODUCTS_KEY = 'ezcubic_products';
 const CUSTOMERS_KEY = 'ezcubic_customers';
-const STOCK_MOVEMENTS_KEY = 'ezcubic_stock_movements';
+// STOCK_MOVEMENTS_KEY declared in stock-manager.js
 const SALES_KEY = 'ezcubic_sales';
 const OUTLETS_KEY = 'ezcubic_outlets';
 
@@ -234,7 +234,7 @@ window.businessData = businessData;
 // Phase 2: Global references for operational modules
 let products = [];
 let customers = [];
-let stockMovements = [];
+// stockMovements declared in stock-manager.js
 let sales = [];
 let currentCart = [];
 let categories = ['General', 'Electronics', 'Food & Beverage', 'Clothing', 'Services', 'Office Supplies'];

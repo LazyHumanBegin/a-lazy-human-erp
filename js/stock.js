@@ -3,8 +3,7 @@
  * Stock movements, adjustments, low stock alerts, valuation
  */
 
-// Use STOCK_MOVEMENTS_KEY from stock-manager.js (loaded first)
-let stockMovements = [];
+// STOCK_MOVEMENTS_KEY and stockMovements declared in stock-manager.js
 
 // ==================== STOCK INITIALIZATION ====================
 function initializeStock() {
