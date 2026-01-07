@@ -365,6 +365,22 @@ function saveProductsToStorage(syncToCloud = true) {
     // Save to localStorage
     localStorage.setItem(PRODUCTS_KEY, JSON.stringify(window.products || []));
     
+    // CRITICAL: Also update ezcubic_branch_stock to keep it in sync
+    // This prevents syncAllBranchStockToProducts from overwriting with old data
+    const branchStockData = {};
+    if (Array.isArray(window.products)) {
+        window.products.forEach(product => {
+            if (product.branchStock && typeof product.branchStock === 'object') {
+                for (const branchId in product.branchStock) {
+                    const key = `${product.id}_${branchId}`;
+                    branchStockData[key] = product.branchStock[branchId];
+                }
+            }
+        });
+        localStorage.setItem('ezcubic_branch_stock', JSON.stringify(branchStockData));
+        console.log('📦 Branch stock data synced to localStorage');
+    }
+    
     // Update businessData if exists
     if (typeof businessData !== 'undefined') {
         businessData.products = window.products;
