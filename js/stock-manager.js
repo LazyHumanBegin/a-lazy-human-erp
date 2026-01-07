@@ -453,6 +453,198 @@ function transferStock(productId, fromBranchId, toBranchId, quantity, notes = ''
     return addResult;
 }
 
+// ==================== RECOVERY FUNCTIONS ====================
+
+/**
+ * Recover orphaned stock transfers - find transfer-out without matching transfer-in
+ * and add the missing stock to destination branch
+ */
+function recoverOrphanedTransfers() {
+    console.log('🔧 Scanning for orphaned transfers...');
+    
+    const movements = window.stockMovements || [];
+    const products = window.products || [];
+    const recovered = [];
+    
+    // Find all transfer-out movements
+    const transferOuts = movements.filter(m => 
+        m.type === 'transfer_out' || m.type === 'transfer-out' || 
+        m.reason === 'transfer-out' || m.reason === 'transfer_out'
+    );
+    
+    for (const out of transferOuts) {
+        // Extract destination branch from reference or notes
+        let destBranchId = null;
+        
+        // Check reference format: "TO:BRANCH_ID" or "TRF-xxxxx"
+        if (out.reference && out.reference.startsWith('TO:')) {
+            destBranchId = out.reference.replace('TO:', '');
+        }
+        
+        // Check notes for "Transferred to [BranchName]"
+        if (!destBranchId && out.notes) {
+            const match = out.notes.match(/[Tt]ransferred to ([^\s.]+)/);
+            if (match) {
+                const branchName = match[1];
+                // Find branch by name or code
+                const branch = (window.branches || []).find(b => 
+                    b.name === branchName || b.code === branchName || 
+                    b.name.includes(branchName) || b.id === branchName
+                );
+                if (branch) destBranchId = branch.id;
+            }
+        }
+        
+        if (!destBranchId) {
+            console.warn('⚠️ Cannot determine destination for transfer:', out);
+            continue;
+        }
+        
+        // Check if there's a matching transfer-in
+        const quantity = Math.abs(out.quantity || out.quantityChange || 0);
+        const matchingIn = movements.find(m => 
+            (m.type === 'transfer_in' || m.type === 'transfer-in' || 
+             m.reason === 'transfer-in' || m.reason === 'transfer_in') &&
+            m.productId === out.productId &&
+            m.branchId === destBranchId &&
+            Math.abs(m.quantity || m.quantityChange || 0) === quantity &&
+            // Within 1 minute of each other
+            Math.abs(new Date(m.date || m.timestamp) - new Date(out.date || out.timestamp)) < 60000
+        );
+        
+        if (!matchingIn) {
+            console.log('🔍 Found orphaned transfer:', out.productName, quantity, '→', destBranchId);
+            
+            // Add the missing stock to destination
+            const product = products.find(p => p.id === out.productId);
+            if (product) {
+                // Initialize branchStock if needed
+                if (!product.branchStock) product.branchStock = {};
+                
+                const currentStock = product.branchStock[destBranchId] || 0;
+                product.branchStock[destBranchId] = currentStock + quantity;
+                product.stock = calculateTotalStock(product);
+                
+                // Record the missing transfer-in movement
+                recordStockMovement({
+                    productId: product.id,
+                    productName: product.name,
+                    branchId: destBranchId,
+                    type: 'transfer_in',
+                    quantity: quantity,
+                    quantityChange: quantity,
+                    previousStock: currentStock,
+                    newStock: product.branchStock[destBranchId],
+                    reason: 'transfer-in',
+                    reference: `RECOVERED:${out.reference || out.id}`,
+                    notes: `Recovered transfer from ${out.branchId || 'HQ'}`,
+                    date: new Date().toISOString(),
+                    timestamp: new Date().toISOString(),
+                    userId: 'system-recovery'
+                });
+                
+                recovered.push({
+                    product: product.name,
+                    quantity: quantity,
+                    destination: destBranchId,
+                    originalRef: out.reference
+                });
+                
+                console.log('✅ Recovered:', product.name, '+' + quantity, 'at', destBranchId);
+            }
+        }
+    }
+    
+    if (recovered.length > 0) {
+        // Save the fixed products
+        saveProductsToStorage(true);
+        
+        console.log('✅ Recovery complete:', recovered.length, 'transfers recovered');
+        
+        // Refresh UI
+        if (typeof renderProducts === 'function') renderProducts();
+        if (typeof renderStockMovements === 'function') renderStockMovements();
+        if (typeof renderPOSProducts === 'function') renderPOSProducts();
+        
+        return { success: true, recovered: recovered };
+    } else {
+        console.log('✅ No orphaned transfers found');
+        return { success: true, recovered: [] };
+    }
+}
+
+/**
+ * Manually recover a specific transfer
+ */
+function recoverSpecificTransfer(productName, quantity, destBranchId, notes = '') {
+    console.log('🔧 Manual recovery:', productName, quantity, '→', destBranchId);
+    
+    const products = window.products || [];
+    const product = products.find(p => 
+        p.name.toLowerCase().includes(productName.toLowerCase()) ||
+        p.id === productName
+    );
+    
+    if (!product) {
+        console.error('❌ Product not found:', productName);
+        return { success: false, error: 'Product not found' };
+    }
+    
+    // Find branch
+    const branch = (window.branches || []).find(b => 
+        b.id === destBranchId || b.code === destBranchId || 
+        b.name.toLowerCase().includes(destBranchId.toLowerCase())
+    );
+    
+    if (!branch) {
+        console.error('❌ Branch not found:', destBranchId);
+        return { success: false, error: 'Branch not found' };
+    }
+    
+    // Add stock to destination
+    if (!product.branchStock) product.branchStock = {};
+    
+    const currentStock = product.branchStock[branch.id] || 0;
+    product.branchStock[branch.id] = currentStock + quantity;
+    product.stock = calculateTotalStock(product);
+    
+    // Record movement
+    recordStockMovement({
+        productId: product.id,
+        productName: product.name,
+        branchId: branch.id,
+        type: 'transfer_in',
+        quantity: quantity,
+        quantityChange: quantity,
+        previousStock: currentStock,
+        newStock: product.branchStock[branch.id],
+        reason: 'transfer-in',
+        reference: 'MANUAL-RECOVERY-' + Date.now(),
+        notes: notes || 'Manual recovery for missing transfer',
+        date: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
+        userId: window.currentUser?.id || 'admin'
+    });
+    
+    // Save
+    saveProductsToStorage(true);
+    
+    // Refresh UI
+    if (typeof renderProducts === 'function') renderProducts();
+    if (typeof renderStockMovements === 'function') renderStockMovements();
+    if (typeof renderPOSProducts === 'function') renderPOSProducts();
+    
+    console.log('✅ Manual recovery complete:', product.name, '+' + quantity, 'at', branch.name);
+    
+    return { 
+        success: true, 
+        product: product.name, 
+        quantity: quantity, 
+        branch: branch.name,
+        newStock: product.branchStock[branch.id]
+    };
+}
+
 // ==================== EXPORTS ====================
 
 window.stockManager = {
@@ -463,7 +655,9 @@ window.stockManager = {
     transfer: transferStock,
     getDefaultBranch: getDefaultBranchId,
     initializeAll: initializeAllProductsBranchStock,
-    calculateTotal: calculateTotalStock
+    calculateTotal: calculateTotalStock,
+    recoverOrphaned: recoverOrphanedTransfers,
+    recoverTransfer: recoverSpecificTransfer
 };
 
 // Also expose main functions directly for easy access
@@ -472,6 +666,8 @@ window.getAvailableStock = getAvailableStock;
 window.hasEnoughStock = hasEnoughStock;
 window.batchUpdateStock = batchUpdateStock;
 window.transferStock = transferStock;
+window.recoverOrphanedTransfers = recoverOrphanedTransfers;
+window.recoverSpecificTransfer = recoverSpecificTransfer;
 
 console.log('✅ Stock Manager loaded - SINGLE SOURCE OF TRUTH for all stock operations');
 console.log('   Use: updateProductStock(productId, branchId, quantity, reason)');
