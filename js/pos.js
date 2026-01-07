@@ -2519,36 +2519,8 @@ function processPayment(event) {
         transactions.push(incomeTransaction);
     }
     
-    // Record cost of goods sold (COGS) as expense
-    const totalCost = currentCart.reduce((sum, item) => {
-        const product = products.find(p => p.id === item.productId);
-        return sum + ((product?.cost || 0) * item.quantity);
-    }, 0);
-    
-    if (totalCost > 0) {
-        const cogsTransaction = {
-            id: generateUUID(),
-            date: new Date().toISOString().split('T')[0],
-            amount: totalCost,
-            category: 'Cost of Goods Sold',
-            description: `COGS for Sale #${sale.receiptNo}`,
-            type: 'expense',
-            method: paymentMethod,
-            reference: sale.receiptNo,
-            timestamp: new Date().toISOString()
-        };
-        // Push to businessData.transactions to ensure proper sync with All Transactions
-        if (typeof businessData !== 'undefined' && businessData.transactions) {
-            businessData.transactions.push(cogsTransaction);
-        } else {
-            transactions.push(cogsTransaction);
-        }
-        
-        // Show COGS expense recorded notification
-        setTimeout(() => {
-            showToast(`📦 COGS expense recorded: RM ${totalCost.toFixed(2)}`, 'info');
-        }, 1500);
-    }
+    // NOTE: COGS recording moved to earlier in the function (v2.8.2)
+    // Search for "COGS (Cost of Goods Sold) Recording" above
     
     saveData();
     
