@@ -6164,6 +6164,211 @@ function alpha5ProactiveCheck() {
         }
     } catch (e) { console.log('Proactive check: sales trend error', e); }
     
+    // ==================== ADVANCED PREDICTIONS (Tier 4.7) ====================
+    
+    // 7. CASH FLOW FORECAST - Predict cash position in 7 and 14 days
+    try {
+        const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+        const bills = JSON.parse(localStorage.getItem('bills') || '[]');
+        const invoices = JSON.parse(localStorage.getItem('invoices') || '[]');
+        
+        // Calculate current "cash" (simplified - income - expenses)
+        const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        const totalExpense = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        const currentCash = totalIncome - totalExpense;
+        
+        // Calculate average daily income/expense (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const recentTrans = transactions.filter(t => new Date(t.date) >= thirtyDaysAgo);
+        const recentIncome = recentTrans.filter(t => t.type === 'income').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        const recentExpense = recentTrans.filter(t => t.type === 'expense').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        const avgDailyIncome = recentIncome / 30;
+        const avgDailyExpense = recentExpense / 30;
+        
+        // Upcoming bills (next 14 days)
+        const fourteenDaysLater = new Date();
+        fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14);
+        const upcomingBills = bills.filter(b => {
+            if (b.status === 'paid') return false;
+            const dueDate = new Date(b.dueDate);
+            return dueDate >= new Date() && dueDate <= fourteenDaysLater;
+        }).reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+        
+        // Expected receivables (invoices due in 14 days)
+        const expectedReceivables = invoices.filter(inv => {
+            if (inv.status === 'paid') return false;
+            const dueDate = new Date(inv.dueDate || inv.date);
+            return dueDate >= new Date() && dueDate <= fourteenDaysLater;
+        }).reduce((sum, inv) => sum + (parseFloat(inv.total) || 0), 0);
+        
+        // Forecast
+        const forecast7Days = currentCash + (avgDailyIncome * 7) - (avgDailyExpense * 7) - (upcomingBills * 0.5) + (expectedReceivables * 0.3);
+        const forecast14Days = currentCash + (avgDailyIncome * 14) - (avgDailyExpense * 14) - upcomingBills + (expectedReceivables * 0.5);
+        
+        if (forecast14Days < 0 && currentCash > 0) {
+            alerts.push({
+                type: 'urgent',
+                icon: 'fa-exclamation-circle',
+                title: '🔮 Cash Flow Warning!',
+                message: `Predicted negative cash in ~${Math.ceil(currentCash / (avgDailyExpense - avgDailyIncome))} days. Expected: RM ${forecast14Days.toLocaleString('en-MY', {minimumFractionDigits: 0})}`,
+                action: 'showSection("reports")',
+                actionLabel: 'View Cash Flow'
+            });
+        } else if (forecast14Days > 0 && transactions.length > 20) {
+            // Only show positive forecast if enough data
+            alerts.push({
+                type: 'info',
+                icon: 'fa-piggy-bank',
+                title: '🔮 14-Day Cash Forecast',
+                message: `Projected: RM ${forecast14Days.toLocaleString('en-MY', {minimumFractionDigits: 0})} (${forecast14Days > currentCash ? '↑' : '↓'} from today)`,
+                action: 'showSection("reports")',
+                actionLabel: 'View Reports'
+            });
+        }
+    } catch (e) { console.log('Proactive check: cash flow forecast error', e); }
+    
+    // 8. STOCK DEPLETION PREDICTION - When will items run out?
+    try {
+        const products = JSON.parse(localStorage.getItem('products') || '[]');
+        const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+        const posSales = JSON.parse(localStorage.getItem('posSales') || '[]');
+        
+        // Calculate sales velocity per product (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const salesByProduct = {};
+        
+        // From orders
+        orders.filter(o => new Date(o.date) >= thirtyDaysAgo).forEach(order => {
+            (order.items || []).forEach(item => {
+                const productId = item.productId || item.id;
+                if (productId) {
+                    salesByProduct[productId] = (salesByProduct[productId] || 0) + (parseFloat(item.quantity) || 1);
+                }
+            });
+        });
+        
+        // From POS sales
+        posSales.filter(s => new Date(s.date || s.timestamp) >= thirtyDaysAgo).forEach(sale => {
+            (sale.items || []).forEach(item => {
+                const productId = item.productId || item.id;
+                if (productId) {
+                    salesByProduct[productId] = (salesByProduct[productId] || 0) + (parseFloat(item.quantity) || 1);
+                }
+            });
+        });
+        
+        // Find products that will run out soon
+        const criticalStock = [];
+        products.forEach(product => {
+            const productId = product.id;
+            const currentStock = parseFloat(product.quantity) || 0;
+            const monthlySales = salesByProduct[productId] || 0;
+            const dailySales = monthlySales / 30;
+            
+            if (dailySales > 0 && currentStock > 0) {
+                const daysUntilEmpty = Math.floor(currentStock / dailySales);
+                if (daysUntilEmpty <= 7 && daysUntilEmpty > 0) {
+                    criticalStock.push({
+                        name: product.name,
+                        days: daysUntilEmpty,
+                        current: currentStock
+                    });
+                }
+            }
+        });
+        
+        if (criticalStock.length > 0) {
+            criticalStock.sort((a, b) => a.days - b.days);
+            const mostUrgent = criticalStock[0];
+            alerts.push({
+                type: 'warning',
+                icon: 'fa-clock',
+                title: `🔮 Stock Running Out!`,
+                message: `"${mostUrgent.name}" will be empty in ~${mostUrgent.days} day${mostUrgent.days > 1 ? 's' : ''}${criticalStock.length > 1 ? ` (+${criticalStock.length - 1} more)` : ''}`,
+                action: 'showSection("inventory")',
+                actionLabel: 'Restock Now'
+            });
+        }
+    } catch (e) { console.log('Proactive check: stock depletion error', e); }
+    
+    // 9. REVENUE FORECAST - Expected revenue this month
+    try {
+        const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+        const now = new Date();
+        const dayOfMonth = now.getDate();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysRemaining = daysInMonth - dayOfMonth;
+        
+        // This month's income so far
+        const thisMonthIncome = transactions.filter(t => {
+            const d = new Date(t.date);
+            return t.type === 'income' && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }).reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+        
+        // Last 3 months average (for comparison)
+        const threeMonthsData = [];
+        for (let i = 1; i <= 3; i++) {
+            const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+            const monthIncome = transactions.filter(t => {
+                const d = new Date(t.date);
+                return t.type === 'income' && d.getMonth() === monthDate.getMonth() && d.getFullYear() === monthDate.getFullYear();
+            }).reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
+            if (monthIncome > 0) threeMonthsData.push(monthIncome);
+        }
+        
+        const avgMonthly = threeMonthsData.length > 0 ? threeMonthsData.reduce((a, b) => a + b, 0) / threeMonthsData.length : 0;
+        
+        if (dayOfMonth >= 7 && thisMonthIncome > 0) {
+            const dailyAvg = thisMonthIncome / dayOfMonth;
+            const projectedTotal = thisMonthIncome + (dailyAvg * daysRemaining);
+            const projectedMin = projectedTotal * 0.85;
+            const projectedMax = projectedTotal * 1.15;
+            
+            // Only show if we have comparison data
+            if (avgMonthly > 0) {
+                const vsAverage = ((projectedTotal - avgMonthly) / avgMonthly) * 100;
+                alerts.push({
+                    type: vsAverage >= 0 ? 'success' : 'warning',
+                    icon: 'fa-calculator',
+                    title: '🔮 Revenue Forecast',
+                    message: `Expected: RM ${projectedMin.toLocaleString('en-MY', {minimumFractionDigits: 0})} - ${projectedMax.toLocaleString('en-MY', {minimumFractionDigits: 0})} (${vsAverage >= 0 ? '+' : ''}${vsAverage.toFixed(0)}% vs avg)`,
+                    action: 'showSection("reports")',
+                    actionLabel: 'View Reports'
+                });
+            }
+        }
+    } catch (e) { console.log('Proactive check: revenue forecast error', e); }
+    
+    // 10. BILL PAYMENT SUMMARY - What you need to pay this week
+    try {
+        const bills = JSON.parse(localStorage.getItem('bills') || '[]');
+        const now = new Date();
+        const oneWeekLater = new Date();
+        oneWeekLater.setDate(oneWeekLater.getDate() + 7);
+        
+        const billsDueThisWeek = bills.filter(b => {
+            if (b.status === 'paid') return false;
+            const dueDate = new Date(b.dueDate);
+            return dueDate >= now && dueDate <= oneWeekLater;
+        });
+        
+        const totalDueThisWeek = billsDueThisWeek.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
+        
+        if (billsDueThisWeek.length > 0 && totalDueThisWeek > 0) {
+            alerts.push({
+                type: 'info',
+                icon: 'fa-calendar-check',
+                title: '🔮 This Week\'s Bills',
+                message: `${billsDueThisWeek.length} bill${billsDueThisWeek.length > 1 ? 's' : ''} due: RM ${totalDueThisWeek.toLocaleString('en-MY', {minimumFractionDigits: 2})}`,
+                action: 'showSection("bills")',
+                actionLabel: 'Pay Bills'
+            });
+        }
+    } catch (e) { console.log('Proactive check: bill payment error', e); }
+    
     // Show alerts if any
     if (alerts.length > 0) {
         localStorage.setItem('alpha5_last_proactive_check', now.toString());
@@ -6376,6 +6581,218 @@ if (document.readyState === 'loading') {
     initAlpha5Proactive();
 }
 
+// ==================== VOICE INPUT (Tier 4.8 Feature) ====================
+
+let recognition = null;
+let isListening = false;
+
+// Initialize voice recognition
+function initVoiceRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        console.log('🎤 Voice recognition not supported in this browser');
+        return false;
+    }
+    
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-MY'; // Malaysian English, also works with Malay
+    
+    recognition.onstart = function() {
+        isListening = true;
+        updateVoiceButton(true);
+        showVoiceStatus('🎤 Listening... Speak now!');
+        console.log('🎤 Voice recognition started');
+    };
+    
+    recognition.onresult = function(event) {
+        let finalTranscript = '';
+        let interimTranscript = '';
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+        
+        const input = document.getElementById('chatbotInput');
+        if (input) {
+            if (finalTranscript) {
+                input.value = finalTranscript;
+                showVoiceStatus('✅ Got it! Sending...');
+                setTimeout(() => {
+                    sendChatMessage();
+                    hideVoiceStatus();
+                }, 500);
+            } else if (interimTranscript) {
+                input.value = interimTranscript;
+                input.placeholder = '🎤 Listening...';
+            }
+        }
+    };
+    
+    recognition.onerror = function(event) {
+        console.log('🎤 Voice recognition error:', event.error);
+        isListening = false;
+        updateVoiceButton(false);
+        
+        if (event.error === 'no-speech') {
+            showVoiceStatus('😅 No speech detected. Try again!');
+        } else if (event.error === 'not-allowed') {
+            showVoiceStatus('🚫 Microphone access denied. Please allow microphone.');
+        } else {
+            showVoiceStatus('❌ Error: ' + event.error);
+        }
+        
+        setTimeout(hideVoiceStatus, 3000);
+    };
+    
+    recognition.onend = function() {
+        isListening = false;
+        updateVoiceButton(false);
+        const input = document.getElementById('chatbotInput');
+        if (input) input.placeholder = 'Ask me anything...';
+        console.log('🎤 Voice recognition ended');
+    };
+    
+    return true;
+}
+
+// Start voice input
+function startVoiceInput() {
+    // Initialize if not done
+    if (!recognition) {
+        if (!initVoiceRecognition()) {
+            showNotification('Voice input not supported in this browser. Try Chrome or Edge.', 'error');
+            return;
+        }
+    }
+    
+    if (isListening) {
+        // Stop if already listening
+        recognition.stop();
+        isListening = false;
+        updateVoiceButton(false);
+        hideVoiceStatus();
+    } else {
+        // Start listening
+        try {
+            recognition.start();
+        } catch (e) {
+            console.log('🎤 Recognition already started, restarting...');
+            recognition.stop();
+            setTimeout(() => recognition.start(), 100);
+        }
+    }
+}
+
+// Update voice button appearance
+function updateVoiceButton(listening) {
+    const btn = document.getElementById('voiceInputBtn');
+    if (!btn) return;
+    
+    if (listening) {
+        btn.classList.add('listening');
+        btn.innerHTML = '<i class="fas fa-stop"></i>';
+        btn.title = 'Stop listening';
+        btn.style.background = '#ef4444';
+        btn.style.animation = 'pulse 1s infinite';
+    } else {
+        btn.classList.remove('listening');
+        btn.innerHTML = '<i class="fas fa-microphone"></i>';
+        btn.title = 'Voice Input';
+        btn.style.background = '';
+        btn.style.animation = '';
+    }
+}
+
+// Show voice status message
+function showVoiceStatus(message) {
+    let status = document.getElementById('voiceStatus');
+    if (!status) {
+        status = document.createElement('div');
+        status.id = 'voiceStatus';
+        status.style.cssText = `
+            position: fixed;
+            bottom: 180px;
+            right: 30px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 500;
+            z-index: 10002;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            animation: slideInUp 0.3s ease;
+        `;
+        document.body.appendChild(status);
+    }
+    status.textContent = message;
+    status.style.display = 'block';
+}
+
+// Hide voice status
+function hideVoiceStatus() {
+    const status = document.getElementById('voiceStatus');
+    if (status) {
+        status.style.display = 'none';
+    }
+}
+
+// Add voice button styles
+function addVoiceStyles() {
+    if (document.getElementById('voiceInputStyles')) return;
+    
+    const styles = document.createElement('style');
+    styles.id = 'voiceInputStyles';
+    styles.textContent = `
+        .voice-btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+        .voice-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+        }
+        .voice-btn.listening {
+            background: #ef4444 !important;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+        }
+        .chatbot-input-area {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+    `;
+    document.head.appendChild(styles);
+}
+
+// Initialize voice styles on load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', addVoiceStyles);
+} else {
+    addVoiceStyles();
+}
+
 // ==================== EXPORT FUNCTIONS TO WINDOW ====================
 // Must be at end of file after all functions are defined
 window.initializeChatbot = initializeChatbot;
@@ -6388,5 +6805,6 @@ window.askQuickQuestion = askQuickQuestion;
 window.clearChatHistory = clearChatHistory;
 window.alpha5ProactiveCheck = alpha5ProactiveCheck;
 window.dismissAlpha5Alerts = dismissAlpha5Alerts;
+window.startVoiceInput = startVoiceInput;
 console.log('🤖 chatbot.js loaded successfully, toggleChatbot:', typeof toggleChatbot);
-console.log('🚀 Alpha 5 Proactive Alerts initialized (Tier 4.5)');
+console.log('🚀 Alpha 5 Tier 4.8 - Predictions + Voice Input initialized!');

@@ -7148,6 +7148,9 @@
             <button onclick="askQuickQuestion('Any low stock items?')">📦 Low Stock</button>
         </div>
         <div class="chatbot-input-area">
+            <button onclick="startVoiceInput()" class="voice-btn" id="voiceInputBtn" title="Voice Input">
+                <i class="fas fa-microphone"></i>
+            </button>
             <input type="text" id="chatbotInput" placeholder="Ask me anything..." onkeypress="handleChatbotKeyPress(event)">
             <button onclick="sendChatMessage()" class="send-btn">
                 <i class="fas fa-paper-plane"></i>
