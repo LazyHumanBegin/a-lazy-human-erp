@@ -1404,7 +1404,13 @@ function confirmTransfer(transferId) {
     const transfer = branchTransfers.find(t => t.id === transferId);
     if (!transfer || transfer.status !== 'pending') return;
     
-    if (confirm(`Confirm transfer ${transfer.transferNumber}? This will start the transfer process.`)) {
+    // Check if transfer has items
+    if (!transfer.items || !Array.isArray(transfer.items) || transfer.items.length === 0) {
+        showToast('This transfer has no items to process', 'error');
+        return;
+    }
+    
+    if (confirm(`Confirm transfer ${transfer.transferNumber || transfer.id}? This will start the transfer process.`)) {
         console.log('Confirming transfer:', transfer.id);
         console.log('Deducting from source branch:', transfer.fromBranchId);
         
