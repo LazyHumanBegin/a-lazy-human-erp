@@ -1323,6 +1323,13 @@ function shareQuotationWhatsApp(quotationId) {
         return;
     }
     
+    // Step 1: Generate and download PDF first
+    if (typeof generateQuotationPDF === 'function') {
+        generateQuotationPDF(quotationId);
+        showToast('📄 PDF downloading... Attach it in WhatsApp!', 'success');
+    }
+    
+    // Step 2: Open WhatsApp with text message
     const settings = JSON.parse(localStorage.getItem('companySettings') || '{}');
     const businessName = settings.businessName || window.businessData?.settings?.businessName || 'A Lazy Human';
     
@@ -1356,12 +1363,14 @@ function shareQuotationWhatsApp(quotationId) {
         message += `📝 Notes: ${quotation.notes}\n\n`;
     }
     
+    message += `📎 _Full quotation PDF attached_\n`;
     message += `Please reply to confirm or if you have any questions. Thank you! 🙏`;
     
-    const encoded = encodeURIComponent(message);
-    window.open(`https://wa.me/?text=${encoded}`, '_blank');
-    
-    showNotification('Opening WhatsApp...', 'success');
+    // Small delay to let PDF download start
+    setTimeout(() => {
+        const encoded = encodeURIComponent(message);
+        window.open(`https://wa.me/?text=${encoded}`, '_blank');
+    }, 800);
 }
 
 // ==================== EMAIL QUOTATION ====================

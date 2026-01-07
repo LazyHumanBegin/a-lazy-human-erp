@@ -343,11 +343,24 @@ function shareCurrentOrderWhatsApp() {
         const order = sales.find(s => s.id == orderId);
         if (!order) return;
         
+        // Step 1: Generate and download PDF first (if function available)
+        if (typeof generateInvoicePDF === 'function') {
+            // Check if order has an invoice ID
+            if (order.invoiceId) {
+                generateInvoicePDF(order.invoiceId);
+                showToast('📄 PDF downloading... Attach it in WhatsApp!', 'success');
+            } else {
+                // Use print receipt as fallback
+                showToast('💡 Tip: Use Print Receipt to save as PDF', 'info');
+            }
+        }
+        
+        // Step 2: Open WhatsApp with text message (after small delay)
         const businessName = window.businessData?.settings?.businessName || 'A Lazy Human';
         
         let message = `*${businessName}*\n`;
         message += `━━━━━━━━━━━━━━━━\n`;
-        message += `📄 *Receipt: ${order.receiptNo}*\n`;
+        message += `📄 *Invoice: ${order.receiptNo}*\n`;
         message += `📅 Date: ${order.date}\n`;
         message += `👤 Customer: ${order.customerName}\n\n`;
         
@@ -363,12 +376,14 @@ function shareCurrentOrderWhatsApp() {
         message += `Tax: RM ${parseFloat(order.tax || 0).toFixed(2)}\n`;
         message += `*TOTAL: RM ${parseFloat(order.total).toFixed(2)}*\n`;
         message += `━━━━━━━━━━━━━━━━\n\n`;
+        message += `📎 _Please see attached PDF for full invoice_\n`;
         message += `Thank you for your business! 🙏`;
         
-        const encoded = encodeURIComponent(message);
-        window.open(`https://wa.me/?text=${encoded}`, '_blank');
-        
-        showNotification('Opening WhatsApp...', 'success');
+        // Small delay to let PDF download start
+        setTimeout(() => {
+            const encoded = encodeURIComponent(message);
+            window.open(`https://wa.me/?text=${encoded}`, '_blank');
+        }, 800);
     }
 }
 
