@@ -1362,16 +1362,19 @@ function renderTransfers() {
             cancelled: '#ef4444'
         };
         
+        // Safely get items count
+        const itemsCount = Array.isArray(transfer.items) ? transfer.items.length : 1;
+        
         return `
             <tr>
-                <td><strong>${transfer.transferNumber}</strong></td>
-                <td>${formatDate(transfer.date)}</td>
-                <td>${escapeHTML(transfer.fromBranchName)}</td>
-                <td>${escapeHTML(transfer.toBranchName)}</td>
-                <td>${transfer.items.length} item(s)</td>
+                <td><strong>${transfer.transferNumber || transfer.id || 'N/A'}</strong></td>
+                <td>${formatDate(transfer.date || transfer.createdAt)}</td>
+                <td>${escapeHTML(transfer.fromBranchName || transfer.fromBranchId || 'N/A')}</td>
+                <td>${escapeHTML(transfer.toBranchName || transfer.toBranchId || 'N/A')}</td>
+                <td>${itemsCount} item(s)</td>
                 <td>
-                    <span class="status-badge" style="background: ${statusColors[transfer.status]}20; color: ${statusColors[transfer.status]};">
-                        ${transfer.status}
+                    <span class="status-badge" style="background: ${statusColors[transfer.status] || '#64748b'}20; color: ${statusColors[transfer.status] || '#64748b'};">
+                        ${transfer.status || 'unknown'}
                     </span>
                 </td>
                 <td>
