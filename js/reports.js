@@ -202,27 +202,48 @@ function updateReports() {
     }
     
     let periodIncome = 0;
-    let periodExpenses = 0;
+    let periodCOGS = 0;  // Cost of Goods Sold (v2.8.2)
+    let periodExpenses = 0;  // Operating expenses (non-COGS)
     
     businessData.transactions.forEach(tx => {
         const txDate = parseDateSafe(tx.date);
         if (txDate >= startDate && txDate <= endDate) {
-            if (tx.type === 'income') periodIncome += tx.amount;
-            else periodExpenses += tx.amount;
+            if (tx.type === 'income') {
+                periodIncome += tx.amount;
+            } else if (tx.type === 'expense') {
+                // Separate COGS from operating expenses
+                if (tx.category === 'Cost of Goods Sold') {
+                    periodCOGS += tx.amount;
+                } else {
+                    periodExpenses += tx.amount;
+                }
+            }
         }
     });
     
-    const profitLoss = periodIncome - periodExpenses;
-    const profitMargin = periodIncome > 0 ? (profitLoss / periodIncome * 100) : 0;
+    const grossProfit = periodIncome - periodCOGS;  // Revenue - COGS
+    const netProfit = grossProfit - periodExpenses;  // Gross Profit - Operating Expenses
+    const grossMargin = periodIncome > 0 ? (grossProfit / periodIncome * 100) : 0;
+    const netMargin = periodIncome > 0 ? (netProfit / periodIncome * 100) : 0;
     
-    document.getElementById('profitLoss').textContent = formatCurrency(profitLoss);
+    // Update P&L display
+    document.getElementById('profitLoss').textContent = formatCurrency(netProfit);
     document.getElementById('reportIncome').textContent = formatCurrency(periodIncome);
-    document.getElementById('reportExpenses').textContent = formatCurrency(periodExpenses);
+    document.getElementById('reportExpenses').textContent = formatCurrency(periodExpenses + periodCOGS);  // Total for backward compat
+    
+    // Update COGS and Gross Profit if elements exist (v2.8.2)
+    const cogsEl = document.getElementById('reportCOGS');
+    const grossProfitEl = document.getElementById('reportGrossProfit');
+    const opExpensesEl = document.getElementById('reportOpExpenses');
+    
+    if (cogsEl) cogsEl.textContent = formatCurrency(periodCOGS);
+    if (grossProfitEl) grossProfitEl.textContent = formatCurrency(grossProfit);
+    if (opExpensesEl) opExpensesEl.textContent = formatCurrency(periodExpenses);
     
     const progressBar = document.querySelector('.progress-fill');
     if (progressBar) {
-        if (profitMargin > 0) {
-            progressBar.style.width = Math.min(profitMargin, 100) + '%';
+        if (netMargin > 0) {
+            progressBar.style.width = Math.min(netMargin, 100) + '%';
             progressBar.style.background = 'linear-gradient(90deg, #10b981, #34d399)';
         } else {
             progressBar.style.width = '100%';
