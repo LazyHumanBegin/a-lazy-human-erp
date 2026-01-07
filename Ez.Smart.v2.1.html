@@ -430,8 +430,33 @@
                 <div class="content-card full-width">
                     <div class="card-header">
                         <h2><i class="fas fa-tachometer-alt"></i> <span id="dashboardCompanyName">Business Dashboard</span></h2>
-                        <div style="font-size: 14px; color: #64748b;">
-                            <i class="fas fa-calendar-alt"></i> <span id="currentDate"></span>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="font-size: 14px; color: #64748b;">
+                                <i class="fas fa-calendar-alt"></i> <span id="currentDate"></span>
+                            </div>
+                            <!-- WhatsApp Share Button -->
+                            <div class="dropdown" style="position: relative;">
+                                <button onclick="toggleWhatsAppMenu()" class="btn-icon" style="background: #25D366; color: white; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;" title="Share to WhatsApp">
+                                    <i class="fab fa-whatsapp" style="font-size: 18px;"></i>
+                                </button>
+                                <div id="whatsappShareMenu" class="dropdown-menu" style="display: none; position: absolute; right: 0; top: 40px; background: white; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); min-width: 200px; z-index: 1000;">
+                                    <div style="padding: 10px 15px; border-bottom: 1px solid #eee; font-weight: 600; color: #333;">
+                                        <i class="fab fa-whatsapp" style="color: #25D366;"></i> Share to WhatsApp
+                                    </div>
+                                    <a onclick="shareDailySummary(); toggleWhatsAppMenu();" style="display: block; padding: 10px 15px; cursor: pointer; color: #333; text-decoration: none;">
+                                        <i class="fas fa-sun" style="color: #f59e0b; width: 20px;"></i> Daily Summary
+                                    </a>
+                                    <a onclick="shareWeeklySummary(); toggleWhatsAppMenu();" style="display: block; padding: 10px 15px; cursor: pointer; color: #333; text-decoration: none;">
+                                        <i class="fas fa-calendar-week" style="color: #3b82f6; width: 20px;"></i> Weekly Summary
+                                    </a>
+                                    <a onclick="shareMonthlySummary(); toggleWhatsAppMenu();" style="display: block; padding: 10px 15px; cursor: pointer; color: #333; text-decoration: none;">
+                                        <i class="fas fa-calendar-alt" style="color: #8b5cf6; width: 20px;"></i> Monthly Summary
+                                    </a>
+                                    <a onclick="shareLowStockAlert(); toggleWhatsAppMenu();" style="display: block; padding: 10px 15px; cursor: pointer; color: #333; text-decoration: none; border-top: 1px solid #eee;">
+                                        <i class="fas fa-exclamation-triangle" style="color: #ef4444; width: 20px;"></i> Low Stock Alert
+                                    </a>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -2395,6 +2420,9 @@
                     <div class="card-header">
                         <h2><i class="fas fa-chart-pie"></i> Financial Reports</h2>
                         <div style="display: flex; gap: 10px;">
+                            <button class="btn-outline" onclick="shareMonthlySummary()" title="Share to WhatsApp" style="background: #25D366; color: white; border-color: #25D366;">
+                                <i class="fab fa-whatsapp"></i> WhatsApp
+                            </button>
                             <button class="btn-outline" onclick="showEmailReportModal()" title="Email Daily Report">
                                 <i class="fas fa-envelope"></i> Email Report
                             </button>
@@ -6970,6 +6998,9 @@
     <!-- Notifications & BOM - v2.2.3 -->
     <script src="js/notifications.js?v=2027001"></script>
     <script src="js/bom.js?v=2027001"></script>
+    
+    <!-- WhatsApp Share - Phase 5.0 -->
+    <script src="js/whatsapp-share.js?v=2032040"></script>
     
     <script src="js/app.js?v=2027002"></script>
     

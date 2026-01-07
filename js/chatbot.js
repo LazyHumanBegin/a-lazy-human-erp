@@ -5699,6 +5699,54 @@ function generateChatbotFallback(message) {
         return `You're welcome! 😊 Need anything else?`;
     }
 
+    // ==================== WHATSAPP SHARE COMMANDS (Phase 5.0) ====================
+    if (lowerMessage.includes('whatsapp') || lowerMessage.includes('wa ') || lowerMessage.includes('share')) {
+        // Daily summary
+        if (lowerMessage.includes('daily') || lowerMessage.includes('today') || lowerMessage.includes('hari ini')) {
+            if (typeof shareDailySummary === 'function') {
+                shareDailySummary();
+                return `📱 Opening WhatsApp with **Daily Summary**!\n\nJust select who to send it to. 💬`;
+            }
+        }
+        
+        // Weekly summary
+        if (lowerMessage.includes('weekly') || lowerMessage.includes('week') || lowerMessage.includes('minggu')) {
+            if (typeof shareWeeklySummary === 'function') {
+                shareWeeklySummary();
+                return `📱 Opening WhatsApp with **Weekly Summary**!\n\nReady to send! 💬`;
+            }
+        }
+        
+        // Monthly summary
+        if (lowerMessage.includes('monthly') || lowerMessage.includes('month') || lowerMessage.includes('bulan')) {
+            if (typeof shareMonthlySummary === 'function') {
+                shareMonthlySummary();
+                return `📱 Opening WhatsApp with **Monthly Report**!\n\nReady to send! 💬`;
+            }
+        }
+        
+        // Low stock alert
+        if (lowerMessage.includes('stock') || lowerMessage.includes('inventory') || lowerMessage.includes('stok')) {
+            if (typeof shareLowStockAlert === 'function') {
+                shareLowStockAlert();
+                return `📱 Opening WhatsApp with **Low Stock Alert**!\n\nReady to send! 💬`;
+            }
+        }
+        
+        // Summary (default to daily)
+        if (lowerMessage.includes('summary') || lowerMessage.includes('report') || lowerMessage.includes('ringkasan')) {
+            if (typeof shareDailySummary === 'function') {
+                shareDailySummary();
+                return `📱 Opening WhatsApp with **Daily Summary**!\n\nTip: Try "whatsapp weekly" or "whatsapp monthly" for other reports! 💬`;
+            }
+        }
+        
+        // General whatsapp help
+        if (lowerMessage === 'whatsapp' || lowerMessage === 'wa' || lowerMessage.includes('send to whatsapp')) {
+            return `📱 **WhatsApp One Click Magic!**\n\nI can share these to WhatsApp:\n\n• "whatsapp daily" - Today's summary\n• "whatsapp weekly" - Week's report\n• "whatsapp monthly" - Month's report\n• "whatsapp stock" - Low stock alert\n\nOr click the green 📱 button in Dashboard!`;
+        }
+    }
+
     // ==================== ABOUT US / SYSTEM INFO (Local - No API needed) ====================
     // Who created / who made / developer / creator
     if (lowerMessage.includes('who create') || lowerMessage.includes('who made') || lowerMessage.includes('who build') || 
