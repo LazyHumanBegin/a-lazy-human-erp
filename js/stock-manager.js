@@ -190,7 +190,19 @@ function hasEnoughStock(productId, quantity, branchId = null) {
  * Deducts stock FIRST, records all movements, then saves once
  */
 function batchUpdateStock(updates, reason, options = {}) {
-    console.log('📦 batchUpdateStock:', updates.length, 'items');
+    console.log('📦 batchUpdateStock:', updates.length, 'items, reason:', reason);
+    console.log('📦 window.products count:', window.products?.length || 0);
+    
+    // Ensure window.products exists
+    if (!window.products || !Array.isArray(window.products) || window.products.length === 0) {
+        console.error('❌ batchUpdateStock: window.products is empty or not loaded!');
+        // Try to load from localStorage
+        const stored = localStorage.getItem('ezcubic_products');
+        if (stored) {
+            window.products = JSON.parse(stored);
+            console.log('📦 Loaded products from localStorage:', window.products.length);
+        }
+    }
     
     const results = [];
     const branchId = options.branchId || getDefaultBranchId();
@@ -219,13 +231,21 @@ function batchUpdateStock(updates, reason, options = {}) {
         
         const product = results[i].product;
         
-        // Initialize branchStock if needed
-        if (!product.branchStock) {
+        // Initialize branchStock if needed - PRESERVE existing stock
+        if (!product.branchStock || Object.keys(product.branchStock).length === 0) {
             product.branchStock = {};
+            // If product has stock but no branchStock, initialize default branch with existing stock
+            if (product.stock > 0) {
+                product.branchStock[branchId] = product.stock;
+                console.log(`📦 Initialized branchStock for ${product.name}: ${product.stock} at ${branchId}`);
+            }
         }
         
+        // Get current stock at this branch (could be 0 for new branches)
         const currentStock = product.branchStock[branchId] || 0;
         const newStock = currentStock + update.quantityChange;
+        
+        console.log(`📦 Stock update: ${product.name} @ ${branchId}: ${currentStock} + (${update.quantityChange}) = ${newStock}`);
         
         product.branchStock[branchId] = Math.max(0, newStock);
         product.stock = calculateTotalStock(product);
@@ -233,18 +253,21 @@ function batchUpdateStock(updates, reason, options = {}) {
         results[i].previousStock = currentStock;
         results[i].newStock = product.branchStock[branchId];
         
-        // Record movement
+        // Record movement - include both 'quantity' and 'quantityChange' for compatibility
         recordStockMovement({
             productId: product.id,
             productName: product.name,
             branchId: branchId,
+            quantity: update.quantityChange, // For stock.js display compatibility
             quantityChange: update.quantityChange,
             previousStock: currentStock,
             newStock: product.branchStock[branchId],
+            type: reason, // Add type for stock.js compatibility
             reason: reason,
             reference: options.reference || '',
             notes: update.notes || options.notes || '',
             userId: window.currentUser?.id || 'system',
+            date: new Date().toISOString(), // Add date for stock.js compatibility
             timestamp: new Date().toISOString()
         });
     }

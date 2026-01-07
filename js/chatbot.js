@@ -769,6 +769,7 @@ function executeApprovedAction(action) {
                 break;
             case 'create_journal':
             case 'journal_entry':
+            case 'create_journal_entry':
                 result = doCreateJournal(action);
                 break;
             case 'apply_leave':

@@ -579,8 +579,9 @@ function renderStockMovements() {
         const typeClass = getMovementTypeClass(movementType);
         const typeIcon = getMovementTypeIcon(movementType);
         
-        // Support both quantity and quantityChange
-        const qty = movement.quantity !== undefined ? movement.quantity : movement.quantityChange;
+        // Support both quantity and quantityChange - ensure it's a number
+        let qty = movement.quantity !== undefined ? movement.quantity : movement.quantityChange;
+        if (qty === undefined || qty === null) qty = 0; // Fallback to 0 if undefined
         
         // Get branch name if available
         const branchName = movement.branchId ? 
