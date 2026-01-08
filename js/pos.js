@@ -115,15 +115,34 @@ function savePOSMode() {
     localStorage.setItem(POS_MODE_KEY, posMode);
 }
 
+function updateOrderTypeButtonsVisibility() {
+    const orderTypeButtons = document.getElementById('orderTypeButtons');
+    if (orderTypeButtons) {
+        // Show buttons only in restaurant mode
+        orderTypeButtons.style.display = posMode === 'restaurant' ? 'flex' : 'none';
+    }
+}
+
 function togglePOSMode() {
     posMode = posMode === 'retail' ? 'restaurant' : 'retail';
     savePOSMode();
     renderPOSModeUI();
     
+    // Hide/show order type buttons based on mode
+    const orderTypeButtons = document.getElementById('orderTypeButtons');
+    if (orderTypeButtons) {
+        orderTypeButtons.style.display = posMode === 'restaurant' ? 'flex' : 'none';
+    }
+    
+    // Reset to default order type in retail mode
+    if (posMode === 'retail') {
+        currentTable = null;
+        currentOrderType = 'dine-in'; // Default but hidden in retail
+    }
+    
     if (posMode === 'restaurant') {
         showToast('Restaurant Mode - Table management enabled', 'success');
     } else {
-        currentTable = null;
         showToast('Retail Mode - Standard POS', 'success');
     }
 }
@@ -213,6 +232,9 @@ function renderPOSModeUI() {
     if (tableSection) {
         tableSection.style.display = posMode === 'restaurant' ? 'block' : 'none';
     }
+    
+    // Update order type buttons visibility
+    updateOrderTypeButtonsVisibility();
     
     // Update current table display
     updateCurrentTableDisplay();

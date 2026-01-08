@@ -3052,13 +3052,16 @@ const SmartRecommendations = {
             dayStats[day] = (dayStats[day] || 0) + (sale.total || 0);
         });
         
-        var bestDay = Object.keys(dayStats).reduce(function(a, b) { 
-            return dayStats[a] > dayStats[b] ? a : b; 
-        }, 'Monday');
+        var dayKeys = Object.keys(dayStats);
+        if (dayKeys.length === 0) return; // No data to analyze
         
-        var worstDay = Object.keys(dayStats).reduce(function(a, b) { 
+        var bestDay = dayKeys.reduce(function(a, b) { 
+            return dayStats[a] > dayStats[b] ? a : b; 
+        });
+        
+        var worstDay = dayKeys.reduce(function(a, b) { 
             return dayStats[a] < dayStats[b] ? a : b; 
-        }, 'Monday');
+        });
         
         if (Object.keys(dayStats).length >= 5 && dayStats[bestDay] > dayStats[worstDay] * 3) {
             SmartRecommendations.recommendations.push({
@@ -3163,10 +3166,17 @@ const PredictiveForecasting = {
             sumX2 += i * i;
         }
         
-        var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        var denominator = (n * sumX2 - sumX * sumX);
+        if (denominator === 0) return { slope: 0, intercept: sumY / n }; // Prevent division by zero
+        
+        var slope = (n * sumXY - sumX * sumY) / denominator;
         var intercept = (sumY - slope * sumX) / n;
         
-        return { slope: slope || 0, intercept: intercept || 0 };
+        // Handle NaN/Infinity
+        if (!isFinite(slope)) slope = 0;
+        if (!isFinite(intercept)) intercept = sumY / n || 0;
+        
+        return { slope: slope, intercept: intercept };
     },
     
     // Generate forecast
@@ -3349,15 +3359,20 @@ const ProactiveAlerts = {
     
     // Check for low stock items
     checkLowStock: function() {
-        var products = window.products || [];
+        try {
+            var products = JSON.parse(localStorage.getItem('ezcubic_products') || '[]');
+        } catch(e) {
+            var products = [];
+        }
         var lowStockItems = [];
         
         for (var i = 0; i < products.length; i++) {
             var p = products[i];
+            var stock = p.stock || p.quantity || 0;
             var minStock = p.minStock || p.reorderLevel || 10;
-            if (p.stock <= minStock && p.stock > 0) {
-                lowStockItems.push(p.name + ' (' + p.stock + ' left)');
-            } else if (p.stock === 0) {
+            if (stock <= minStock && stock > 0) {
+                lowStockItems.push(p.name + ' (' + stock + ' left)');
+            } else if (stock === 0) {
                 lowStockItems.push(p.name + ' (OUT OF STOCK!)');
             }
         }
@@ -3373,7 +3388,11 @@ const ProactiveAlerts = {
     
     // Check sales trend (compare this week vs last week)
     checkSalesTrend: function() {
-        var sales = window.sales || [];
+        try {
+            var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        } catch(e) {
+            var sales = [];
+        }
         var now = new Date();
         var thisWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         var lastWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -3413,8 +3432,13 @@ const ProactiveAlerts = {
     
     // Check overdue invoices
     checkOverdueInvoices: function() {
-        var invoices = window.invoices || [];
-        var sales = window.sales || [];
+        try {
+            var invoices = JSON.parse(localStorage.getItem('ezcubic_invoices') || '[]');
+            var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        } catch(e) {
+            var invoices = [];
+            var sales = [];
+        }
         var overdue = [];
         var now = new Date();
         
@@ -3451,7 +3475,11 @@ const ProactiveAlerts = {
     
     // Anomaly Detection: Check for unusual expenses
     checkUnusualExpenses: function() {
-        var transactions = window.businessData?.transactions || window.transactions || [];
+        try {
+            var transactions = JSON.parse(localStorage.getItem('ezcubic_transactions') || '[]');
+        } catch(e) {
+            var transactions = [];
+        }
         var now = new Date();
         var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
@@ -3502,7 +3530,11 @@ const ProactiveAlerts = {
     
     // Check cash flow projection
     checkCashFlow: function() {
-        var transactions = window.businessData?.transactions || window.transactions || [];
+        try {
+            var transactions = JSON.parse(localStorage.getItem('ezcubic_transactions') || '[]');
+        } catch(e) {
+            var transactions = [];
+        }
         var now = new Date();
         var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         
@@ -3535,7 +3567,11 @@ const ProactiveAlerts = {
     
     // Check profit milestones
     checkProfitMilestones: function() {
-        var transactions = window.businessData?.transactions || window.transactions || [];
+        try {
+            var transactions = JSON.parse(localStorage.getItem('ezcubic_transactions') || '[]');
+        } catch(e) {
+            var transactions = [];
+        }
         var totalIncome = 0;
         var totalExpense = 0;
         
@@ -3568,7 +3604,11 @@ const ProactiveAlerts = {
     
     // Check top customers
     checkTopCustomers: function() {
-        var sales = window.sales || [];
+        try {
+            var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        } catch(e) {
+            var sales = [];
+        }
         var customerSpend = {};
         var now = new Date();
         var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
