@@ -63,6 +63,34 @@
     </script>
 </head>
 <body>
+    <!-- PERFORMANCE: Page Loading Indicator -->
+    <div id="pageLoader" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 99999; display: flex; align-items: center; justify-content: center; flex-direction: column;">
+        <div style="text-align: center;">
+            <div style="width: 60px; height: 60px; border: 4px solid rgba(59, 130, 246, 0.3); border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 20px;"></div>
+            <div style="color: white; font-size: 18px; font-weight: 600; margin-bottom: 8px;">EZ.Smart Loading...</div>
+            <div style="color: #94a3b8; font-size: 13px;">Powered by Alpha AI</div>
+        </div>
+    </div>
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <script>
+        // Hide loader once page is fully loaded
+        window.addEventListener('load', function() {
+            const loader = document.getElementById('pageLoader');
+            if (loader) {
+                loader.style.opacity = '0';
+                loader.style.transition = 'opacity 0.3s ease';
+                setTimeout(function() {
+                    loader.style.display = 'none';
+                }, 300);
+            }
+        });
+    </script>
+    
     <!-- Mobile Menu Button (Draggable) - Hidden until logged in -->
     <button class="mobile-menu-btn" id="mobileMenuBtn" style="display: none;">
         <img src="images/lazyhuman.svg" alt="A Lazy Human" style="width: 24px; height: 24px;">
@@ -6924,60 +6952,65 @@
     </div>
     </div> <!-- Close main-content -->
 
-    <!-- Modular JavaScript Files - v2.4.1 -->
+    <!-- Modular JavaScript Files - v2.9.4 Performance Optimized -->
+    <!-- CRITICAL: Load immediately for core functionality -->
     <script src="js/core.js?v=2026109"></script>
     <script src="js/data.js?v=2032040"></script>
     <script src="js/ui.js?v=2032001"></script>
-    <script src="js/transactions.js?v=2032001"></script>
-    <script src="js/dashboard.js?v=2032001"></script>
-    <script src="js/bills.js?v=2032001"></script>
-    <script src="js/charts.js?v=2032001"></script>
-    <script src="js/reports.js?v=2032001"></script>
-    <script src="js/taxes.js?v=2032001"></script>
-    <script src="js/chatbot.js?v=2032040"></script>
-    <script src="js/balance-sheet.js?v=2027001"></script>
-    <script src="js/pdf-export.js?v=2027001"></script>
-    <script src="js/ai-assistant.js?v=2027001"></script>
+    
+    <!-- HIGH PRIORITY: Defer but load early for main features -->
+    <script src="js/dashboard.js?v=2032001" defer></script>
+    <script src="js/transactions.js?v=2032001" defer></script>
+    <script src="js/ai-assistant.js?v=2027001" defer></script>
+    <script src="js/chatbot.js?v=2032040" defer></script>
+    
+    <!-- MEDIUM PRIORITY: Defer - Load after page interactive -->
+    <script src="js/bills.js?v=2032001" defer></script>
+    <script src="js/charts.js?v=2032001" defer></script>
+    <script src="js/reports.js?v=2032001" defer></script>
+    <script src="js/taxes.js?v=2032001" defer></script>
+    <script src="js/balance-sheet.js?v=2027001" defer></script>
+    <script src="js/pdf-export.js?v=2027001" defer></script>
     
     <!-- Chart of Accounts & Double-Entry -->
-    <script src="js/chart-of-accounts.js?v=2027001"></script>
-    <script src="js/journal-entries.js?v=2027001"></script>
-    <script src="js/aging-reports.js?v=2027001"></script>
+    <script src="js/chart-of-accounts.js?v=2027001" defer></script>
+    <script src="js/journal-entries.js?v=2027001" defer></script>
+    <script src="js/aging-reports.js?v=2027001" defer></script>
     
     <!-- Phase 2: Operational Core -->
-    <script src="js/stock-manager.js?v=2026115"></script><!-- CENTRAL STOCK CONTROL - Must load first -->
-    <script src="js/inventory-new.js?v=2027001"></script>
-    <script src="js/stock.js?v=2026109"></script>
-    <script src="js/pos.js?v=2032025"></script>
-    <script src="js/orders.js?v=2027001"></script>
-    <script src="js/customers.js?v=2032001"></script>
-    <script src="js/crm.js?v=2032014"></script>
-    <script src="js/suppliers.js?v=2027001"></script>
-    <script src="js/quotations.js?v=2027001"></script>
-    <script src="js/invoices.js?v=2027001"></script>
-    <script src="js/projects.js?v=2027001"></script>
+    <script src="js/stock-manager.js?v=2026115" defer></script><!-- CENTRAL STOCK CONTROL - Must load first -->
+    <script src="js/inventory-new.js?v=2027001" defer></script>
+    <script src="js/stock.js?v=2026109" defer></script>
+    <script src="js/pos.js?v=2032025" defer></script>
+    <script src="js/orders.js?v=2027001" defer></script>
+    <script src="js/customers.js?v=2032001" defer></script>
+    <script src="js/crm.js?v=2032014" defer></script>
+    <script src="js/suppliers.js?v=2027001" defer></script>
+    <script src="js/quotations.js?v=2027001" defer></script>
+    <script src="js/invoices.js?v=2027001" defer></script>
+    <script src="js/projects.js?v=2027001" defer></script>
     <!-- Phase 3: HR & Payroll -->
-    <script src="js/payroll.js?v=2027001"></script>
-    <script src="js/kpi.js?v=2031001"></script>
-    <script src="js/leave-attendance.js?v=2027001"></script>
-    <script src="js/hr-modules.js?v=2027001"></script>
+    <script src="js/payroll.js?v=2027001" defer></script>
+    <script src="js/kpi.js?v=2031001" defer></script>
+    <script src="js/leave-attendance.js?v=2027001" defer></script>
+    <script src="js/hr-modules.js?v=2027001" defer></script>
     
     <!-- Phase 4: Procurement & e-Invoice -->
-    <script src="js/purchase-orders.js?v=2027001"></script>
-    <script src="js/delivery-orders.js?v=2027001"></script>
-    <script src="js/e-invoice.js?v=2027001"></script>
+    <script src="js/purchase-orders.js?v=2027001" defer></script>
+    <script src="js/delivery-orders.js?v=2027001" defer></script>
+    <script src="js/e-invoice.js?v=2027001" defer></script>
     
     <!-- Backup & Restore -->
-    <script src="js/backup.js?v=2027001"></script>
+    <script src="js/backup.js?v=2027001" defer></script>
     
     <!-- Excel Export -->
-    <script src="js/excel-export.js?v=2027001"></script>
+    <script src="js/excel-export.js?v=2027001" defer></script>
     
     <!-- Add-ons (Safe Features) -->
-    <script src="js/addons.js?v=2032008"></script>
+    <script src="js/addons.js?v=2032008" defer></script>
     
     <!-- Bank Reconciliation -->
-    <script src="js/bank-reconciliation.js?v=2027001"></script>
+    <script src="js/bank-reconciliation.js?v=2027001" defer></script>
     
     <!-- LHDN & Audit Export -->
     <script src="js/lhdn-export.js?v=2027001"></script>
