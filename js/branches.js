@@ -2242,6 +2242,24 @@ function syncAllBranchStockToProducts() {
     const defaultBranch = branchList.find(b => b.isDefault) || branchList.find(b => b.id === 'BRANCH_HQ') || branchList[0];
     
     productList.forEach(product => {
+        // PRIORITY CHECK: If product.branchStock already exists with valid data, TRUST IT
+        // Only sync from localStorage if product.branchStock is missing or empty
+        const hasValidBranchStock = product.branchStock && 
+            typeof product.branchStock === 'object' && 
+            Object.keys(product.branchStock).length > 0;
+        
+        if (hasValidBranchStock) {
+            // Product already has branch stock data, don't override it
+            // Just ensure all branches are represented
+            branchList.forEach(branch => {
+                if (product.branchStock[branch.id] === undefined) {
+                    product.branchStock[branch.id] = 0;
+                }
+            });
+            return; // Skip to next product
+        }
+        
+        // Product has NO branch stock, initialize from localStorage
         if (!product.branchStock) {
             product.branchStock = {};
         }
