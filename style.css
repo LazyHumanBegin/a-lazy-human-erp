@@ -16924,3 +16924,274 @@ body.logged-out {
         padding: 6px 4px !important;
     }
 }
+
+/* ==================== MOBILE UI FIXES (v2.9.1) ==================== */
+
+/* FIX 1: TABLE HORIZONTAL SCROLL - Wrap all tables in scrollable container */
+@media (max-width: 768px) {
+    /* Add wrapper for horizontal scroll */
+    .data-table,
+    .crm-table,
+    .quotation-items-table,
+    .payroll-table,
+    .branch-comparison-table,
+    .subscriptions-table table,
+    .audit-log-table,
+    table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+    
+    /* Ensure table cells don't wrap */
+    .data-table th,
+    .data-table td {
+        white-space: nowrap;
+        min-width: 100px;
+    }
+    
+    /* Add scroll indicator shadow */
+    .content-card {
+        position: relative;
+    }
+    
+    /* Make action buttons stack on mobile */
+    .table-actions {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .table-actions button {
+        width: 100%;
+        padding: 6px 8px;
+        font-size: 11px;
+    }
+}
+
+/* FIX 2: DASHBOARD GRID - Single column on mobile, 2 columns on tablet */
+@media (max-width: 480px) {
+    .stats-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px;
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* FIX 3: FORMS - Full width inputs and better spacing on mobile */
+@media (max-width: 768px) {
+    .form-grid {
+        grid-template-columns: 1fr !important;
+        gap: 12px;
+    }
+    
+    .form-group {
+        margin-bottom: 12px;
+    }
+    
+    .form-control,
+    input[type="text"],
+    input[type="email"],
+    input[type="number"],
+    input[type="date"],
+    input[type="tel"],
+    select,
+    textarea {
+        width: 100% !important;
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 12px;
+    }
+    
+    /* Stack form buttons */
+    .form-actions,
+    .modal-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .form-actions button,
+    .modal-buttons button {
+        width: 100%;
+    }
+}
+
+/* FIX 4: TOUCH TARGETS - Minimum 44x44px for better touch UX */
+@media (max-width: 768px) {
+    button,
+    .btn-primary,
+    .btn-secondary,
+    .btn-outline,
+    .btn-danger,
+    .nav-item,
+    a {
+        min-height: 44px;
+        min-width: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Icon buttons */
+    .icon-btn,
+    button i.fas {
+        padding: 12px;
+    }
+    
+    /* Nav items larger touch area */
+    .nav-item {
+        padding: 14px 20px;
+        font-size: 15px;
+    }
+}
+
+/* FIX 5: FLOATING AI BUTTON - Better positioning on mobile */
+@media (max-width: 768px) {
+    .ai-float-btn,
+    #aiAssistantBtn {
+        bottom: 80px !important; /* Move up to avoid bottom nav */
+        right: 16px !important;
+        width: 56px !important;
+        height: 56px !important;
+        font-size: 24px !important;
+    }
+    
+    /* Alert badge positioning */
+    .ai-float-btn .alert-badge {
+        top: -4px !important;
+        right: -4px !important;
+        width: 22px !important;
+        height: 22px !important;
+        font-size: 11px !important;
+    }
+}
+
+/* FIX 6: MODALS - Full screen on mobile for better UX */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        max-height: 90vh;
+        margin: 5vh auto !important;
+        border-radius: 12px;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        padding: 16px;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .modal-body {
+        padding: 16px;
+    }
+}
+
+/* FIX 7: CARDS - Better spacing and padding on mobile */
+@media (max-width: 768px) {
+    .content-card {
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+    }
+    
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
+    }
+    
+    .card-header h2 {
+        font-size: 18px;
+        margin-bottom: 0;
+    }
+    
+    /* Card actions stack on mobile */
+    .card-header > div {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+    }
+    
+    .card-header button {
+        flex: 1;
+    }
+}
+
+/* FIX 8: RESPONSIVE TEXT - Better readability */
+@media (max-width: 768px) {
+    body {
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    h1 { font-size: 24px; }
+    h2 { font-size: 20px; }
+    h3 { font-size: 18px; }
+    h4 { font-size: 16px; }
+    
+    /* Stat cards */
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .stat-value {
+        font-size: 22px;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+    }
+}
+
+/* FIX 9: SCROLLBAR - Better mobile scrolling */
+@media (max-width: 768px) {
+    /* Hide scrollbars but keep functionality */
+    .main-content::-webkit-scrollbar {
+        display: none;
+    }
+    
+    .main-content {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+}
+
+/* FIX 10: TABLET OPTIMIZATIONS (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .content-card {
+        padding: 20px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+}
