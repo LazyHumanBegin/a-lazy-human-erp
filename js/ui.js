@@ -103,6 +103,8 @@ function showSection(sectionId) {
     } else if (sectionId === 'branches') {
         // Ensure branches are initialized and HQ exists when viewing branches section
         if (typeof ensureDefaultHQExists === 'function') ensureDefaultHQExists();
+        // Refresh branch inventory from authoritative source before rendering
+        if (typeof refreshBranchInventory === 'function') refreshBranchInventory();
         if (typeof renderBranches === 'function') renderBranches();
         if (typeof updateBranchStats === 'function') updateBranchStats();
     }

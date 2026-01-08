@@ -2384,6 +2384,15 @@ function processPayment(event) {
             console.warn('⚠️ Stock deduction had issues:', stockResult);
         } else {
             console.log('✅ Stock deducted for sale:', sale.receiptNo);
+            
+            // CRITICAL: Refresh branch inventory display if user is viewing it
+            if (typeof refreshBranchInventory === 'function') {
+                refreshBranchInventory();
+            }
+            // Also sync outlets to ensure consistency
+            if (typeof initializeBranchStockFromProducts === 'function') {
+                setTimeout(() => initializeBranchStockFromProducts(), 100);
+            }
         }
     } else {
         // Fallback to old method if stock-manager not loaded

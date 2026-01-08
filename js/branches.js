@@ -1870,6 +1870,17 @@ function renderBranchInventory() {
 }
 window.renderBranchInventory = renderBranchInventory;
 
+// Refresh branch inventory - called after stock updates from POS/Stock operations
+function refreshBranchInventory() {
+    // Only refresh if branch inventory tab is visible
+    const branchInventoryContent = document.getElementById('branchInventoryContent');
+    if (branchInventoryContent && branchInventoryContent.offsetParent !== null) {
+        console.log('🔄 Refreshing branch inventory display...');
+        renderBranchInventory();
+    }
+}
+window.refreshBranchInventory = refreshBranchInventory;
+
 // ==================== BRANCH REPORTS ====================
 function renderBranchReports() {
     const container = document.getElementById('branchReportsContent');
@@ -2136,7 +2147,19 @@ function updatePOSOutletFilter() {
 
 // ==================== STOCK PER BRANCH ====================
 function getBranchStock(productId, branchId) {
-    // Get stock level for a product at a specific branch
+    // PRIORITY 1: Get stock from product.branchStock (authoritative source)
+    const productList = window.products || (typeof products !== 'undefined' ? products : null);
+    if (productList && productList.length > 0) {
+        const product = productList.find(p => p.id === productId);
+        if (product && product.branchStock && typeof product.branchStock === 'object') {
+            const stock = product.branchStock[branchId];
+            if (typeof stock === 'number') {
+                return stock;
+            }
+        }
+    }
+    
+    // PRIORITY 2: Fallback to localStorage ezcubic_branch_stock
     const stockKey = 'ezcubic_branch_stock';
     const stored = localStorage.getItem(stockKey);
     const branchStock = stored ? JSON.parse(stored) : {};

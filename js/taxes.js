@@ -50,11 +50,19 @@ function updateMalaysianTaxEstimator() {
     let yearIncome = 0;
     let yearExpenses = 0;
     
+    // Validate businessData and transactions exist
+    if (!businessData || !businessData.transactions || !Array.isArray(businessData.transactions)) {
+        console.warn('No transaction data available for tax calculation');
+        businessData = businessData || { transactions: [] };
+    }
+    
     businessData.transactions.forEach(tx => {
+        if (!tx || !tx.date) return; // Skip invalid transactions
         const txDate = parseDateSafe(tx.date);
         if (txDate.getFullYear() === currentYear) {
-            if (tx.type === 'income') yearIncome += tx.amount;
-            else yearExpenses += tx.amount;
+            const amount = parseFloat(tx.amount) || 0;
+            if (tx.type === 'income') yearIncome += amount;
+            else yearExpenses += amount;
         }
     });
     
@@ -189,16 +197,26 @@ function updateMalaysianTaxTable(taxableProfit = 0) {
 function calculatePersonalTax() {
     const bizProfit = getBusinessNetProfit();
     
-    document.getElementById('tax-biz-profit').value = bizProfit.toFixed(2);
+    // Validate DOM elements exist before accessing
+    const bizProfitEl = document.getElementById('tax-biz-profit');
+    const employmentEl = document.getElementById('tax-employment');
+    const zakatEl = document.getElementById('tax-zakat');
+    const epfEl = document.getElementById('relief-epf');
+    const lifeEl = document.getElementById('relief-life');
+    const lifestyleEl = document.getElementById('relief-lifestyle');
+    const medicalEl = document.getElementById('relief-medical');
     
-    const employment = parseFloat(document.getElementById('tax-employment').value) || 0;
-    const zakat = parseFloat(document.getElementById('tax-zakat').value) || 0;
+    if (bizProfitEl) bizProfitEl.value = bizProfit.toFixed(2);
+    
+    // Validate and sanitize inputs with proper defaults
+    const employment = Math.max(0, parseFloat(employmentEl?.value) || 0);
+    const zakat = Math.max(0, parseFloat(zakatEl?.value) || 0);
     
     const reliefIndividual = 9000;
-    const reliefEpf = Math.min(parseFloat(document.getElementById('relief-epf').value) || 0, 4000);
-    const reliefLife = Math.min(parseFloat(document.getElementById('relief-life').value) || 0, 3000);
-    const reliefLifestyle = Math.min(parseFloat(document.getElementById('relief-lifestyle').value) || 0, 2500);
-    const reliefMedical = Math.min(parseFloat(document.getElementById('relief-medical').value) || 0, 10000);
+    const reliefEpf = Math.min(Math.max(0, parseFloat(epfEl?.value) || 0), 4000);
+    const reliefLife = Math.min(Math.max(0, parseFloat(lifeEl?.value) || 0), 3000);
+    const reliefLifestyle = Math.min(Math.max(0, parseFloat(lifestyleEl?.value) || 0), 2500);
+    const reliefMedical = Math.min(Math.max(0, parseFloat(medicalEl?.value) || 0), 10000);
     
     const totalRelief = reliefIndividual + reliefEpf + reliefLife + reliefLifestyle + reliefMedical;
     const grossIncome = bizProfit + employment;
@@ -240,16 +258,26 @@ function calculatePersonalTax() {
     
     const finalTax = Math.max(0, tax - zakat);
     
-    document.getElementById('personal-tax-amount').textContent = finalTax.toFixed(2);
-    document.getElementById('personal-summary-gross').textContent = grossIncome.toFixed(2);
-    document.getElementById('personal-summary-relief').textContent = totalRelief.toFixed(2);
-    document.getElementById('personal-summary-chargeable').textContent = chargeableIncome.toFixed(2);
-    document.getElementById('personal-summary-zakat').textContent = zakat.toFixed(2);
-    document.getElementById('personal-summary-payable').textContent = finalTax.toFixed(2);
+    // Safely update DOM elements with null checks
+    const personalTaxEl = document.getElementById('personal-tax-amount');
+    const grossEl = document.getElementById('personal-summary-gross');
+    const reliefEl = document.getElementById('personal-summary-relief');
+    const chargeableEl = document.getElementById('personal-summary-chargeable');
+    const zakatSummaryEl = document.getElementById('personal-summary-zakat');
+    const payableEl = document.getElementById('personal-summary-payable');
+    const progressEl = document.getElementById('tax-progress');
+    const bracketEl = document.getElementById('bracket-percent');
+    
+    if (personalTaxEl) personalTaxEl.textContent = finalTax.toFixed(2);
+    if (grossEl) grossEl.textContent = grossIncome.toFixed(2);
+    if (reliefEl) reliefEl.textContent = totalRelief.toFixed(2);
+    if (chargeableEl) chargeableEl.textContent = chargeableIncome.toFixed(2);
+    if (zakatSummaryEl) zakatSummaryEl.textContent = zakat.toFixed(2);
+    if (payableEl) payableEl.textContent = finalTax.toFixed(2);
     
     const percent = Math.min(100, (chargeableIncome / 1000000) * 100);
-    document.getElementById('tax-progress').style.width = percent + '%';
-    document.getElementById('bracket-percent').textContent = percent.toFixed(0) + '% to 1M bracket';
+    if (progressEl) progressEl.style.width = percent + '%';
+    if (bracketEl) bracketEl.textContent = percent.toFixed(0) + '% to 1M bracket';
 }
 
 function getBusinessNetProfit() {
@@ -257,11 +285,19 @@ function getBusinessNetProfit() {
     let yearIncome = 0;
     let yearExpenses = 0;
     
+    // Validate businessData exists
+    if (!businessData || !businessData.transactions || !Array.isArray(businessData.transactions)) {
+        console.warn('No transaction data for business profit calculation');
+        return 0;
+    }
+    
     businessData.transactions.forEach(tx => {
+        if (!tx || !tx.date) return; // Skip invalid transactions
         const txDate = parseDateSafe(tx.date);
         if (txDate.getFullYear() === currentYear) {
-            if (tx.type === 'income') yearIncome += tx.amount;
-            else yearExpenses += tx.amount;
+            const amount = parseFloat(tx.amount) || 0;
+            if (tx.type === 'income') yearIncome += amount;
+            else yearExpenses += amount;
         }
     });
     

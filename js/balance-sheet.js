@@ -3,19 +3,29 @@
 
 // ==================== SIMPLE BALANCE SHEET ====================
 function calculateSimpleBalanceSheet() {
-    const transactions = getTransactionsFromStorage();
-    const bills = getBillsFromStorage();
+    const transactions = getTransactionsFromStorage() || [];
+    const bills = getBillsFromStorage() || [];
+    
+    // Validate arrays
+    if (!Array.isArray(transactions)) {
+        console.warn('Invalid transactions data, using empty array');
+        transactions = [];
+    }
+    if (!Array.isArray(bills)) {
+        console.warn('Invalid bills data, using empty array');
+        bills = [];
+    }
     
     const totalIncome = transactions
-        .filter(t => t.type === 'income')
+        .filter(t => t && t.type === 'income' && typeof t.amount === 'number')
         .reduce((sum, t) => sum + t.amount, 0);
     
     const totalExpenses = transactions
-        .filter(t => t.type === 'expense')
+        .filter(t => t && t.type === 'expense' && typeof t.amount === 'number')
         .reduce((sum, t) => sum + t.amount, 0);
     
     const unpaidBills = bills
-        .filter(b => b.status !== 'paid')
+        .filter(b => b && b.status !== 'paid' && typeof b.amount === 'number')
         .reduce((sum, b) => sum + b.amount, 0);
     
     const cashBalance = totalIncome - totalExpenses;
@@ -185,18 +195,31 @@ function displaySimpleBalanceSheet() {
 function updateSimpleBalanceSheet() {
     const simpleBalanceSummary = document.getElementById('simpleBalanceSummary');
     
-    if (!simpleBalanceSummary) return;
+    if (!simpleBalanceSummary) {
+        console.warn('Simple balance summary element not found');
+        return;
+    }
     
-    displaySimpleBalanceSheet();
-    
-    const data = calculateSimpleBalanceSheet();
-    const bsAssets = document.getElementById('bs-assets');
-    const bsLiabilities = document.getElementById('bs-liabilities');
-    const bsEquity = document.getElementById('bs-equity');
-    
-    if (bsAssets) bsAssets.textContent = data.cashBalance.toFixed(2);
-    if (bsLiabilities) bsLiabilities.textContent = data.whatIOwe.toFixed(2);
-    if (bsEquity) bsEquity.textContent = data.netWorth.toFixed(2);
+    try {
+        displaySimpleBalanceSheet();
+        
+        const data = calculateSimpleBalanceSheet();
+        const bsAssets = document.getElementById('bs-assets');
+        const bsLiabilities = document.getElementById('bs-liabilities');
+        const bsEquity = document.getElementById('bs-equity');
+        
+        if (bsAssets) bsAssets.textContent = data.cashBalance.toFixed(2);
+        if (bsLiabilities) bsLiabilities.textContent = data.whatIOwe.toFixed(2);
+        if (bsEquity) bsEquity.textContent = data.netWorth.toFixed(2);
+    } catch (error) {
+        console.error('Error updating simple balance sheet:', error);
+        simpleBalanceSummary.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #ef4444;">
+                <i class="fas fa-exclamation-triangle"></i>
+                <p>Unable to load balance sheet. Please check your data.</p>
+            </div>
+        `;
+    }
 }
 
 function updateBalanceSheet() {
@@ -220,13 +243,21 @@ function updateBalanceSheet() {
     let totalIncome = 0;
     let totalExpenses = 0;
     
+    // Validate businessData exists
+    if (!businessData || !businessData.transactions || !Array.isArray(businessData.transactions)) {
+        console.warn('No transaction data for balance sheet');
+        businessData = businessData || { transactions: [], bills: [] };
+    }
+    
     businessData.transactions.forEach(tx => {
+        if (!tx || !tx.date) return; // Skip invalid transactions
         const txDate = parseDateSafe(tx.date);
         if (txDate <= asOfDate) {
+            const amount = parseFloat(tx.amount) || 0;
             if (tx.type === 'income') {
-                totalIncome += tx.amount;
+                totalIncome += amount;
             } else {
-                totalExpenses += tx.amount;
+                totalExpenses += amount;
             }
         }
     });
@@ -243,11 +274,20 @@ function updateBalanceSheet() {
 
 function calculateTotalLiabilities(asOfDate) {
     let totalLiabilities = 0;
+    
+    // Validate businessData and bills exist
+    if (!businessData || !businessData.bills || !Array.isArray(businessData.bills)) {
+        console.warn('No bills data for liabilities calculation');
+        return 0;
+    }
+    
     businessData.bills.forEach(bill => {
+        if (!bill || !bill.dueDate) return; // Skip invalid bills
         if (bill.status !== 'paid') {
             const dueDate = parseDateSafe(bill.dueDate);
             if (dueDate <= asOfDate) {
-                totalLiabilities += bill.amount;
+                const amount = parseFloat(bill.amount) || 0;
+                totalLiabilities += amount;
             }
         }
     });

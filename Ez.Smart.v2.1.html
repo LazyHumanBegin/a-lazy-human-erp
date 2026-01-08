@@ -410,9 +410,8 @@
                 <!-- Quick Actions - ALL IN ONE LINE -->
                 <div class="top-bar-actions">
                     <!-- Global Smart Search -->
-                    <button onclick="SmartSearch.openSearchModal()" class="btn-icon smart-search-trigger" title="Smart Search (Ctrl+K or ⌘K)">
+                    <button onclick="SmartSearch.openSearchModal()" class="btn-icon smart-search-trigger" title="Smart Search">
                         <i class="fas fa-search"></i>
-                        <span class="search-shortcut-hint">⌘K</span>
                     </button>
                     <!-- Dark Mode Toggle -->
                     <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode">
@@ -4857,7 +4856,8 @@
                         autocomplete="off"
                         spellcheck="false"
                     >
-                    <div class="smart-search-shortcut">
+                    <!-- Shortcut keys hidden for cleaner UI -->
+                    <div class="smart-search-shortcut" style="display: none;">
                         <kbd>ESC</kbd> to close
                     </div>
                 </div>
@@ -6993,22 +6993,22 @@
     <!-- CRITICAL: Load immediately for core functionality -->
     <script src="js/core.js?v=2026109"></script>
     <script src="js/data.js?v=2032040"></script>
-    <script src="js/ui.js?v=2032001"></script>
+    <script src="js/ui.js?v=2032029"></script>
     
     <!-- HIGH PRIORITY: Defer but load early for main features -->
     <script src="js/dashboard.js?v=2032001" defer></script>
     <script src="js/transactions.js?v=2032001" defer></script>
     <script src="js/ai-assistant.js?v=2027001" defer></script>
     <script src="js/chatbot.js?v=2032040" defer></script>
-    <script src="js/smart-search.js?v=2100001" defer></script>
+    <script src="js/smart-search.js?v=2032028" defer></script>
     <script src="js/smart-categorization.js?v=2110001" defer></script>
     
     <!-- MEDIUM PRIORITY: Defer - Load after page interactive -->
     <script src="js/bills.js?v=2032001" defer></script>
     <script src="js/charts.js?v=2032001" defer></script>
     <script src="js/reports.js?v=2032001" defer></script>
-    <script src="js/taxes.js?v=2032001" defer></script>
-    <script src="js/balance-sheet.js?v=2027001" defer></script>
+    <script src="js/taxes.js?v=2032030" defer></script>
+    <script src="js/balance-sheet.js?v=2032030" defer></script>
     <script src="js/pdf-export.js?v=2027001" defer></script>
     
     <!-- Chart of Accounts & Double-Entry -->
@@ -7020,7 +7020,7 @@
     <script src="js/stock-manager.js?v=2026115" defer></script><!-- CENTRAL STOCK CONTROL - Must load first -->
     <script src="js/inventory-new.js?v=2027001" defer></script>
     <script src="js/stock.js?v=2026109" defer></script>
-    <script src="js/pos.js?v=2032025" defer></script>
+    <script src="js/pos.js?v=2032029" defer></script>
     <script src="js/orders.js?v=2027001" defer></script>
     <script src="js/customers.js?v=2032001" defer></script>
     <script src="js/crm.js?v=2032014" defer></script>
@@ -7055,7 +7055,7 @@
     <script src="js/lhdn-export.js?v=2027001"></script>
     
     <!-- Phase 5: Multi-Branch -->
-    <script src="js/branches.js?v=2032040"></script>
+    <script src="js/branches.js?v=2032029"></script>
     
     <!-- Phase 6: Multi-Tenant & User Management -->
     <script src="js/multi-tenant.js?v=2032022"></script>
