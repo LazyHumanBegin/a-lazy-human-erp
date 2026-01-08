@@ -703,8 +703,139 @@ window.stockManager = {
     initializeAll: initializeAllProductsBranchStock,
     calculateTotal: calculateTotalStock,
     recoverOrphaned: recoverOrphanedTransfers,
-    recoverTransfer: recoverSpecificTransfer
+    recoverTransfer: recoverSpecificTransfer,
+    rebuildMovements: rebuildMissingStockMovements
 };
+
+// ==================== REBUILD MISSING STOCK MOVEMENTS ====================
+/**
+ * Rebuild missing stock movements from sales data
+ * SAFE: Only adds missing movements, never overwrites existing
+ */
+function rebuildMissingStockMovements() {
+    console.log('[REBUILD] Starting rebuild of missing stock movements...');
+    
+    var salesData = window.sales || window.businessData?.sales || [];
+    if (!salesData.length) {
+        console.log('[REBUILD] No sales found');
+        return { created: 0, skipped: 0, errors: [] };
+    }
+    
+    // Get existing movement references
+    var existingRefs = {};
+    var movements = window.stockMovements || [];
+    for (var i = 0; i < movements.length; i++) {
+        if (movements[i].reference) {
+            existingRefs[movements[i].reference] = true;
+        }
+    }
+    
+    console.log('[REBUILD] Found ' + salesData.length + ' sales, ' + Object.keys(existingRefs).length + ' existing movements');
+    
+    var created = 0;
+    var skipped = 0;
+    var errors = [];
+    
+    for (var s = 0; s < salesData.length; s++) {
+        var sale = salesData[s];
+        var receiptNo = sale.receiptNo || sale.id;
+        
+        // Skip if movement already exists
+        if (existingRefs[receiptNo]) {
+            skipped++;
+            continue;
+        }
+        
+        // Skip if no items
+        if (!sale.items || sale.items.length === 0) {
+            errors.push({ receipt: receiptNo, error: 'No items' });
+            continue;
+        }
+        
+        // Create movement for each item
+        for (var j = 0; j < sale.items.length; j++) {
+            var item = sale.items[j];
+            var productId = item.productId || item.id;
+            var product = null;
+            
+            // Find product
+            if (window.products) {
+                for (var p = 0; p < window.products.length; p++) {
+                    if (window.products[p].id === productId) {
+                        product = window.products[p];
+                        break;
+                    }
+                }
+            }
+            
+            if (!product) {
+                errors.push({ receipt: receiptNo, productId: productId, error: 'Product not found' });
+                continue;
+            }
+            
+            var branchId = sale.branchId || 'BRANCH_HQ';
+            var qty = -(item.quantity || 1);
+            var currentStock = (product.branchStock && product.branchStock[branchId]) || product.stock || 0;
+            
+            var movement = {
+                id: 'MOV_REBUILD_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                productId: productId,
+                productName: product.name,
+                branchId: branchId,
+                type: 'sale',
+                quantity: qty,
+                quantityChange: qty,
+                previousStock: currentStock - qty,
+                newStock: currentStock,
+                reason: 'sale',
+                reference: receiptNo,
+                notes: '[REBUILT] ' + (sale.customerName || 'Walk-in'),
+                date: sale.date || new Date().toISOString(),
+                timestamp: sale.date || new Date().toISOString(),
+                userId: sale.cashier || 'system'
+            };
+            
+            if (!window.stockMovements) window.stockMovements = [];
+            window.stockMovements.push(movement);
+            created++;
+        }
+        
+        existingRefs[receiptNo] = true;
+    }
+    
+    // Save
+    if (created > 0) {
+        localStorage.setItem(STOCK_MOVEMENTS_KEY, JSON.stringify(window.stockMovements));
+        if (window.businessData) {
+            window.businessData.stockMovements = window.stockMovements;
+        }
+        if (typeof saveToUserTenant === 'function') {
+            saveToUserTenant();
+        }
+    }
+    
+    var result = { created: created, skipped: skipped, total: salesData.length, errors: errors };
+    console.log('[REBUILD] Complete:', JSON.stringify(result));
+    
+    // Refresh UI
+    if (typeof renderStockMovements === 'function') {
+        renderStockMovements();
+    }
+    
+    if (created > 0) {
+        if (typeof showToast === 'function') {
+            showToast('Rebuilt ' + created + ' missing stock movements', 'success');
+        } else {
+            alert('Rebuilt ' + created + ' missing stock movements');
+        }
+    } else {
+        if (typeof showToast === 'function') {
+            showToast('No missing movements found', 'info');
+        }
+    }
+    
+    return result;
+}
 
 // Also expose main functions directly for easy access
 window.updateProductStock = updateProductStock;
@@ -714,8 +845,10 @@ window.batchUpdateStock = batchUpdateStock;
 window.transferStock = transferStock;
 window.recoverOrphanedTransfers = recoverOrphanedTransfers;
 window.recoverSpecificTransfer = recoverSpecificTransfer;
+window.rebuildMissingStockMovements = rebuildMissingStockMovements;
 
-console.log('✅ Stock Manager loaded - SINGLE SOURCE OF TRUTH for all stock operations');
+console.log('[OK] Stock Manager loaded - SINGLE SOURCE OF TRUTH for all stock operations');
 console.log('   Use: updateProductStock(productId, branchId, quantity, reason)');
 console.log('   Use: getAvailableStock(productId, branchId)');
 console.log('   Use: batchUpdateStock(updates, reason, options)');
+console.log('   Use: rebuildMissingStockMovements() - rebuild missing from sales');

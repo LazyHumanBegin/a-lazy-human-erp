@@ -5247,13 +5247,44 @@ async function getAIResponse(message) {
         return { success: true, message: "🧠 I've cleared my memory. Starting fresh!", source: 'memory' };
     }
     
-    // PRE-STEP: Check if user wants predictive insights
-    if (lowerMsg.includes('predict') || lowerMsg.includes('forecast') || lowerMsg.includes('insights') ||
+    // PRE-STEP: Check for proactive alerts
+    if (lowerMsg.includes('any alert') || lowerMsg.includes('show alert') || lowerMsg.includes('check alert') ||
+        lowerMsg.includes('proactive') || lowerMsg.includes('what needs attention') || 
+        lowerMsg.includes('any issues') || lowerMsg.includes('any problems') ||
+        lowerMsg.includes('any warning')) {
+        if (typeof ProactiveAlerts !== 'undefined') {
+            ProactiveAlerts.runAllChecks();
+            var alertsHtml = ProactiveAlerts.getAlertsHTML();
+            return { success: true, message: '<div style="margin-bottom:10px;"><strong>🔔 Proactive Alerts</strong></div>' + alertsHtml, source: 'proactive' };
+        }
+    }
+    
+    // PRE-STEP: Check for smart recommendations
+    if (lowerMsg.includes('recommend') || lowerMsg.includes('suggestion') || lowerMsg.includes('what should i do') ||
+        lowerMsg.includes('advice') || lowerMsg.includes('tips') || lowerMsg.includes('action items') ||
+        lowerMsg.includes('todo') || lowerMsg.includes('to-do') || lowerMsg.includes('next steps')) {
+        if (typeof SmartRecommendations !== 'undefined') {
+            SmartRecommendations.generateAll();
+            var recsHtml = SmartRecommendations.getHTML();
+            return { success: true, message: '<div style="margin-bottom:10px;"><strong>💡 Smart Recommendations</strong></div>' + recsHtml, source: 'recommendations' };
+        }
+    }
+    
+    // PRE-STEP: Check for predictive forecasting
+    if (lowerMsg.includes('forecast') || lowerMsg.includes('predict next') || lowerMsg.includes('next month') ||
+        lowerMsg.includes('future revenue') || lowerMsg.includes('projection') || lowerMsg.includes('estimate next')) {
+        if (typeof PredictiveForecasting !== 'undefined') {
+            var forecastHtml = PredictiveForecasting.getHTML();
+            return { success: true, message: '<div style="margin-bottom:10px;"><strong>🔮 Predictive Forecast</strong></div>' + forecastHtml, source: 'forecast' };
+        }
+    }
+    
+    // PRE-STEP: Check if user wants predictive insights (general)
+    if (lowerMsg.includes('predict') || lowerMsg.includes('insights') ||
         lowerMsg.includes('business health') || lowerMsg.includes('how is my business') ||
         lowerMsg.includes('how\'s my business') || lowerMsg.includes('business doing') ||
         lowerMsg.includes('analyze my') || lowerMsg.includes('analyse my') ||
-        lowerMsg.includes('stock alert') || lowerMsg.includes('what should i') ||
-        lowerMsg.includes('recommendations') || lowerMsg.includes('advice')) {
+        lowerMsg.includes('stock alert')) {
         return { success: true, message: formatPredictiveInsights(), source: 'predictions' };
     }
     

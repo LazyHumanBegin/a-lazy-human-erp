@@ -2833,7 +2833,935 @@ function showQuickGuide(topic) {
     `;
 }
 
+// ==================== ALPHA 6: SMART RECOMMENDATIONS ENGINE ====================
+
+/**
+ * Smart Recommendations - AI suggests specific actions based on business data
+ */
+const SmartRecommendations = {
+    recommendations: [],
+    
+    // Generate all recommendations
+    generateAll: function() {
+        this.recommendations = [];
+        
+        this.checkInventoryActions();
+        this.checkCustomerFollowups();
+        this.checkFinancialActions();
+        this.checkSalesOpportunities();
+        this.checkOperationalEfficiency();
+        
+        // Sort by priority
+        this.recommendations.sort(function(a, b) {
+            var priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
+        });
+        
+        return this.recommendations;
+    },
+    
+    // Inventory-based recommendations
+    checkInventoryActions: function() {
+        var products = JSON.parse(localStorage.getItem('ezcubic_products') || '[]');
+        var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        
+        // Calculate sales velocity for each product
+        var thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        var productSales = {};
+        sales.forEach(function(sale) {
+            if (new Date(sale.date) >= thirtyDaysAgo && sale.items) {
+                sale.items.forEach(function(item) {
+                    productSales[item.productId] = (productSales[item.productId] || 0) + (item.quantity || 1);
+                });
+            }
+        });
+        
+        products.forEach(function(product) {
+            var stock = product.quantity || 0;
+            var reorderLevel = product.reorderLevel || 10;
+            var monthlySales = productSales[product.id] || 0;
+            var daysOfStock = monthlySales > 0 ? Math.round((stock / monthlySales) * 30) : 999;
+            
+            // Recommend reorder
+            if (stock <= reorderLevel && stock > 0) {
+                var suggestedQty = Math.max(reorderLevel * 2, monthlySales * 2);
+                SmartRecommendations.recommendations.push({
+                    type: 'REORDER',
+                    icon: 'fa-shopping-cart',
+                    color: '#f59e0b',
+                    priority: 'high',
+                    title: 'Reorder ' + product.name,
+                    message: 'Only ' + stock + ' left (reorder point: ' + reorderLevel + '). Suggest ordering ' + Math.round(suggestedQty) + ' units.',
+                    action: 'showSection(\'inventory\')',
+                    actionText: 'Go to Inventory'
+                });
+            }
+            
+            // Recommend clearance for slow-moving stock
+            if (stock > 50 && monthlySales < 3 && daysOfStock > 180) {
+                SmartRecommendations.recommendations.push({
+                    type: 'CLEARANCE',
+                    icon: 'fa-percentage',
+                    color: '#8b5cf6',
+                    priority: 'medium',
+                    title: 'Consider Discount on ' + product.name,
+                    message: stock + ' units in stock but only ' + monthlySales + ' sold last month. Consider a promotion.',
+                    action: 'showSection(\'inventory\')',
+                    actionText: 'View Product'
+                });
+            }
+        });
+    },
+    
+    // Customer follow-up recommendations
+    checkCustomerFollowups: function() {
+        var customers = JSON.parse(localStorage.getItem('ezcubic_customers') || '[]');
+        var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        var invoices = JSON.parse(localStorage.getItem('ezcubic_invoices') || '[]');
+        
+        var sixtyDaysAgo = new Date();
+        sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+        
+        // Find customers with overdue invoices
+        invoices.forEach(function(inv) {
+            if (inv.status === 'overdue' || (inv.status !== 'paid' && new Date(inv.dueDate) < new Date())) {
+                var customer = customers.find(function(c) { return c.id === inv.customerId; });
+                var customerName = customer ? customer.name : 'Customer';
+                var daysOverdue = Math.floor((new Date() - new Date(inv.dueDate)) / (1000 * 60 * 60 * 24));
+                
+                SmartRecommendations.recommendations.push({
+                    type: 'FOLLOW_UP',
+                    icon: 'fa-phone',
+                    color: '#ef4444',
+                    priority: daysOverdue > 30 ? 'critical' : 'high',
+                    title: 'Follow up with ' + customerName,
+                    message: 'Invoice ' + inv.invoiceNo + ' is ' + daysOverdue + ' days overdue (RM ' + (inv.total || 0).toFixed(2) + ')',
+                    action: 'showSection(\'crm\')',
+                    actionText: 'Open CRM'
+                });
+            }
+        });
+        
+        // Find inactive valuable customers
+        customers.forEach(function(customer) {
+            var customerSales = sales.filter(function(s) { return s.customerId === customer.id; });
+            var totalSpent = customerSales.reduce(function(sum, s) { return sum + (s.total || 0); }, 0);
+            var lastSale = customerSales.sort(function(a, b) { return new Date(b.date) - new Date(a.date); })[0];
+            
+            if (totalSpent > 5000 && lastSale && new Date(lastSale.date) < sixtyDaysAgo) {
+                SmartRecommendations.recommendations.push({
+                    type: 'REACTIVATE',
+                    icon: 'fa-user-clock',
+                    color: '#3b82f6',
+                    priority: 'medium',
+                    title: 'Re-engage ' + customer.name,
+                    message: 'Valuable customer (RM ' + totalSpent.toFixed(0) + ' total) hasn\'t purchased in 60+ days.',
+                    action: 'showSection(\'crm\')',
+                    actionText: 'View Customer'
+                });
+            }
+        });
+    },
+    
+    // Financial action recommendations
+    checkFinancialActions: function() {
+        var transactions = JSON.parse(localStorage.getItem('ezcubic_transactions') || '[]');
+        var bills = JSON.parse(localStorage.getItem('ezcubic_bills') || '[]');
+        
+        // Check for upcoming bills
+        var nextWeek = new Date();
+        nextWeek.setDate(nextWeek.getDate() + 7);
+        
+        var upcomingBills = bills.filter(function(bill) {
+            return bill.status !== 'paid' && new Date(bill.dueDate) <= nextWeek && new Date(bill.dueDate) >= new Date();
+        });
+        
+        if (upcomingBills.length > 0) {
+            var totalDue = upcomingBills.reduce(function(sum, b) { return sum + (b.amount || 0); }, 0);
+            SmartRecommendations.recommendations.push({
+                type: 'PAY_BILLS',
+                icon: 'fa-file-invoice-dollar',
+                color: '#f59e0b',
+                priority: 'high',
+                title: 'Pay ' + upcomingBills.length + ' Bills This Week',
+                message: 'Total RM ' + totalDue.toFixed(2) + ' due within 7 days.',
+                action: 'showSection(\'bills\')',
+                actionText: 'View Bills'
+            });
+        }
+        
+        // Check for uncategorized transactions
+        var uncategorized = transactions.filter(function(t) { 
+            return !t.category || t.category === '' || t.category === 'Uncategorized'; 
+        });
+        
+        if (uncategorized.length >= 5) {
+            SmartRecommendations.recommendations.push({
+                type: 'CATEGORIZE',
+                icon: 'fa-tags',
+                color: '#8b5cf6',
+                priority: 'low',
+                title: 'Categorize ' + uncategorized.length + ' Transactions',
+                message: 'Keep your books clean for easier tax filing.',
+                action: 'showSection(\'transactions\')',
+                actionText: 'Categorize Now'
+            });
+        }
+    },
+    
+    // Sales opportunity recommendations
+    checkSalesOpportunities: function() {
+        var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        var quotations = JSON.parse(localStorage.getItem('ezcubic_quotations') || '[]');
+        
+        // Check for pending quotations
+        var pendingQuotes = quotations.filter(function(q) { 
+            return q.status === 'pending' || q.status === 'sent'; 
+        });
+        
+        var oldQuotes = pendingQuotes.filter(function(q) {
+            var daysSent = Math.floor((new Date() - new Date(q.date)) / (1000 * 60 * 60 * 24));
+            return daysSent > 7;
+        });
+        
+        if (oldQuotes.length > 0) {
+            var totalValue = oldQuotes.reduce(function(sum, q) { return sum + (q.total || 0); }, 0);
+            SmartRecommendations.recommendations.push({
+                type: 'FOLLOW_QUOTE',
+                icon: 'fa-file-alt',
+                color: '#10b981',
+                priority: 'medium',
+                title: 'Follow Up on ' + oldQuotes.length + ' Quotations',
+                message: 'RM ' + totalValue.toFixed(2) + ' in quotes pending over 7 days.',
+                action: 'showSection(\'quotations\')',
+                actionText: 'View Quotations'
+            });
+        }
+    },
+    
+    // Operational efficiency recommendations
+    checkOperationalEfficiency: function() {
+        var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        
+        // Analyze best selling days
+        var dayStats = {};
+        sales.forEach(function(sale) {
+            var day = new Date(sale.date).toLocaleDateString('en-US', { weekday: 'long' });
+            dayStats[day] = (dayStats[day] || 0) + (sale.total || 0);
+        });
+        
+        var bestDay = Object.keys(dayStats).reduce(function(a, b) { 
+            return dayStats[a] > dayStats[b] ? a : b; 
+        }, 'Monday');
+        
+        var worstDay = Object.keys(dayStats).reduce(function(a, b) { 
+            return dayStats[a] < dayStats[b] ? a : b; 
+        }, 'Monday');
+        
+        if (Object.keys(dayStats).length >= 5 && dayStats[bestDay] > dayStats[worstDay] * 3) {
+            SmartRecommendations.recommendations.push({
+                type: 'OPTIMIZE',
+                icon: 'fa-lightbulb',
+                color: '#f59e0b',
+                priority: 'low',
+                title: 'Optimize ' + worstDay + ' Sales',
+                message: bestDay + ' sales are 3x higher. Consider promotions on ' + worstDay + '.',
+                action: null,
+                actionText: null
+            });
+        }
+    },
+    
+    // Get recommendations HTML
+    getHTML: function() {
+        if (this.recommendations.length === 0) {
+            this.generateAll();
+        }
+        
+        if (this.recommendations.length === 0) {
+            return '<div style="text-align:center;padding:20px;color:#94a3b8;"><i class="fas fa-check-circle" style="font-size:24px;margin-bottom:10px;display:block;color:#10b981;"></i>No recommendations right now. You\'re doing great!</div>';
+        }
+        
+        var html = '<div style="margin-bottom:10px;color:#94a3b8;font-size:13px;">' + this.recommendations.length + ' suggestions based on your data:</div>';
+        
+        for (var i = 0; i < Math.min(this.recommendations.length, 5); i++) {
+            var rec = this.recommendations[i];
+            html += '<div style="background:rgba(30,41,59,0.8);border-left:4px solid ' + rec.color + ';padding:12px;margin-bottom:8px;border-radius:8px;">';
+            html += '<div style="display:flex;align-items:flex-start;gap:10px;">';
+            html += '<i class="fas ' + rec.icon + '" style="color:' + rec.color + ';margin-top:2px;"></i>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-weight:600;color:white;margin-bottom:3px;">' + rec.title + '</div>';
+            html += '<div style="color:#94a3b8;font-size:12px;">' + rec.message + '</div>';
+            if (rec.action) {
+                html += '<button onclick="' + rec.action + '" style="margin-top:8px;background:' + rec.color + ';color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-size:12px;">' + rec.actionText + '</button>';
+            }
+            html += '</div></div></div>';
+        }
+        
+        return html;
+    }
+};
+
+// ==================== ALPHA 6: PREDICTIVE FORECASTING ENGINE ====================
+
+/**
+ * Predictive Forecasting - Predict future revenue and expenses
+ */
+const PredictiveForecasting = {
+    
+    // Calculate monthly totals from transactions
+    getMonthlyData: function() {
+        var transactions = JSON.parse(localStorage.getItem('ezcubic_transactions') || '[]');
+        var sales = JSON.parse(localStorage.getItem('ezcubic_sales') || '[]');
+        
+        var monthlyData = {};
+        
+        // Process transactions (expenses)
+        transactions.forEach(function(t) {
+            var date = new Date(t.date);
+            var monthKey = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+            
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = { income: 0, expenses: 0, sales: 0 };
+            }
+            
+            if (t.type === 'income') {
+                monthlyData[monthKey].income += t.amount || 0;
+            } else {
+                monthlyData[monthKey].expenses += t.amount || 0;
+            }
+        });
+        
+        // Process sales
+        sales.forEach(function(s) {
+            var date = new Date(s.date);
+            var monthKey = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+            
+            if (!monthlyData[monthKey]) {
+                monthlyData[monthKey] = { income: 0, expenses: 0, sales: 0 };
+            }
+            
+            monthlyData[monthKey].sales += s.total || 0;
+        });
+        
+        return monthlyData;
+    },
+    
+    // Simple linear regression for prediction
+    linearRegression: function(data) {
+        var n = data.length;
+        if (n < 2) return { slope: 0, intercept: data[0] || 0 };
+        
+        var sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+        
+        for (var i = 0; i < n; i++) {
+            sumX += i;
+            sumY += data[i];
+            sumXY += i * data[i];
+            sumX2 += i * i;
+        }
+        
+        var slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        var intercept = (sumY - slope * sumX) / n;
+        
+        return { slope: slope || 0, intercept: intercept || 0 };
+    },
+    
+    // Generate forecast
+    generateForecast: function() {
+        var monthlyData = this.getMonthlyData();
+        var months = Object.keys(monthlyData).sort();
+        
+        if (months.length < 2) {
+            return {
+                hasData: false,
+                message: 'Need at least 2 months of data for forecasting'
+            };
+        }
+        
+        // Get last 6 months or all available
+        var recentMonths = months.slice(-6);
+        
+        var salesData = recentMonths.map(function(m) { return monthlyData[m].sales + monthlyData[m].income; });
+        var expenseData = recentMonths.map(function(m) { return monthlyData[m].expenses; });
+        
+        // Calculate trends
+        var salesTrend = this.linearRegression(salesData);
+        var expenseTrend = this.linearRegression(expenseData);
+        
+        // Predict next month
+        var nextIndex = salesData.length;
+        var predictedSales = Math.max(0, salesTrend.slope * nextIndex + salesTrend.intercept);
+        var predictedExpenses = Math.max(0, expenseTrend.slope * nextIndex + expenseTrend.intercept);
+        var predictedProfit = predictedSales - predictedExpenses;
+        
+        // Calculate averages
+        var avgSales = salesData.reduce(function(a, b) { return a + b; }, 0) / salesData.length;
+        var avgExpenses = expenseData.reduce(function(a, b) { return a + b; }, 0) / expenseData.length;
+        
+        // Determine trend direction
+        var salesTrendDir = salesTrend.slope > avgSales * 0.05 ? 'up' : 
+                          salesTrend.slope < -avgSales * 0.05 ? 'down' : 'stable';
+        var expenseTrendDir = expenseTrend.slope > avgExpenses * 0.05 ? 'up' : 
+                            expenseTrend.slope < -avgExpenses * 0.05 ? 'down' : 'stable';
+        
+        // Calculate confidence (based on data consistency)
+        var salesVariance = 0;
+        for (var i = 0; i < salesData.length; i++) {
+            salesVariance += Math.pow(salesData[i] - avgSales, 2);
+        }
+        var salesStdDev = Math.sqrt(salesVariance / salesData.length);
+        var confidence = Math.max(30, Math.min(90, 90 - (salesStdDev / avgSales) * 100));
+        
+        // Next month name
+        var lastMonth = new Date(months[months.length - 1] + '-01');
+        lastMonth.setMonth(lastMonth.getMonth() + 1);
+        var nextMonthName = lastMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        return {
+            hasData: true,
+            nextMonth: nextMonthName,
+            predictedRevenue: predictedSales,
+            predictedExpenses: predictedExpenses,
+            predictedProfit: predictedProfit,
+            revenueTrend: salesTrendDir,
+            expenseTrend: expenseTrendDir,
+            confidence: Math.round(confidence),
+            monthsAnalyzed: recentMonths.length,
+            avgRevenue: avgSales,
+            avgExpenses: avgExpenses,
+            revenueGrowth: avgSales > 0 ? ((salesTrend.slope / avgSales) * 100).toFixed(1) : 0
+        };
+    },
+    
+    // Get forecast HTML
+    getHTML: function() {
+        var forecast = this.generateForecast();
+        
+        if (!forecast.hasData) {
+            return '<div style="text-align:center;padding:20px;color:#94a3b8;"><i class="fas fa-chart-line" style="font-size:24px;margin-bottom:10px;display:block;"></i>' + forecast.message + '</div>';
+        }
+        
+        var trendIcon = function(dir) {
+            if (dir === 'up') return '<i class="fas fa-arrow-up" style="color:#10b981;"></i>';
+            if (dir === 'down') return '<i class="fas fa-arrow-down" style="color:#ef4444;"></i>';
+            return '<i class="fas fa-minus" style="color:#94a3b8;"></i>';
+        };
+        
+        var profitColor = forecast.predictedProfit >= 0 ? '#10b981' : '#ef4444';
+        
+        var html = '<div style="background:linear-gradient(135deg,rgba(59,130,246,0.2),rgba(139,92,246,0.2));border-radius:12px;padding:15px;margin-bottom:15px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+        html += '<span style="font-weight:600;color:white;"><i class="fas fa-crystal-ball" style="margin-right:8px;"></i>Forecast: ' + forecast.nextMonth + '</span>';
+        html += '<span style="background:rgba(255,255,255,0.2);padding:3px 8px;border-radius:12px;font-size:11px;color:#e2e8f0;">' + forecast.confidence + '% confidence</span>';
+        html += '</div>';
+        
+        html += '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">';
+        
+        // Revenue
+        html += '<div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;text-align:center;">';
+        html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">Revenue ' + trendIcon(forecast.revenueTrend) + '</div>';
+        html += '<div style="color:#10b981;font-weight:600;">RM ' + forecast.predictedRevenue.toFixed(0) + '</div>';
+        html += '</div>';
+        
+        // Expenses
+        html += '<div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;text-align:center;">';
+        html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">Expenses ' + trendIcon(forecast.expenseTrend) + '</div>';
+        html += '<div style="color:#f59e0b;font-weight:600;">RM ' + forecast.predictedExpenses.toFixed(0) + '</div>';
+        html += '</div>';
+        
+        // Profit
+        html += '<div style="background:rgba(0,0,0,0.2);padding:10px;border-radius:8px;text-align:center;">';
+        html += '<div style="color:#94a3b8;font-size:11px;margin-bottom:4px;">Est. Profit</div>';
+        html += '<div style="color:' + profitColor + ';font-weight:600;">RM ' + forecast.predictedProfit.toFixed(0) + '</div>';
+        html += '</div>';
+        
+        html += '</div>';
+        
+        // Growth indicator
+        if (forecast.revenueGrowth != 0) {
+            var growthColor = forecast.revenueGrowth > 0 ? '#10b981' : '#ef4444';
+            var growthIcon = forecast.revenueGrowth > 0 ? 'fa-trending-up' : 'fa-trending-down';
+            html += '<div style="margin-top:10px;padding:8px;background:rgba(0,0,0,0.2);border-radius:6px;text-align:center;">';
+            html += '<span style="color:' + growthColor + ';font-size:12px;"><i class="fas ' + growthIcon + '" style="margin-right:5px;"></i>';
+            html += (forecast.revenueGrowth > 0 ? '+' : '') + forecast.revenueGrowth + '% monthly growth trend</span>';
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
+        html += '<div style="color:#64748b;font-size:11px;text-align:center;">Based on ' + forecast.monthsAnalyzed + ' months of data</div>';
+        
+        return html;
+    }
+};
+
+// Expose globally
+window.SmartRecommendations = SmartRecommendations;
+window.PredictiveForecasting = PredictiveForecasting;
+
+// ==================== ALPHA 6: PROACTIVE ALERTS & ANOMALY DETECTION ====================
+
+/**
+ * Proactive AI Alert System
+ * Automatically detects issues and opportunities, notifies user
+ */
+const ProactiveAlerts = {
+    // Alert types and their configs
+    alertTypes: {
+        LOW_STOCK: { icon: 'fa-box', color: '#f59e0b', priority: 'high' },
+        SALES_DROP: { icon: 'fa-chart-line-down', color: '#ef4444', priority: 'high' },
+        SALES_SPIKE: { icon: 'fa-chart-line', color: '#10b981', priority: 'medium' },
+        OVERDUE_INVOICE: { icon: 'fa-file-invoice-dollar', color: '#ef4444', priority: 'high' },
+        UNUSUAL_EXPENSE: { icon: 'fa-exclamation-triangle', color: '#f59e0b', priority: 'high' },
+        CASH_FLOW_WARNING: { icon: 'fa-money-bill-wave', color: '#ef4444', priority: 'critical' },
+        REORDER_REMINDER: { icon: 'fa-shopping-cart', color: '#3b82f6', priority: 'medium' },
+        TOP_CUSTOMER: { icon: 'fa-star', color: '#10b981', priority: 'low' },
+        PROFIT_MILESTONE: { icon: 'fa-trophy', color: '#10b981', priority: 'low' }
+    },
+    
+    // Store for detected alerts
+    activeAlerts: [],
+    dismissedAlerts: JSON.parse(localStorage.getItem('ezcubic_dismissed_alerts') || '[]'),
+    lastCheck: null,
+    
+    // Run all checks
+    runAllChecks: function() {
+        console.log('[AI PROACTIVE] Running all alert checks...');
+        this.activeAlerts = [];
+        
+        this.checkLowStock();
+        this.checkSalesTrend();
+        this.checkOverdueInvoices();
+        this.checkUnusualExpenses();
+        this.checkCashFlow();
+        this.checkProfitMilestones();
+        this.checkTopCustomers();
+        
+        this.lastCheck = new Date().toISOString();
+        this.showAlertNotifications();
+        
+        console.log('[AI PROACTIVE] Found', this.activeAlerts.length, 'alerts');
+        return this.activeAlerts;
+    },
+    
+    // Check for low stock items
+    checkLowStock: function() {
+        var products = window.products || [];
+        var lowStockItems = [];
+        
+        for (var i = 0; i < products.length; i++) {
+            var p = products[i];
+            var minStock = p.minStock || p.reorderLevel || 10;
+            if (p.stock <= minStock && p.stock > 0) {
+                lowStockItems.push(p.name + ' (' + p.stock + ' left)');
+            } else if (p.stock === 0) {
+                lowStockItems.push(p.name + ' (OUT OF STOCK!)');
+            }
+        }
+        
+        if (lowStockItems.length > 0) {
+            this.addAlert('LOW_STOCK', 
+                'Low Stock Alert: ' + lowStockItems.length + ' items need attention',
+                lowStockItems.slice(0, 5).join(', ') + (lowStockItems.length > 5 ? '...' : ''),
+                { items: lowStockItems }
+            );
+        }
+    },
+    
+    // Check sales trend (compare this week vs last week)
+    checkSalesTrend: function() {
+        var sales = window.sales || [];
+        var now = new Date();
+        var thisWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        var lastWeekStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+        
+        var thisWeekSales = 0;
+        var lastWeekSales = 0;
+        
+        for (var i = 0; i < sales.length; i++) {
+            var saleDate = new Date(sales[i].date);
+            var amount = sales[i].total || 0;
+            
+            if (saleDate >= thisWeekStart) {
+                thisWeekSales += amount;
+            } else if (saleDate >= lastWeekStart && saleDate < thisWeekStart) {
+                lastWeekSales += amount;
+            }
+        }
+        
+        if (lastWeekSales > 0) {
+            var change = ((thisWeekSales - lastWeekSales) / lastWeekSales) * 100;
+            
+            if (change <= -20) {
+                this.addAlert('SALES_DROP',
+                    'Sales Down ' + Math.abs(change).toFixed(0) + '% This Week',
+                    'This week: RM' + thisWeekSales.toFixed(0) + ' vs Last week: RM' + lastWeekSales.toFixed(0) + '. Consider running a promotion!',
+                    { thisWeek: thisWeekSales, lastWeek: lastWeekSales, change: change }
+                );
+            } else if (change >= 30) {
+                this.addAlert('SALES_SPIKE',
+                    'Great News! Sales Up ' + change.toFixed(0) + '%',
+                    'This week: RM' + thisWeekSales.toFixed(0) + ' vs Last week: RM' + lastWeekSales.toFixed(0) + '. Keep it up!',
+                    { thisWeek: thisWeekSales, lastWeek: lastWeekSales, change: change }
+                );
+            }
+        }
+    },
+    
+    // Check overdue invoices
+    checkOverdueInvoices: function() {
+        var invoices = window.invoices || [];
+        var sales = window.sales || [];
+        var overdue = [];
+        var now = new Date();
+        
+        // Check invoices
+        for (var i = 0; i < invoices.length; i++) {
+            var inv = invoices[i];
+            if (inv.status === 'unpaid' || inv.status === 'pending') {
+                var dueDate = new Date(inv.dueDate || inv.date);
+                if (dueDate < now) {
+                    overdue.push((inv.invoiceNo || inv.id) + ' - RM' + (inv.total || 0).toFixed(0));
+                }
+            }
+        }
+        
+        // Check credit sales
+        for (var j = 0; j < sales.length; j++) {
+            var sale = sales[j];
+            if (sale.isCredit && sale.status !== 'paid') {
+                var saleDueDate = new Date(sale.dueDate || sale.date);
+                if (saleDueDate < now) {
+                    overdue.push((sale.receiptNo || sale.id) + ' - RM' + (sale.total || 0).toFixed(0));
+                }
+            }
+        }
+        
+        if (overdue.length > 0) {
+            this.addAlert('OVERDUE_INVOICE',
+                overdue.length + ' Overdue Payment' + (overdue.length > 1 ? 's' : ''),
+                'Follow up on: ' + overdue.slice(0, 3).join(', ') + (overdue.length > 3 ? '...' : ''),
+                { invoices: overdue }
+            );
+        }
+    },
+    
+    // Anomaly Detection: Check for unusual expenses
+    checkUnusualExpenses: function() {
+        var transactions = window.businessData?.transactions || window.transactions || [];
+        var now = new Date();
+        var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        // Calculate average expense by category
+        var categoryTotals = {};
+        var categoryCounts = {};
+        var recentExpenses = [];
+        
+        for (var i = 0; i < transactions.length; i++) {
+            var t = transactions[i];
+            if (t.type === 'expense') {
+                var cat = t.category || 'Other';
+                var amt = Math.abs(t.amount || 0);
+                var tDate = new Date(t.date);
+                
+                if (!categoryTotals[cat]) {
+                    categoryTotals[cat] = 0;
+                    categoryCounts[cat] = 0;
+                }
+                categoryTotals[cat] += amt;
+                categoryCounts[cat]++;
+                
+                if (tDate >= thirtyDaysAgo) {
+                    recentExpenses.push({ category: cat, amount: amt, description: t.description, date: t.date });
+                }
+            }
+        }
+        
+        // Find unusual (>2x average) recent expenses
+        var unusual = [];
+        for (var j = 0; j < recentExpenses.length; j++) {
+            var exp = recentExpenses[j];
+            var avgForCategory = categoryTotals[exp.category] / Math.max(categoryCounts[exp.category], 1);
+            
+            if (exp.amount > avgForCategory * 2 && exp.amount > 500) {
+                unusual.push('RM' + exp.amount.toFixed(0) + ' ' + exp.category + ' (' + (exp.description || 'No description').substring(0, 30) + ')');
+            }
+        }
+        
+        if (unusual.length > 0) {
+            this.addAlert('UNUSUAL_EXPENSE',
+                'Unusual Expense Detected',
+                unusual[0] + ' is higher than your average. Please verify this is correct.',
+                { expenses: unusual }
+            );
+        }
+    },
+    
+    // Check cash flow projection
+    checkCashFlow: function() {
+        var transactions = window.businessData?.transactions || window.transactions || [];
+        var now = new Date();
+        var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        var income30d = 0;
+        var expense30d = 0;
+        
+        for (var i = 0; i < transactions.length; i++) {
+            var t = transactions[i];
+            var tDate = new Date(t.date);
+            
+            if (tDate >= thirtyDaysAgo) {
+                if (t.type === 'income') {
+                    income30d += Math.abs(t.amount || 0);
+                } else if (t.type === 'expense') {
+                    expense30d += Math.abs(t.amount || 0);
+                }
+            }
+        }
+        
+        var netCashFlow = income30d - expense30d;
+        
+        if (netCashFlow < 0 && Math.abs(netCashFlow) > 1000) {
+            this.addAlert('CASH_FLOW_WARNING',
+                'Cash Flow Warning',
+                'You spent RM' + Math.abs(netCashFlow).toFixed(0) + ' more than you earned this month. Review expenses or boost sales.',
+                { income: income30d, expense: expense30d, net: netCashFlow }
+            );
+        }
+    },
+    
+    // Check profit milestones
+    checkProfitMilestones: function() {
+        var transactions = window.businessData?.transactions || window.transactions || [];
+        var totalIncome = 0;
+        var totalExpense = 0;
+        
+        for (var i = 0; i < transactions.length; i++) {
+            var t = transactions[i];
+            if (t.type === 'income') {
+                totalIncome += Math.abs(t.amount || 0);
+            } else if (t.type === 'expense') {
+                totalExpense += Math.abs(t.amount || 0);
+            }
+        }
+        
+        var totalProfit = totalIncome - totalExpense;
+        var milestones = [10000, 50000, 100000, 500000, 1000000];
+        
+        for (var j = 0; j < milestones.length; j++) {
+            var milestone = milestones[j];
+            var prevMilestone = milestones[j - 1] || 0;
+            
+            if (totalProfit >= milestone && totalProfit < milestone * 1.1) {
+                this.addAlert('PROFIT_MILESTONE',
+                    'Congratulations! Profit Milestone Reached',
+                    'Your total profit has reached RM' + milestone.toLocaleString() + '! Keep up the great work!',
+                    { profit: totalProfit, milestone: milestone }
+                );
+                break;
+            }
+        }
+    },
+    
+    // Check top customers
+    checkTopCustomers: function() {
+        var sales = window.sales || [];
+        var customerSpend = {};
+        var now = new Date();
+        var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        
+        for (var i = 0; i < sales.length; i++) {
+            var sale = sales[i];
+            var saleDate = new Date(sale.date);
+            
+            if (saleDate >= thirtyDaysAgo && sale.customerName && sale.customerName !== 'Walk-in') {
+                if (!customerSpend[sale.customerName]) {
+                    customerSpend[sale.customerName] = 0;
+                }
+                customerSpend[sale.customerName] += sale.total || 0;
+            }
+        }
+        
+        // Find top customer
+        var topCustomer = null;
+        var topAmount = 0;
+        for (var name in customerSpend) {
+            if (customerSpend[name] > topAmount) {
+                topAmount = customerSpend[name];
+                topCustomer = name;
+            }
+        }
+        
+        if (topCustomer && topAmount > 1000) {
+            this.addAlert('TOP_CUSTOMER',
+                'Top Customer This Month',
+                topCustomer + ' spent RM' + topAmount.toFixed(0) + ' this month. Consider sending a thank you!',
+                { customer: topCustomer, amount: topAmount }
+            );
+        }
+    },
+    
+    // Add alert to active list
+    addAlert: function(type, title, message, data) {
+        var alertId = type + '_' + Date.now();
+        
+        // Check if dismissed
+        if (this.dismissedAlerts.indexOf(type) >= 0) {
+            return;
+        }
+        
+        this.activeAlerts.push({
+            id: alertId,
+            type: type,
+            title: title,
+            message: message,
+            data: data,
+            config: this.alertTypes[type],
+            timestamp: new Date().toISOString()
+        });
+    },
+    
+    // Show notification badge
+    showAlertNotifications: function() {
+        var highPriorityCount = 0;
+        for (var i = 0; i < this.activeAlerts.length; i++) {
+            var alert = this.activeAlerts[i];
+            if (alert.config.priority === 'high' || alert.config.priority === 'critical') {
+                highPriorityCount++;
+            }
+        }
+        
+        // Update AI button badge if exists
+        var aiBtn = document.querySelector('.ai-float-btn, #aiAssistantBtn');
+        if (aiBtn && highPriorityCount > 0) {
+            var badge = aiBtn.querySelector('.alert-badge');
+            if (!badge) {
+                badge = document.createElement('span');
+                badge.className = 'alert-badge';
+                badge.style.cssText = 'position:absolute;top:-5px;right:-5px;background:#ef4444;color:white;border-radius:50%;width:20px;height:20px;font-size:12px;display:flex;align-items:center;justify-content:center;';
+                aiBtn.style.position = 'relative';
+                aiBtn.appendChild(badge);
+            }
+            badge.textContent = highPriorityCount;
+        }
+    },
+    
+    // Dismiss an alert type
+    dismissAlert: function(type) {
+        this.dismissedAlerts.push(type);
+        localStorage.setItem('ezcubic_dismissed_alerts', JSON.stringify(this.dismissedAlerts));
+        this.activeAlerts = this.activeAlerts.filter(function(a) { return a.type !== type; });
+        this.showAlertNotifications();
+    },
+    
+    // Clear all dismissed
+    resetDismissed: function() {
+        this.dismissedAlerts = [];
+        localStorage.removeItem('ezcubic_dismissed_alerts');
+    },
+    
+    // Get alerts HTML for display
+    getAlertsHTML: function() {
+        if (this.activeAlerts.length === 0) {
+            return '<div style="text-align:center;padding:20px;color:#94a3b8;"><i class="fas fa-check-circle" style="font-size:24px;margin-bottom:10px;display:block;color:#10b981;"></i>All clear! No alerts right now.</div>';
+        }
+        
+        var html = '';
+        for (var i = 0; i < this.activeAlerts.length; i++) {
+            var alert = this.activeAlerts[i];
+            var priorityColor = alert.config.priority === 'critical' ? '#ef4444' : 
+                               alert.config.priority === 'high' ? '#f59e0b' : '#3b82f6';
+            
+            html += '<div class="proactive-alert" style="background:rgba(30,41,59,0.8);border-left:4px solid ' + alert.config.color + ';padding:15px;margin-bottom:10px;border-radius:8px;">';
+            html += '<div style="display:flex;align-items:flex-start;gap:12px;">';
+            html += '<i class="fas ' + alert.config.icon + '" style="color:' + alert.config.color + ';font-size:20px;margin-top:2px;"></i>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-weight:600;color:white;margin-bottom:5px;">' + alert.title + '</div>';
+            html += '<div style="color:#94a3b8;font-size:13px;">' + alert.message + '</div>';
+            html += '</div>';
+            html += '<button onclick="ProactiveAlerts.dismissAlert(\'' + alert.type + '\')" style="background:none;border:none;color:#64748b;cursor:pointer;padding:5px;" title="Dismiss"><i class="fas fa-times"></i></button>';
+            html += '</div></div>';
+        }
+        
+        return html;
+    },
+    
+    // Render alerts to dashboard panel (light theme)
+    renderDashboardPanel: function() {
+        var panel = document.getElementById('proactiveAlertsPanel');
+        var badge = document.getElementById('alertsBadge');
+        if (!panel) return;
+        
+        if (this.activeAlerts.length === 0) {
+            panel.innerHTML = '<div style="text-align:center;padding:30px;color:#64748b;"><i class="fas fa-check-circle" style="font-size:32px;margin-bottom:10px;display:block;color:#10b981;"></i><strong>All Clear!</strong><br><small>No alerts at this time. Alpha is watching your business.</small></div>';
+            if (badge) badge.style.display = 'none';
+            return;
+        }
+        
+        // Update badge
+        if (badge) {
+            badge.textContent = this.activeAlerts.length;
+            badge.style.display = 'inline-block';
+        }
+        
+        var html = '';
+        for (var i = 0; i < this.activeAlerts.length; i++) {
+            var alert = this.activeAlerts[i];
+            var bgColor = alert.config.priority === 'critical' ? 'rgba(239,68,68,0.1)' : 
+                         alert.config.priority === 'high' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)';
+            
+            html += '<div class="proactive-alert-item" style="background:' + bgColor + ';border-left:4px solid ' + alert.config.color + ';padding:12px 15px;margin-bottom:10px;border-radius:8px;">';
+            html += '<div style="display:flex;align-items:flex-start;gap:12px;">';
+            html += '<i class="fas ' + alert.config.icon + '" style="color:' + alert.config.color + ';font-size:18px;margin-top:2px;"></i>';
+            html += '<div style="flex:1;">';
+            html += '<div style="font-weight:600;color:#1e293b;margin-bottom:4px;">' + alert.title + '</div>';
+            html += '<div style="color:#64748b;font-size:13px;">' + alert.message + '</div>';
+            html += '</div>';
+            html += '<button onclick="ProactiveAlerts.dismissAlert(\'' + alert.type + '\'); ProactiveAlerts.renderDashboardPanel();" style="background:none;border:none;color:#94a3b8;cursor:pointer;padding:5px;transition:color 0.2s;" onmouseover="this.style.color=\'#ef4444\'" onmouseout="this.style.color=\'#94a3b8\'" title="Dismiss"><i class="fas fa-times"></i></button>';
+            html += '</div></div>';
+        }
+        
+        panel.innerHTML = html;
+    }
+};
+
+// Refresh alerts function (for button)
+function refreshProactiveAlerts() {
+    var panel = document.getElementById('proactiveAlertsPanel');
+    if (panel) {
+        panel.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;"><i class="fas fa-spinner fa-spin" style="font-size:24px;margin-bottom:10px;display:block;"></i>Checking for alerts...</div>';
+    }
+    setTimeout(function() {
+        ProactiveAlerts.runAllChecks();
+        ProactiveAlerts.renderDashboardPanel();
+    }, 500);
+}
+
+// Auto-run checks on page load and every 5 minutes
+function initProactiveAlerts() {
+    // Initial check after 3 seconds (let data load first)
+    setTimeout(function() {
+        ProactiveAlerts.runAllChecks();
+        ProactiveAlerts.renderDashboardPanel();
+    }, 3000);
+    
+    // Check every 5 minutes
+    setInterval(function() {
+        ProactiveAlerts.runAllChecks();
+        ProactiveAlerts.renderDashboardPanel();
+    }, 5 * 60 * 1000);
+}
+
+// Expose globally
+window.ProactiveAlerts = ProactiveAlerts;
+window.initProactiveAlerts = initProactiveAlerts;
+window.refreshProactiveAlerts = refreshProactiveAlerts;
+
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
     setTimeout(initAIAssistant, 500);
+    setTimeout(initProactiveAlerts, 1000);
 });
