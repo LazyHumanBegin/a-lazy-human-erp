@@ -2266,12 +2266,13 @@ function syncAllBranchStockToProducts() {
             syncedCount++;
             console.log(`  Auto-allocated ${product.name}: ${product.stock} to ${defaultBranch.name}`);
         }
-        // Update product.stock if branch total differs
-        else if (hasAnyBranchStock && totalStock !== product.stock) {
-            product.stock = totalStock;
-            product.updatedAt = new Date().toISOString();
-            syncedCount++;
-        }
+        // CRITICAL FIX: Do NOT update product.stock from branch totals to prevent double-counting
+        // product.stock should be WRITE-ONLY from inventory changes, not calculated from branches
+        // Branches are the source of truth, product.stock is just a cache
+        // Removed the line that was causing duplication:
+        // else if (hasAnyBranchStock && totalStock !== product.stock) {
+        //     product.stock = totalStock; // <-- THIS WAS CAUSING THE BUG
+        // }
     });
     
     // Save branch stock data if we auto-allocated

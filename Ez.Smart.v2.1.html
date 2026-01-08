@@ -409,9 +409,10 @@
                 
                 <!-- Quick Actions - ALL IN ONE LINE -->
                 <div class="top-bar-actions">
-                    <!-- Global Search Icon -->
-                    <button onclick="openGlobalSearch()" class="btn-icon" title="Search (Ctrl+/)">
+                    <!-- Global Smart Search -->
+                    <button onclick="SmartSearch.openSearchModal()" class="btn-icon smart-search-trigger" title="Smart Search (Ctrl+K or ⌘K)">
                         <i class="fas fa-search"></i>
+                        <span class="search-shortcut-hint">⌘K</span>
                     </button>
                     <!-- Dark Mode Toggle -->
                     <button onclick="toggleDarkMode()" class="btn-icon" title="Toggle Dark Mode">
@@ -4842,6 +4843,42 @@
             </div>
         </div>
     
+    <!-- Smart Search Modal -->
+    <div id="smartSearchModal" class="smart-search-modal">
+        <div class="smart-search-container">
+            <div class="smart-search-header">
+                <div class="smart-search-input-wrapper">
+                    <i class="fas fa-search smart-search-icon"></i>
+                    <input 
+                        type="text" 
+                        id="smartSearchInput" 
+                        class="smart-search-input" 
+                        placeholder="Search customers, products, invoices, transactions..." 
+                        autocomplete="off"
+                        spellcheck="false"
+                    >
+                    <div class="smart-search-shortcut">
+                        <kbd>ESC</kbd> to close
+                    </div>
+                </div>
+            </div>
+            <div id="smartSearchResults" class="smart-search-results">
+                <div class="search-empty">
+                    <i class="fas fa-search" style="font-size: 48px; color: #cbd5e1; margin-bottom: 16px;"></i>
+                    <p style="color: #64748b;">Type to search across all modules</p>
+                    <div class="search-hints">
+                        <span><i class="fas fa-user"></i> Customers</span>
+                        <span><i class="fas fa-box"></i> Products</span>
+                        <span><i class="fas fa-file-invoice"></i> Invoices</span>
+                        <span><i class="fas fa-exchange-alt"></i> Transactions</span>
+                        <span><i class="fas fa-shopping-cart"></i> Orders</span>
+                        <span><i class="fas fa-project-diagram"></i> Projects</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Bill Modal -->
     <div class="modal" id="addBillModal">
         <div class="modal-content">
@@ -6963,6 +7000,7 @@
     <script src="js/transactions.js?v=2032001" defer></script>
     <script src="js/ai-assistant.js?v=2027001" defer></script>
     <script src="js/chatbot.js?v=2032040" defer></script>
+    <script src="js/smart-search.js?v=2100001" defer></script>
     
     <!-- MEDIUM PRIORITY: Defer - Load after page interactive -->
     <script src="js/bills.js?v=2032001" defer></script>
