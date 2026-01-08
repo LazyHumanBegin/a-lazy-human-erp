@@ -1815,6 +1815,101 @@ input:focus, select:focus, textarea:focus {
         bottom: 80px;
         right: 20px;
     }
+    
+    /* Enhanced Mobile UI - Better touch targets and spacing */
+    .btn-primary, .btn-secondary, .btn-outline {
+        padding: 12px 20px;
+        font-size: 15px;
+        min-height: 44px; /* iOS touch target */
+    }
+    
+    .form-control, .form-select {
+        padding: 12px;
+        font-size: 16px; /* Prevents iOS zoom */
+        min-height: 44px;
+    }
+    
+    .stat-card {
+        padding: 16px;
+        margin-bottom: 12px;
+    }
+    
+    .stat-value {
+        font-size: 24px;
+    }
+    
+    .stat-label {
+        font-size: 13px;
+    }
+    
+    .content-card {
+        padding: 16px;
+        margin-bottom: 16px;
+        border-radius: 12px;
+    }
+    
+    .modal-content {
+        margin: 0;
+        max-height: 100vh;
+        border-radius: 0;
+        width: 100%;
+    }
+    
+    .modal-header {
+        padding: 16px;
+        position: sticky;
+        top: 0;
+        background: white;
+        z-index: 10;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .modal-body {
+        padding: 16px;
+        max-height: calc(100vh - 140px);
+        overflow-y: auto;
+    }
+    
+    .modal-footer {
+        padding: 16px;
+        position: sticky;
+        bottom: 0;
+        background: white;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    /* Better table display on mobile */
+    .data-table {
+        font-size: 14px;
+    }
+    
+    .data-table th {
+        padding: 10px 8px;
+        font-size: 12px;
+    }
+    
+    .data-table td {
+        padding: 12px 8px;
+        font-size: 14px;
+    }
+    
+    /* Stack buttons vertically on mobile */
+    .modal-footer .btn-primary,
+    .modal-footer .btn-secondary {
+        width: 100%;
+        margin: 4px 0;
+    }
+    
+    /* Better card grid on mobile */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .chart-container {
+        height: 300px;
+        margin-bottom: 20px;
+    }
 }
 
 /* Animations */
@@ -17391,21 +17486,6 @@ input:focus, textarea:focus, select:focus {
     position: relative;
 }
 
-.search-shortcut-hint {
-    font-size: 10px;
-    background: rgba(0,0,0,0.1);
-    padding: 2px 5px;
-    border-radius: 4px;
-    margin-left: 4px;
-    font-family: system-ui, monospace;
-}
-
-@media (max-width: 768px) {
-    .search-shortcut-hint {
-        display: none;
-    }
-}
-
 /* Smart Search Modal */
 .smart-search-modal {
     display: none;
@@ -17614,37 +17694,87 @@ input:focus, textarea:focus, select:focus {
 /* Mobile optimization for search */
 @media (max-width: 768px) {
     .smart-search-modal {
-        padding: 20px 12px;
+        padding: 0;
+        background: rgba(0, 0, 0, 0.6);
     }
     
     .smart-search-container {
-        max-height: 80vh;
-        border-radius: 12px;
+        max-height: 100vh;
+        border-radius: 0;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
     }
     
     .smart-search-input-wrapper {
-        padding: 10px 12px;
+        padding: 12px 16px;
+        border-radius: 0;
     }
     
     .smart-search-input {
         font-size: 16px; /* Prevents iOS zoom */
+        padding: 12px 16px 12px 42px;
+    }
+    
+    .smart-search-icon {
+        left: 16px;
+        font-size: 18px;
     }
     
     .smart-search-shortcut {
         display: none;
     }
     
+    .smart-search-results {
+        max-height: calc(100vh - 70px);
+        padding: 8px;
+    }
+    
     .search-result-item {
-        padding: 10px;
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 8px;
     }
     
     .search-result-icon {
-        width: 36px;
-        height: 36px;
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+    }
+    
+    .search-result-info {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .search-result-title {
+        font-size: 15px;
+        font-weight: 600;
+    }
+    
+    .search-result-subtitle {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .search-result-badge {
+        font-size: 13px;
+        padding: 4px 10px;
+        white-space: nowrap;
     }
     
     .search-hints {
         display: none;
+    }
+    
+    .search-empty {
+        padding: 40px 20px;
+    }
+    
+    .search-empty i {
+        font-size: 40px !important;
     }
 }
 

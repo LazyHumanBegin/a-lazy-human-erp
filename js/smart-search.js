@@ -13,9 +13,22 @@ const SmartSearch = {
     // Data sources to search
     dataSources: [
         {
+            name: 'CRM Customers',
+            icon: 'fa-user-tie',
+            color: '#3b82f6',
+            getItems: () => window.crmCustomers || JSON.parse(localStorage.getItem('ezcubic_crm_customers') || '[]'),
+            searchFields: ['name', 'email', 'phone', 'company', 'contactPerson'],
+            displayFields: (item) => ({
+                title: item.name,
+                subtitle: `${item.company || item.contactPerson || item.email || item.phone} | ${item.status || 'Active'}`,
+                badge: item.totalSpent ? `RM ${item.totalSpent.toLocaleString()}` : 'New',
+                action: () => SmartSearch.navigateTo('crm', item.id)
+            })
+        },
+        {
             name: 'Customers',
             icon: 'fa-user',
-            color: '#3b82f6',
+            color: '#06b6d4',
             getItems: () => window.customers || JSON.parse(localStorage.getItem('ezcubic_customers') || '[]'),
             searchFields: ['name', 'email', 'phone', 'company'],
             displayFields: (item) => ({
