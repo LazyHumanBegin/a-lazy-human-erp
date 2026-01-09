@@ -2353,7 +2353,11 @@ async function processUserMessage(message) {
         const fallbackResponse = generateChatbotFallback(message);
         addChatMessage(fallbackResponse, false);
     } finally {
-        // Always unlock
+        // Clear timeout and unlock
+        if (processingTimeout) {
+            clearTimeout(processingTimeout);
+            processingTimeout = null;
+        }
         isProcessingMessage = false;
     }
 }
@@ -5373,6 +5377,57 @@ function tryLocalFirst(message) {
     
     // Format currency helper
     const formatRM = (amt) => 'RM ' + (parseFloat(amt) || 0).toFixed(2);
+    
+    // ==================== PRICING RECOMMENDATION ====================
+    // "how much should I sell" or "what price should I sell" or "price recommendation"
+    if ((lower.includes('how much') || lower.includes('what price') || lower.includes('recommend')) && 
+        (lower.includes('sell') || lower.includes('still') || lower.includes('price'))) {
+        
+        // Try to find product name in message
+        const product = products.find(p => 
+            lower.includes(p.name?.toLowerCase()) || 
+            lower.includes(p.sku?.toLowerCase())
+        );
+        
+        if (product) {
+            const cost = parseFloat(product.cost) || 0;
+            const currentPrice = parseFloat(product.price) || 0;
+            
+            if (cost > 0) {
+                // Calculate pricing tiers based on cost
+                const markup30 = cost * 1.3;  // 30% markup (min)
+                const markup50 = cost * 1.5;  // 50% markup (recommended for retail)
+                const markup100 = cost * 2.0; // 100% markup (premium)
+                
+                const currentMargin = currentPrice > 0 ? ((currentPrice - cost) / currentPrice * 100) : 0;
+                
+                return `💰 **Pricing Recommendation: ${product.name}**\n\n` +
+                    `Current: ${formatRM(currentPrice)}${currentPrice > 0 ? ` (${currentMargin.toFixed(1)}% margin)` : ''}\n` +
+                    `Cost: ${formatRM(cost)}\n\n` +
+                    `**Suggested Pricing:**\n` +
+                    `📉 Budget: ${formatRM(markup30)} (30% markup)\n` +
+                    `✅ Recommended: ${formatRM(markup50)} (50% markup) ← Good for retail\n` +
+                    `💎 Premium: ${formatRM(markup100)} (100% markup)\n\n` +
+                    `💡 Tip: 50% markup is healthy for most retail products. Consider your market and competition!`;
+            } else if (currentPrice > 0) {
+                return `💰 **${product.name}**\n\nCurrent price: ${formatRM(currentPrice)}\n\n` +
+                    `⚠️ No cost data entered yet.\n\n` +
+                    `💡 Add cost price in Inventory to get smart pricing recommendations!`;
+            } else {
+                return `💰 **${product.name}**\n\n` +
+                    `⚠️ No price or cost data yet.\n\n` +
+                    `💡 Add cost price in Inventory, then I can suggest optimal selling price!`;
+            }
+        } else {
+            // No specific product found
+            return `💰 **Pricing Recommendation**\n\nWhich product?\n\n` +
+                `Example:\n` +
+                `• "How much should I sell Sushi"\n` +
+                `• "What price for Laptop"\n` +
+                `• "Recommend price for T-shirt"\n\n` +
+                `Or add cost price in your product data for smart suggestions!`;
+        }
+    }
     
     // ==================== PRODUCT/INVENTORY QUERIES ====================
     // Handle these locally for instant, accurate response with full data
