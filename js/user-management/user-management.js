@@ -708,7 +708,7 @@
      * Permanently purge deleted users/subscriptions from both local and cloud
      */
     async function purgeDeletedData() {
-        if (!confirm('⚠️ Purge all deleted users and subscriptions?\n\nThis will permanently remove:\n- Deleted user tracking\n- Deleted subscription tracking\n\nFrom both local storage AND cloud database.\n\nThis action cannot be undone.')) {
+        if (!confirm('⚠️ Purge all deleted users and subscriptions?\n\nThis will permanently remove:\n- Deleted user tracking\n- Deleted subscription tracking\n- The actual deleted users/subscriptions from cloud\n\nFrom both local storage AND cloud database.\n\nThis action cannot be undone.')) {
             return;
         }
         
@@ -724,23 +724,68 @@
                 return;
             }
             
-            // Delete from local storage
-            localStorage.removeItem('ezcubic_deleted_users');
-            localStorage.removeItem('ezcubic_deleted_tenants');
+            console.log('🗑️ Purging deleted data:', { users: deletedUsers, tenants: deletedTenants });
             
-            // Delete from cloud (Supabase)
+            // Delete from cloud (Supabase) FIRST
             if (typeof getUsersSupabaseClient === 'function') {
                 const client = getUsersSupabaseClient();
                 if (client) {
-                    console.log('🗑️ Purging from cloud...');
+                    console.log('🗑️ Purging from cloud database...');
                     
-                    // Delete deleted_users tracking from cloud
+                    // 1. Delete actual users from cloud (ezcubic_users)
+                    if (deletedUsers.length > 0) {
+                        const { data: cloudUsers } = await client
+                            .from('tenant_data')
+                            .select('data_value')
+                            .eq('data_key', 'ezcubic_users')
+                            .single();
+                        
+                        if (cloudUsers && cloudUsers.data_value) {
+                            const users = Array.isArray(cloudUsers.data_value) ? cloudUsers.data_value : [];
+                            const cleanedUsers = users.filter(u => 
+                                !deletedUsers.includes(u.id) && 
+                                !deletedUsers.includes(u.email)
+                            );
+                            
+                            console.log(`  🗑️ Removing ${users.length - cleanedUsers.length} users from cloud`);
+                            
+                            await client
+                                .from('tenant_data')
+                                .update({ data_value: cleanedUsers, updated_at: new Date().toISOString() })
+                                .eq('data_key', 'ezcubic_users');
+                        }
+                    }
+                    
+                    // 2. Delete actual tenants from cloud (ezcubic_tenants)
+                    if (deletedTenants.length > 0) {
+                        const { data: cloudTenants } = await client
+                            .from('tenant_data')
+                            .select('data_value')
+                            .eq('data_key', 'ezcubic_tenants')
+                            .single();
+                        
+                        if (cloudTenants && cloudTenants.data_value) {
+                            const tenants = cloudTenants.data_value || {};
+                            deletedTenants.forEach(tenantId => {
+                                if (tenants[tenantId]) {
+                                    console.log(`  🗑️ Removing tenant ${tenantId} from cloud`);
+                                    delete tenants[tenantId];
+                                }
+                            });
+                            
+                            await client
+                                .from('tenant_data')
+                                .update({ data_value: tenants, updated_at: new Date().toISOString() })
+                                .eq('data_key', 'ezcubic_tenants');
+                        }
+                    }
+                    
+                    // 3. Delete tracking lists from cloud
                     await client
                         .from('tenant_data')
                         .delete()
                         .eq('data_key', 'ezcubic_deleted_users');
                     
-                    // Delete deleted_tenants tracking from cloud
                     await client
                         .from('tenant_data')
                         .delete()
@@ -749,6 +794,10 @@
                     console.log('✅ Cloud purge complete');
                 }
             }
+            
+            // Delete tracking lists from local storage
+            localStorage.removeItem('ezcubic_deleted_users');
+            localStorage.removeItem('ezcubic_deleted_tenants');
             
             showToast(`✅ Purged ${deleteCount} deleted items from local & cloud`, 'success');
             
