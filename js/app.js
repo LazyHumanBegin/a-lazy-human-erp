@@ -210,6 +210,11 @@ function initializePhase2Modules() {
             initializeBOM();
         }
         
+        // Initialize Business Targets
+        if (typeof initializeBusinessTargets === 'function') {
+            initializeBusinessTargets();
+        }
+        
         // Process recurring bills - auto-generate upcoming bills
         if (typeof processRecurringBills === 'function') {
             const generated = processRecurringBills();

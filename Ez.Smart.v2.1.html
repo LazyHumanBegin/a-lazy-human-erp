@@ -329,6 +329,9 @@
                 <button class="nav-btn" onclick="showSection('reports')">
                     <i class="fas fa-chart-pie"></i> Financial Reports
                 </button>
+                <button class="nav-btn" onclick="showSection('business-targets')">
+                    <i class="fas fa-bullseye"></i> Business Targets
+                </button>
                 <button class="nav-btn" onclick="showSection('balance-sheet')">
                     <i class="fas fa-balance-scale"></i> Balance Sheet
                 </button>
@@ -3799,6 +3802,18 @@
                 </div>
             </div>
             
+            <!-- ==================== BUSINESS TARGETS SECTION ==================== -->
+            <div id="business-targets" class="content-section">
+                <div class="content-card full-width">
+                    <div class="card-header">
+                        <h2><i class="fas fa-bullseye"></i> Business Targets & Monitoring</h2>
+                    </div>
+                    <div id="businessTargetsContent">
+                        <!-- Rendered by business-targets.js -->
+                    </div>
+                </div>
+            </div>
+            
             <!-- ==================== USER MANAGEMENT SECTION ==================== -->
             <div id="user-management" class="content-section">
                 <div class="content-card full-width">
@@ -6989,6 +7004,278 @@
     </div>
     </div> <!-- Close main-content -->
 
+    <!-- Business Targets Module Styles -->
+    <style>
+        .targets-setup, .targets-monitoring {
+            padding: 20px;
+        }
+        .setup-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .setup-header h2 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        .setup-header p {
+            color: #64748b;
+        }
+        .setup-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        .setup-card h3 {
+            color: #1e293b;
+            margin-bottom: 16px;
+            font-size: 18px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .form-group label {
+            color: #475569;
+            font-size: 14px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .form-group small {
+            color: #94a3b8;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+        .cost-summary {
+            background: #f1f5f9;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            text-align: right;
+            color: #1e293b;
+        }
+        .setup-actions {
+            display: flex;
+            justify-content: center;
+            margin-top: 30px;
+        }
+        
+        /* Monitoring View */
+        .monitoring-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 16px;
+            border-left: 4px solid #3b82f6;
+        }
+        .metric-card.metric-success {
+            border-left-color: #10b981;
+        }
+        .metric-card.metric-warning {
+            border-left-color: #f59e0b;
+        }
+        .metric-card.metric-danger {
+            border-left-color: #ef4444;
+        }
+        .metric-icon {
+            font-size: 32px;
+        }
+        .metric-content {
+            flex: 1;
+        }
+        .metric-label {
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        .metric-target {
+            color: #94a3b8;
+            font-size: 12px;
+        }
+        .metric-percentage {
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+        .metric-percentage.success {
+            color: #10b981;
+        }
+        .metric-percentage.warning {
+            color: #f59e0b;
+        }
+        .metric-percentage.danger {
+            color: #ef4444;
+        }
+        
+        /* Progress Section */
+        .progress-section {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .progress-section h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .progress-item {
+            margin-bottom: 20px;
+        }
+        .progress-item:last-child {
+            margin-bottom: 0;
+        }
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #475569;
+        }
+        .progress-bar-container {
+            background: #e2e8f0;
+            height: 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #3b82f6;
+            border-radius: 12px;
+            transition: width 0.3s ease;
+        }
+        .progress-bar.progress-success {
+            background: linear-gradient(90deg, #10b981, #059669);
+        }
+        .progress-bar.progress-warning {
+            background: linear-gradient(90deg, #f59e0b, #d97706);
+        }
+        .progress-bar.progress-danger {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+        .progress-percentage {
+            text-align: right;
+            margin-top: 4px;
+            font-size: 12px;
+            color: #64748b;
+            font-weight: 600;
+        }
+        
+        /* Insights Section */
+        .insights-section {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+        .insights-section h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .insight-card {
+            display: flex;
+            gap: 16px;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+        .insight-card:last-child {
+            margin-bottom: 0;
+        }
+        .insight-card.insight-success {
+            background: #f0fdf4;
+            border-left: 4px solid #10b981;
+        }
+        .insight-card.insight-warning {
+            background: #fffbeb;
+            border-left: 4px solid #f59e0b;
+        }
+        .insight-card.insight-danger {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+        }
+        .insight-card.insight-info {
+            background: #eff6ff;
+            border-left: 4px solid #3b82f6;
+        }
+        .insight-icon {
+            font-size: 24px;
+        }
+        .insight-content h4 {
+            color: #1e293b;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        .insight-content p {
+            color: #475569;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+        }
+        
+        /* Target Details */
+        .target-details {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .target-details h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        .detail-label {
+            color: #64748b;
+            font-size: 14px;
+        }
+        .detail-value {
+            color: #1e293b;
+            font-weight: 600;
+            font-size: 14px;
+        }
+    </style>
+
     <!-- Modular JavaScript Files - v2.9.4 Performance Optimized -->
     <!-- CRITICAL: Load immediately for core functionality -->
     <script src="js/core.js?v=2026109"></script>
@@ -7007,6 +7294,7 @@
     <script src="js/bills.js?v=2032001" defer></script>
     <script src="js/charts.js?v=2032001" defer></script>
     <script src="js/reports.js?v=2032001" defer></script>
+    <script src="js/business-targets.js?v=2026001" defer></script>
     <script src="js/taxes.js?v=2032030" defer></script>
     <script src="js/balance-sheet.js?v=2032030" defer></script>
     <script src="js/pdf-export.js?v=2027001" defer></script>

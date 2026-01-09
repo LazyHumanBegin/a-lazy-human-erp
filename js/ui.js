@@ -47,6 +47,8 @@ function showSection(sectionId) {
         updateMonthlyCharts();
     } else if (sectionId === 'reports') {
         updateReports();
+    } else if (sectionId === 'business-targets') {
+        if (typeof renderBusinessTargets === 'function') renderBusinessTargets();
     } else if (sectionId === 'balance-sheet') {
         updateSimpleBalanceSheet();
     } else if (sectionId === 'taxes') {
