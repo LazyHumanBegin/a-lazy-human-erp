@@ -2,10 +2,10 @@
  * EZCubic Phase 2 - Inventory Management Module
  * Product CRUD, categories, SKU generation, search/filter
  * Phase 5: Multi-Branch Stock Support
- * Version: 2.1.10 - Fixed modal issues - 17 Dec 2025 - Build 1765953999
+ * Version: 2.1.11 - Fixed tenant isolation for branches - 9 Jan 2026 - Build 1736441699
  */
 
-// Prevent caching - timestamp: 1765953999
+// Prevent caching - timestamp: 1736441699
 
 // ==================== INVENTORY INITIALIZATION ====================
 function initializeInventory() {
@@ -28,8 +28,20 @@ function loadInventoryBranchFilter() {
     
     filter.innerHTML = '<option value="">All Branches/Outlets</option>';
     
-    // Get branches from branches module
-    const branchList = typeof branches !== 'undefined' ? branches : [];
+    // Get branches from CURRENT USER's tenant data only
+    let branchList = [];
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        branchList = Array.isArray(tenantData.branches) ? tenantData.branches : [];
+    }
+    
+    // Fallback to window.branches if tenant has it loaded
+    if (branchList.length === 0 && Array.isArray(window.branches)) {
+        branchList = window.branches;
+    }
+    
     const activeBranches = branchList.filter(b => b.status === 'active');
     
     activeBranches.forEach(branch => {
@@ -986,14 +998,17 @@ function loadBranchStockInputs(productId = null) {
     
     console.log('loadBranchStockInputs called:', { plan: currentUserPlan, isMultiBranchPlan: isMultiBranchPlan });
     
-    // Get branches
+    // Get branches from CURRENT USER's tenant data only
     let branchList = [];
-    const storedBranches = localStorage.getItem('ezcubic_branches');
-    if (storedBranches) {
-        branchList = JSON.parse(storedBranches);
-    } else if (typeof branches !== 'undefined' && branches.length > 0) {
-        branchList = branches;
-    } else if (window.branches && window.branches.length > 0) {
+    const user = window.currentUser;
+    if (user && user.tenantId) {
+        const tenantKey = 'ezcubic_tenant_' + user.tenantId;
+        const tenantData = JSON.parse(localStorage.getItem(tenantKey) || '{}');
+        branchList = Array.isArray(tenantData.branches) ? tenantData.branches : [];
+    }
+    
+    // Fallback to window.branches if tenant has it loaded
+    if (branchList.length === 0 && Array.isArray(window.branches)) {
         branchList = window.branches;
     }
     
