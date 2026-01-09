@@ -267,6 +267,9 @@
                         <button class="btn-outline" onclick="exportUserList()" style="padding: 10px 16px; white-space: nowrap;">
                             <i class="fas fa-download"></i> Export
                         </button>
+                        <button class="btn-outline" onclick="purgeDeletedData()" style="padding: 10px 16px; white-space: nowrap; background: #fef2f2; border-color: #fecaca; color: #dc2626;">
+                            <i class="fas fa-trash-alt"></i> Purge Deleted
+                        </button>
                     </div>
                 </div>
                 
@@ -700,6 +703,64 @@
         }
     });
     
+    // ==================== PURGE DELETED DATA ====================
+    /**
+     * Permanently purge deleted users/subscriptions from both local and cloud
+     */
+    async function purgeDeletedData() {
+        if (!confirm('⚠️ Purge all deleted users and subscriptions?\n\nThis will permanently remove:\n- Deleted user tracking\n- Deleted subscription tracking\n\nFrom both local storage AND cloud database.\n\nThis action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            // Get deleted lists
+            const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            const deleteCount = deletedUsers.length + deletedTenants.length;
+            
+            if (deleteCount === 0) {
+                showToast('No deleted data to purge', 'info');
+                return;
+            }
+            
+            // Delete from local storage
+            localStorage.removeItem('ezcubic_deleted_users');
+            localStorage.removeItem('ezcubic_deleted_tenants');
+            
+            // Delete from cloud (Supabase)
+            if (typeof getUsersSupabaseClient === 'function') {
+                const client = getUsersSupabaseClient();
+                if (client) {
+                    console.log('🗑️ Purging from cloud...');
+                    
+                    // Delete deleted_users tracking from cloud
+                    await client
+                        .from('tenant_data')
+                        .delete()
+                        .eq('data_key', 'ezcubic_deleted_users');
+                    
+                    // Delete deleted_tenants tracking from cloud
+                    await client
+                        .from('tenant_data')
+                        .delete()
+                        .eq('data_key', 'ezcubic_deleted_tenants');
+                    
+                    console.log('✅ Cloud purge complete');
+                }
+            }
+            
+            showToast(`✅ Purged ${deleteCount} deleted items from local & cloud`, 'success');
+            
+            // Refresh the page to show clean data
+            setTimeout(() => location.reload(), 1000);
+            
+        } catch (err) {
+            console.error('❌ Purge failed:', err);
+            showToast('Failed to purge deleted data: ' + err.message, 'error');
+        }
+    }
+    
     // ==================== EXPORTS ====================
     window.showUserManagement = showUserManagement;
     window.renderUserManagement = renderUserManagement;
@@ -708,6 +769,7 @@
     window.toggleFilterDropdown = toggleFilterDropdown;
     window.clearFilters = clearFilters;
     window.filterFounderUserList = filterFounderUserList;
+    window.purgeDeletedData = purgeDeletedData;
     
     console.log('👥 User Management module loaded (Part A: Display)');
     
