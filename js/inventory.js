@@ -2,10 +2,10 @@
  * EZCubic Phase 2 - Inventory Management Module
  * Product CRUD, categories, SKU generation, search/filter
  * Phase 5: Multi-Branch Stock Support
- * Version: 2.1.11 - Fixed tenant isolation for branches - 9 Jan 2026 - Build 1736441699
+ * Version: 2.1.12 - Auto-remove AI pending card after manual save - 9 Jan 2026 - Build 1736442000
  */
 
-// Prevent caching - timestamp: 1736441699
+// Prevent caching - timestamp: 1736442000
 
 // ==================== INVENTORY INITIALIZATION ====================
 function initializeInventory() {
@@ -416,6 +416,11 @@ function saveProduct(event) {
     saveProducts();
     renderProducts();
     closeModal('productModal');
+    
+    // Clear any editing pending card from AI approvals (if user edited from AI pending)
+    if (typeof clearEditingPendingCard === 'function') {
+        clearEditingPendingCard();
+    }
 }
 
 async function deleteProduct(productId) {

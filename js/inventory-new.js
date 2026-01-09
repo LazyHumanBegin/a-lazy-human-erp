@@ -362,6 +362,11 @@ function saveProduct(event) {
     saveProducts();
     renderProducts();
     closeModal('productModal');
+    
+    // Clear any editing pending card from AI approvals (if user edited from AI pending)
+    if (typeof clearEditingPendingCard === 'function') {
+        clearEditingPendingCard();
+    }
 }
 
 function deleteProduct(productId) {
