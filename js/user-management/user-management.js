@@ -795,14 +795,35 @@
                 }
             }
             
-            // Delete tracking lists from local storage
+            // IMPORTANT: Clear tracking lists AFTER cloud operations
+            // But BEFORE reloading, so loadUsersFromCloud won't re-add them
             localStorage.removeItem('ezcubic_deleted_users');
             localStorage.removeItem('ezcubic_deleted_tenants');
             
+            // Also clean localStorage ezcubic_users to match cloud
+            const USERS_KEY = 'ezcubic_users';
+            const localUsers = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+            const cleanedLocalUsers = localUsers.filter(u => 
+                !deletedUsers.includes(u.id) && 
+                !deletedUsers.includes(u.email)
+            );
+            localStorage.setItem(USERS_KEY, JSON.stringify(cleanedLocalUsers));
+            console.log(`🗑️ Cleaned localStorage: ${localUsers.length} → ${cleanedLocalUsers.length} users`);
+            
+            // Also remove from window globals if exists
+            if (window.users) {
+                window.users = window.users.filter(u => 
+                    !deletedUsers.includes(u.id) && 
+                    !deletedUsers.includes(u.email)
+                );
+            }
+            
             showToast(`✅ Purged ${deleteCount} deleted items from local & cloud`, 'success');
             
-            // Refresh the page to show clean data
-            setTimeout(() => location.reload(), 1000);
+            // Refresh UI without reload - safer and faster
+            if (typeof renderUserManagement === 'function') {
+                renderUserManagement();
+            }
             
         } catch (err) {
             console.error('❌ Purge failed:', err);
