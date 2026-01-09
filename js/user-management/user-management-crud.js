@@ -1067,6 +1067,15 @@
         
         saveUsers();
         
+        // IMPORTANT: Also sync to cloud immediately so other devices see the changes
+        if (typeof window.directUploadUsersToCloud === 'function') {
+            window.directUploadUsersToCloud(false).then(() => {
+                console.log('☁️ User changes synced to cloud');
+            }).catch(err => {
+                console.warn('⚠️ Failed to sync user changes to cloud:', err);
+            });
+        }
+        
         closeModal('editUserModal');
         renderUserManagement();
         showToast('User updated successfully!', 'success');

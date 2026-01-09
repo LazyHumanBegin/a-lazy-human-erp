@@ -1736,6 +1736,22 @@ function getBusinessContext() {
         email: s.email
     }));
     
+    // Get business targets and scenarios
+    let targets = null;
+    let scenarios = [];
+    try {
+        const targetsData = localStorage.getItem('ezcubic_business_targets');
+        if (targetsData) {
+            targets = JSON.parse(targetsData);
+        }
+        const scenariosData = localStorage.getItem('ezcubic_business_scenarios');
+        if (scenariosData) {
+            scenarios = JSON.parse(scenariosData);
+        }
+    } catch (e) {
+        console.warn('Could not load targets/scenarios:', e);
+    }
+    
     return {
         businessName: businessData.settings?.businessName || 'My Business',
         currency: businessData.settings?.currency || 'MYR',
@@ -1775,7 +1791,19 @@ function getBusinessContext() {
         branches: branchList,
         
         // Suppliers
-        suppliers: supplierList
+        suppliers: supplierList,
+        
+        // Business Targets & Scenarios
+        hasTargets: targets?.enabled || false,
+        breakEvenUnits: targets?.breakEvenUnits || 0,
+        targetUnits: targets?.targetUnits || 0,
+        targetRevenue: targets?.targetRevenue || 0,
+        targetProfitMargin: targets?.targetProfitMargin || 0,
+        scenarioCount: scenarios.length,
+        scenarios: scenarios.map(s => ({
+            name: s.name,
+            breakEven: Math.ceil(Object.values(s.fixedCosts).reduce((sum, v) => sum + v, 0) / (s.sellingPrice - s.variableCost))
+        }))
     };
 }
 
@@ -5540,7 +5568,7 @@ async function getAIResponse(message) {
             case 'general':
             default:
                 // General question - DeepSeek answers (no business data)
-                return await handleGeneralIntent(message);
+                return await handleGeneralIntent(message, intent);
         }
         
     } catch (error) {
@@ -6085,6 +6113,41 @@ async function handleAnalysisIntent(message, intent) {
 // Handle navigate intent locally
 function handleNavigateIntent(intent) {
     const section = intent.section || 'dashboard';
+    
+    // Special handling for change-password
+    if (section === 'change-password') {
+        if (typeof showChangePasswordModal === 'function') {
+            showChangePasswordModal();
+            return {
+                success: true,
+                message: '🔑 Opening Change Password dialog...',
+                source: 'local-navigate'
+            };
+        } else {
+            return {
+                success: true,
+                message: 'To change your password, click your profile picture at the top right, then select "Change Password" 🔑',
+                source: 'local-navigate'
+            };
+        }
+    }
+    
+    // Special handling for business-targets
+    if (section === 'business-targets') {
+        if (typeof showSection === 'function') {
+            showSection('business-targets');
+            if (typeof renderBusinessTargets === 'function') {
+                renderBusinessTargets();
+            }
+        }
+        return {
+            success: true,
+            message: '🎯 Opening Business Targets...',
+            source: 'local-navigate'
+        };
+    }
+    
+    // Standard navigation
     if (typeof showSection === 'function') {
         showSection(section);
     }
@@ -6107,7 +6170,34 @@ function handleGreetingIntent() {
 }
 
 // Handle general questions (no business data sent)
-async function handleGeneralIntent(message) {
+async function handleGeneralIntent(message, intent) {
+    // Check if this is a feature request that's in development
+    const feature = intent?.entities?.feature;
+    
+    if (feature === 'budget_forecasting') {
+        return {
+            success: true,
+            message: 'Budget forecasting is in development! 📊 For now, you can:\n• Check Business Targets for break-even planning\n• Review Reports → Monthly Reports for trends\n• I can help analyze your current spending patterns!',
+            source: 'local-feature-info'
+        };
+    }
+    
+    if (feature === 'business_analysis') {
+        return {
+            success: true,
+            message: 'Deep business comparison tools are coming soon! For now:\n• Check Reports → Monthly Reports to see trends\n• I can compare your revenue vs expenses manually\n• Business Targets has scenario comparison (compare different strategies)',
+            source: 'local-feature-info'
+        };
+    }
+    
+    if (feature === 'accounting_journals') {
+        return {
+            success: true,
+            message: 'Manual journal entries are simplified here! 💼\n• Most entries happen automatically from transactions\n• For advanced accounting, check Transactions → Income/Expenses\n• If you need specific journal features, let me know what for!',
+            source: 'local-feature-info'
+        };
+    }
+    
     const response = await callSmartAI('chat', message, null);
     
     if (response.success) {

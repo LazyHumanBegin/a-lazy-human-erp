@@ -644,6 +644,9 @@ function updateAuthUI() {
                         </a>
                         ` : ''}
                         <div class="dropdown-divider"></div>
+                        <a href="#" onclick="showChangePasswordModal(); closeUserMenu(); return false;">
+                            <i class="fas fa-key"></i> Change Password
+                        </a>
                         <a href="#" onclick="logout(); return false;" class="logout-link">
                             <i class="fas fa-sign-out-alt"></i> Logout
                         </a>
@@ -733,6 +736,115 @@ function closeUserMenu() {
     }
 }
 
+function showChangePasswordModal() {
+    if (!window.currentUser) {
+        showToast('You must be logged in to change password', 'error');
+        return;
+    }
+
+    // Remove existing modal if any
+    document.getElementById('changePasswordModal')?.remove();
+
+    const modalHTML = `
+        <div class="modal show" id="changePasswordModal" style="z-index: 10000;">
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="fas fa-key"></i> Change Password</h3>
+                    <button class="modal-close" onclick="closeModal('changePasswordModal')">&times;</button>
+                </div>
+                <form onsubmit="handleChangePassword(event)">
+                    <div class="form-group">
+                        <label class="form-label">Current Password *</label>
+                        <input type="password" id="currentPassword" class="form-control" required 
+                               placeholder="Enter current password" autocomplete="current-password">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">New Password *</label>
+                        <input type="password" id="newPassword" class="form-control" required 
+                               placeholder="Min 6 characters" minlength="6" autocomplete="new-password">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Confirm New Password *</label>
+                        <input type="password" id="confirmPassword" class="form-control" required 
+                               placeholder="Re-enter new password" autocomplete="new-password">
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeModal('changePasswordModal')">
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-check"></i> Update Password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+}
+
+function handleChangePassword(event) {
+    event.preventDefault();
+
+    const currentPassword = document.getElementById('currentPassword').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    // Validate current password
+    if (window.currentUser.password !== currentPassword) {
+        showToast('Current password is incorrect', 'error');
+        return;
+    }
+
+    // Validate new passwords match
+    if (newPassword !== confirmPassword) {
+        showToast('New passwords do not match', 'error');
+        return;
+    }
+
+    // Validate new password length
+    if (newPassword.length < 6) {
+        showToast('New password must be at least 6 characters', 'error');
+        return;
+    }
+
+    // Don't allow same password
+    if (newPassword === currentPassword) {
+        showToast('New password must be different from current password', 'error');
+        return;
+    }
+
+    // Update password
+    const userIndex = window.users.findIndex(u => u.id === window.currentUser.id);
+    if (userIndex === -1) {
+        showToast('User not found', 'error');
+        return;
+    }
+
+    window.users[userIndex].password = newPassword;
+    window.users[userIndex].updatedAt = new Date().toISOString();
+    window.currentUser.password = newPassword;
+
+    // Save to localStorage
+    saveUsers();
+
+    // Update in localStorage current user
+    localStorage.setItem('ezcubic_currentUser', JSON.stringify(window.currentUser));
+
+    // Sync to cloud
+    if (typeof window.directUploadUsersToCloud === 'function') {
+        window.directUploadUsersToCloud(false).then(() => {
+            console.log('☁️ Password change synced to cloud');
+        }).catch(err => {
+            console.warn('⚠️ Failed to sync password to cloud:', err);
+        });
+    }
+
+    closeModal('changePasswordModal');
+    showToast('Password updated successfully!', 'success');
+}
+
 // Close dropdown when clicking outside
 document.addEventListener('click', (e) => {
     if (!e.target.closest('.user-menu')) {
@@ -767,6 +879,10 @@ document.addEventListener('click', (e) => {
 // ==================== EXPORTS ====================
 window.initializeUserSystem = initializeUserSystem;
 window.loadUsers = loadUsers;
+window.toggleUserMenu = toggleUserMenu;
+window.closeUserMenu = closeUserMenu;
+window.showChangePasswordModal = showChangePasswordModal;
+window.handleChangePassword = handleChangePassword;
 // NOTE: login(), logout() are now exported from js/auth/auth.js
 // NOTE: Permission functions are now exported from js/permissions/permissions.js
 // NOTE: User Management functions now exported from js/user-management/*.js

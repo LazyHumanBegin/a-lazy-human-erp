@@ -734,14 +734,15 @@
                     
                     // 1. Delete actual users from cloud (ezcubic_users)
                     if (deletedUsers.length > 0) {
-                        const { data: cloudUsers } = await client
+                        const { data: cloudData } = await client
                             .from('tenant_data')
-                            .select('data_value')
+                            .select('data')
+                            .eq('tenant_id', 'global')
                             .eq('data_key', 'ezcubic_users')
                             .single();
                         
-                        if (cloudUsers && cloudUsers.data_value) {
-                            const users = Array.isArray(cloudUsers.data_value) ? cloudUsers.data_value : [];
+                        if (cloudData && cloudData.data?.value) {
+                            const users = Array.isArray(cloudData.data.value) ? cloudData.data.value : [];
                             const cleanedUsers = users.filter(u => 
                                 !deletedUsers.includes(u.id) && 
                                 !deletedUsers.includes(u.email)
@@ -751,21 +752,26 @@
                             
                             await client
                                 .from('tenant_data')
-                                .update({ data_value: cleanedUsers, updated_at: new Date().toISOString() })
+                                .update({ 
+                                    data: { key: 'ezcubic_users', value: cleanedUsers, synced_at: new Date().toISOString() },
+                                    updated_at: new Date().toISOString() 
+                                })
+                                .eq('tenant_id', 'global')
                                 .eq('data_key', 'ezcubic_users');
                         }
                     }
                     
                     // 2. Delete actual tenants from cloud (ezcubic_tenants)
                     if (deletedTenants.length > 0) {
-                        const { data: cloudTenants } = await client
+                        const { data: cloudData } = await client
                             .from('tenant_data')
-                            .select('data_value')
+                            .select('data')
+                            .eq('tenant_id', 'global')
                             .eq('data_key', 'ezcubic_tenants')
                             .single();
                         
-                        if (cloudTenants && cloudTenants.data_value) {
-                            const tenants = cloudTenants.data_value || {};
+                        if (cloudData && cloudData.data?.value) {
+                            const tenants = cloudData.data.value || {};
                             deletedTenants.forEach(tenantId => {
                                 if (tenants[tenantId]) {
                                     console.log(`  🗑️ Removing tenant ${tenantId} from cloud`);
@@ -775,7 +781,11 @@
                             
                             await client
                                 .from('tenant_data')
-                                .update({ data_value: tenants, updated_at: new Date().toISOString() })
+                                .update({ 
+                                    data: { key: 'ezcubic_tenants', value: tenants, synced_at: new Date().toISOString() },
+                                    updated_at: new Date().toISOString() 
+                                })
+                                .eq('tenant_id', 'global')
                                 .eq('data_key', 'ezcubic_tenants');
                         }
                     }
@@ -784,11 +794,13 @@
                     await client
                         .from('tenant_data')
                         .delete()
+                        .eq('tenant_id', 'global')
                         .eq('data_key', 'ezcubic_deleted_users');
                     
                     await client
                         .from('tenant_data')
                         .delete()
+                        .eq('tenant_id', 'global')
                         .eq('data_key', 'ezcubic_deleted_tenants');
                     
                     console.log('✅ Cloud purge complete');

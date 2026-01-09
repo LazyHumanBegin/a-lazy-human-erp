@@ -48,12 +48,12 @@ function startSessionValidation() {
         clearInterval(sessionValidationInterval);
     }
     
-    // Validate session every 5 minutes
+    // Validate session every 30 seconds (more responsive than 5 minutes)
     sessionValidationInterval = setInterval(() => {
         if (window.currentUser) {
             validateSessionToken(window.currentUser);
         }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 30 * 1000); // 30 seconds
 }
 
 /**
@@ -1135,15 +1135,36 @@ function handleRegisterPage(event) {
         return;
     }
     
-    // Check if email exists - load from localStorage directly
-    if (typeof loadUsers === 'function') loadUsers();
-    let users = window.users;
-    if (!users || users.length === 0) {
+    // CRITICAL: Load from CLOUD first to get latest users list (including deleted tracking)
+    if (typeof loadUsersFromCloud === 'function') {
+        loadUsersFromCloud().then(() => {
+            continueRegistration(name, email, password);
+        });
+    } else {
+        // Fallback to localStorage if cloud not available
+        if (typeof loadUsers === 'function') loadUsers();
+        continueRegistration(name, email, password);
+    }
+}
+
+function continueRegistration(name, email, password) {
+    // Get latest users array
+    let users = window.users || [];
+    if (users.length === 0) {
         users = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
     }
     
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    // Get deleted users list to prevent re-registration of deleted accounts
+    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+    
+    // Check if email exists OR was deleted
+    const emailLower = email.toLowerCase();
+    if (users.find(u => u.email.toLowerCase() === emailLower)) {
         if (typeof showToast === 'function') showToast('Email already registered. Please login instead.', 'error');
+        return;
+    }
+    if (deletedUsers.includes(emailLower)) {
+        if (typeof showToast === 'function') showToast('This email was previously deleted. Please contact support to restore.', 'error');
         return;
     }
     
@@ -1165,17 +1186,21 @@ function handleRegisterPage(event) {
             registeredVia: 'free_signup'
         };
         
-        // Add to users array and save
+        // Add to users array
         users.push(newUser);
-        window.users = users; // Sync back to window for other modules
+        window.users = users;
         localStorage.setItem('ezcubic_users', JSON.stringify(users));
         
-        // DEBUG: Verify new user was saved
-        console.log('🔍 [DEBUG] Saved users to localStorage:', users.length, 'users');
-        console.log('🔍 [DEBUG] New user email:', newUser.email);
+        console.log('✅ New user created:', newUser.email);
         
-        // NOTE: Do NOT call saveUsers() here! It would overwrite our localStorage
-        // with the users.js module's own users array (which doesn't have the new user yet)
+        // CRITICAL: Upload to cloud immediately so it's available on other devices
+        if (typeof window.directUploadUsersToCloud === 'function') {
+            window.directUploadUsersToCloud(false).then(() => {
+                console.log('✅ User synced to cloud');
+            }).catch(err => {
+                console.warn('⚠️ Cloud sync failed, but user is saved locally:', err);
+            });
+        }
         
         // Initialize tenant
         if (typeof window.initializeEmptyTenantData === 'function') {

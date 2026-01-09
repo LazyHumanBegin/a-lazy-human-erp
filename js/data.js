@@ -5,8 +5,181 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.11.0';
+const APP_VERSION = '2.12.0';  // Updated: Added version check system + password change + Alpha 5 improvements
 window.APP_VERSION = APP_VERSION;
+
+// ==================== VERSION UPDATE CHECK ====================
+/**
+ * Check if user needs to refresh to get latest version
+ * Shows prominent banner when new version is detected
+ */
+function checkVersionUpdate() {
+    const CACHED_VERSION_KEY = 'ezcubic_app_version';
+    const cachedVersion = localStorage.getItem(CACHED_VERSION_KEY);
+    
+    // First time user or version changed
+    if (cachedVersion && cachedVersion !== APP_VERSION) {
+        console.log(`🔄 Version update detected: ${cachedVersion} → ${APP_VERSION}`);
+        showVersionUpdateBanner(cachedVersion, APP_VERSION);
+    }
+    
+    // Update cached version
+    localStorage.setItem(CACHED_VERSION_KEY, APP_VERSION);
+}
+
+/**
+ * Show version update banner with refresh button
+ */
+function showVersionUpdateBanner(oldVersion, newVersion) {
+    // Remove any existing banner
+    const existingBanner = document.getElementById('versionUpdateBanner');
+    if (existingBanner) existingBanner.remove();
+    
+    const banner = document.createElement('div');
+    banner.id = 'versionUpdateBanner';
+    banner.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #2563eb, #7c3aed);
+        color: white;
+        padding: 16px 20px;
+        text-align: center;
+        z-index: 99999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        animation: slideDown 0.3s ease-out;
+    `;
+    
+    banner.innerHTML = `
+        <div style="max-width: 1200px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <i class="fas fa-rocket" style="font-size: 24px;"></i>
+                <div style="text-align: left;">
+                    <div style="font-weight: 600; font-size: 15px; margin-bottom: 2px;">
+                        🎉 New Version Available! (${oldVersion} → ${newVersion})
+                    </div>
+                    <div style="font-size: 13px; opacity: 0.95;">
+                        Please refresh to get the latest features and improvements
+                    </div>
+                </div>
+            </div>
+            <button onclick="refreshApp()" style="
+                background: white;
+                color: #2563eb;
+                border: none;
+                padding: 10px 24px;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 14px;
+                cursor: pointer;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                transition: transform 0.2s;
+            " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <i class="fas fa-sync-alt"></i> Refresh Now
+            </button>
+            <button onclick="dismissVersionBanner()" style="
+                background: transparent;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.5);
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: 500;
+                font-size: 13px;
+                cursor: pointer;
+                transition: all 0.2s;
+            " onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">
+                Later
+            </button>
+        </div>
+    `;
+    
+    // Add slide down animation
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideDown {
+            from {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        @keyframes slideUp {
+            from {
+                transform: translateY(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateY(-100%);
+                opacity: 0;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    document.body.prepend(banner);
+    
+    // Auto-remind after 5 minutes if not refreshed
+    setTimeout(() => {
+        if (document.getElementById('versionUpdateBanner')) {
+            showVersionReminderToast();
+        }
+    }, 5 * 60 * 1000);
+}
+
+/**
+ * Refresh the app
+ */
+function refreshApp() {
+    // Clear service worker cache if exists
+    if ('serviceWorker' in navigator && 'caches' in window) {
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cacheName => caches.delete(cacheName))
+            );
+        }).then(() => {
+            window.location.reload(true);
+        });
+    } else {
+        window.location.reload(true);
+    }
+}
+
+/**
+ * Dismiss version banner (user will be reminded later)
+ */
+function dismissVersionBanner() {
+    const banner = document.getElementById('versionUpdateBanner');
+    if (banner) {
+        banner.style.animation = 'slideUp 0.3s ease-out';
+        setTimeout(() => banner.remove(), 300);
+    }
+}
+
+/**
+ * Show reminder toast
+ */
+function showVersionReminderToast() {
+    if (typeof showToast === 'function') {
+        const toast = showToast('📢 Reminder: Please refresh to get the latest version!', 'info', 8000);
+        // Add refresh button to toast
+        if (toast) {
+            const refreshBtn = document.createElement('button');
+            refreshBtn.textContent = 'Refresh Now';
+            refreshBtn.style.cssText = 'margin-left: 10px; padding: 4px 12px; background: white; color: #2563eb; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;';
+            refreshBtn.onclick = refreshApp;
+            toast.appendChild(refreshBtn);
+        }
+    }
+}
+
+// Export functions
+window.checkVersionUpdate = checkVersionUpdate;
+window.refreshApp = refreshApp;
+window.dismissVersionBanner = dismissVersionBanner;
 
 // ==================== PERFORMANCE: LOCALSTORAGE CACHE ====================
 /**

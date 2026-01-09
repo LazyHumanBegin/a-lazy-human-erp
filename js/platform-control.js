@@ -54,7 +54,7 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 storage: 500
             },
             // Starter gets basic business features + can add up to 3 users
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'crm', 'bills', 'quotations', 'invoices', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'backup-restore', 'settings', 'users'],
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'crm', 'bills', 'quotations', 'invoices', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'backup-restore', 'settings', 'users', 'business-targets'],
             hiddenSections: ['stock', 'orders', 'suppliers', 'projects', 'payroll', 'leave-attendance', 'einvoice', 'branches', 'purchase-orders', 'delivery-orders', 'employees', 'kpi', 'bank-reconciliation']
         },
         professional: {
@@ -70,8 +70,8 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 branches: 3, // Up to 3 branches/outlets
                 storage: 2000
             },
-            // Professional gets ALL features including branches (up to 3) - 38 modules
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'email-invoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'products', 'backup-restore', 'settings', 'users'],
+            // Professional gets ALL features including branches (up to 3) - 39 modules
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'bills', 'quotations', 'invoices', 'suppliers', 'purchase-orders', 'delivery-orders', 'projects', 'employees', 'payroll', 'leave-attendance', 'kpi', 'einvoice', 'email-invoice', 'branches', 'bank-reconciliation', 'lhdn-export', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'products', 'backup-restore', 'settings', 'users', 'business-targets'],
             hiddenSections: [] // Professional now has access to branches (limited to 3)
         },
         premium: {

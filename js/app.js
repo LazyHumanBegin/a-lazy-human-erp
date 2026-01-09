@@ -749,6 +749,11 @@ function initDetailedBalanceSheet() {
 
 // ==================== DOM CONTENT LOADED ====================
 document.addEventListener('DOMContentLoaded', function() {
+    // Check for version updates (show banner if new version available)
+    if (typeof checkVersionUpdate === 'function') {
+        checkVersionUpdate();
+    }
+    
     // Wait for tenant data to load before initializing app
     // User system loads at 0ms, tenant data loads with 200ms delay
     // So we wait 300ms to ensure tenant data is ready

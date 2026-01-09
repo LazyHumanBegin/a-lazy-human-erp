@@ -373,10 +373,28 @@ function handleFreeRegistration(event) {
         return;
     }
     
-    // Check if email exists - use window.users
+    // CRITICAL: Load from CLOUD first
+    if (typeof loadUsersFromCloud === 'function') {
+        loadUsersFromCloud().then(() => {
+            continueFreeRegistration(name, email, password);
+        });
+    } else {
+        continueFreeRegistration(name, email, password);
+    }
+}
+
+function continueFreeRegistration(name, email, password) {
+    // Check if email exists
     const users = window.users || [];
-    if (users.find(u => u.email.toLowerCase() === email.toLowerCase())) {
+    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+    
+    const emailLower = email.toLowerCase();
+    if (users.find(u => u.email.toLowerCase() === emailLower)) {
         if (typeof showToast === 'function') showToast('Email already registered. Please login instead.', 'error');
+        return;
+    }
+    if (deletedUsers.includes(emailLower)) {
+        if (typeof showToast === 'function') showToast('This email was previously deleted. Please contact support to restore.', 'error');
         return;
     }
     
@@ -407,6 +425,15 @@ function handleFreeRegistration(event) {
         window.saveUsers();
     } else {
         localStorage.setItem('ezcubic_users', JSON.stringify(users));
+    }
+    
+    // CRITICAL: Upload to cloud immediately
+    if (typeof window.directUploadUsersToCloud === 'function') {
+        window.directUploadUsersToCloud(false).then(() => {
+            console.log('✅ User synced to cloud');
+        }).catch(err => {
+            console.warn('⚠️ Cloud sync failed:', err);
+        });
     }
     
     // Initialize empty tenant data for this user
