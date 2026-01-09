@@ -5228,9 +5228,126 @@ function showSmartActions(responseText) {
 // Flow: User → Local Check → If complex → DeepSeek understands → Local data → DeepSeek responds
 // Privacy: Business data stays local, only questions go to AI
 
+// ==================== CONTENT FILTER ====================
+/**
+ * Filter out inappropriate, sensitive, or off-topic questions
+ * Alpha 5 is a BUSINESS assistant, not a general chatbot
+ */
+function contentFilter(message) {
+    const lower = message.toLowerCase().trim();
+    
+    // BLOCKED: Political questions
+    const politicalKeywords = [
+        'mahathir', 'anwar', 'najib', 'politics', 'politician', 'election', 'vote', 
+        'parliament', 'minister', 'government policy', 'pkr', 'umno', 'pas', 'dap',
+        'trump', 'biden', 'putin', 'communist', 'democrat', 'republican'
+    ];
+    
+    if (politicalKeywords.some(keyword => lower.includes(keyword))) {
+        return {
+            blocked: true,
+            response: "Ay-yi-yi! 🤖 I'm a business assistant, not a political analyst! My master programmed me to help with accounting, inventory, sales - not politics!\n\nLet's talk business instead! 💼"
+        };
+    }
+    
+    // BLOCKED: Religious/sensitive topics
+    const religiousKeywords = [
+        'islam', 'christian', 'buddhist', 'hindu', 'religion', 'religious', 'allah', 
+        'jesus', 'buddha', 'god', 'prayer', 'mosque', 'church', 'temple'
+    ];
+    
+    if (religiousKeywords.some(keyword => lower.includes(keyword))) {
+        return {
+            blocked: true,
+            response: "Ay-yi-yi! 🤖 Religious topics are too sensitive for a robot like me! My circuits aren't designed for this.\n\nHow about we discuss your business instead? I'm much better at numbers! 📊"
+        };
+    }
+    
+    // BLOCKED: Medical/health advice
+    const medicalKeywords = [
+        'sick', 'disease', 'covid', 'cancer', 'diabetes', 'medicine', 'doctor', 
+        'hospital', 'treatment', 'symptom', 'pain', 'hurt', 'injury', 'medication'
+    ];
+    
+    if ((lower.includes('how to') || lower.includes('should i')) && 
+        medicalKeywords.some(keyword => lower.includes(keyword))) {
+        return {
+            blocked: true,
+            response: "Ay-yi-yi! 🤖 I'm not a doctor! For health issues, please see a real medical professional!\n\nI can help with business health though - profit margins, cash flow, that sort of thing! 💰"
+        };
+    }
+    
+    // BLOCKED: Legal advice
+    const legalKeywords = [
+        'sue', 'lawsuit', 'court', 'lawyer', 'attorney', 'legal action', 'contract dispute',
+        'divorce', 'custody', 'jail', 'prison', 'arrest', 'police report'
+    ];
+    
+    if ((lower.includes('should i') || lower.includes('how to') || lower.includes('can i')) && 
+        legalKeywords.some(keyword => lower.includes(keyword))) {
+        return {
+            blocked: true,
+            response: "Ay-yi-yi! 🤖 That sounds like legal stuff! My master didn't program me for that - you need a real lawyer!\n\nI can help with business contracts, invoices, quotations though! 📄"
+        };
+    }
+    
+    // BLOCKED: Personal relationship advice
+    const relationshipKeywords = [
+        'girlfriend', 'boyfriend', 'wife', 'husband', 'dating', 'love', 'relationship',
+        'breakup', 'cheating', 'marriage', 'divorce', 'partner cheating'
+    ];
+    
+    if ((lower.includes('should i') || lower.includes('how to') || lower.includes('my')) && 
+        relationshipKeywords.some(keyword => lower.includes(keyword))) {
+        return {
+            blocked: true,
+            response: "Ay-yi-yi-yi-yi! 🤖💔 I'm a business robot, not a relationship counselor! That's way above my pay grade!\n\nBut if you need help with BUSINESS partnerships, I'm your bot! 🤝"
+        };
+    }
+    
+    // BLOCKED: Inappropriate/offensive content
+    const offensiveKeywords = ['fuck', 'shit', 'bitch', 'damn', 'hell', 'ass', 'sex', 'porn'];
+    
+    if (offensiveKeywords.some(keyword => lower.includes(keyword))) {
+        return {
+            blocked: true,
+            response: "Ay-yi-yi! 🤖 My master programmed me to keep things professional! Let's keep the conversation business-appropriate, okay?\n\nHow can I help with your accounting, sales, or inventory? 📦"
+        };
+    }
+    
+    // BLOCKED: Completely off-topic (entertainment, sports, cooking, etc.)
+    const offTopicPatterns = [
+        { keywords: ['recipe', 'cook', 'bake', 'ingredient'], response: "cooking recipes" },
+        { keywords: ['movie', 'film', 'netflix', 'show', 'series'], response: "entertainment" },
+        { keywords: ['football', 'basketball', 'sports', 'game', 'match'], response: "sports" },
+        { keywords: ['weather', 'rain', 'sunny', 'forecast'], response: "weather forecasts" },
+        { keywords: ['joke', 'funny', 'laugh', 'comedy'], response: "jokes" }
+    ];
+    
+    for (const pattern of offTopicPatterns) {
+        if (pattern.keywords.some(keyword => lower.includes(keyword)) && 
+            !lower.includes('business') && !lower.includes('sell') && !lower.includes('product')) {
+            return {
+                blocked: true,
+                response: `Ay-yi-yi! 🤖 I'm a business assistant, not a ${pattern.response} expert! My circuits are designed for accounting, inventory, and sales.\n\nNeed help with your business instead? 💼`
+            };
+        }
+    }
+    
+    // ALLOWED: Business questions pass through
+    return { blocked: false };
+}
+
+// ==================== MAIN AI RESPONSE HANDLER ====================
 async function getAIResponse(message) {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const isNetlify = window.location.hostname.includes('netlify.app') || window.location.hostname.includes('netlify.com');
+    
+    // PRE-STEP: Content Filter - Block inappropriate/off-topic questions
+    const filterResult = contentFilter(message);
+    if (filterResult.blocked) {
+        return { success: true, message: filterResult.response, source: 'filter' };
+    }
     
     // PRE-STEP: Apply learned typo fixes and custom terms
     let processedMessage = applyLearnedTypoFixes(message);
