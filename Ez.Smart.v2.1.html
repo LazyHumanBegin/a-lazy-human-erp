@@ -7554,13 +7554,22 @@
             e.preventDefault();
             deferredPrompt = e;
             
-            // Check if on mobile/tablet - show earlier
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            const delay = isMobile ? 3000 : 30000; // 3 seconds on mobile, 30 on desktop
+            // Show immediately if user is logged in, otherwise wait a bit
+            const isLoggedIn = localStorage.getItem('ezcubic_currentUser');
+            const delay = isLoggedIn ? 1000 : 5000; // 1 second if logged in, 5 seconds if not
             
             setTimeout(() => {
                 showPWAInstallPrompt();
             }, delay);
+        });
+        
+        // Also trigger on login
+        window.addEventListener('user-logged-in', () => {
+            setTimeout(() => {
+                if (deferredPrompt) {
+                    showPWAInstallPrompt();
+                }
+            }, 1000); // Show 1 second after login
         });
         
         function showPWAInstallPrompt() {

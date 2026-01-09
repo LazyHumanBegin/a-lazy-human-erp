@@ -827,7 +827,11 @@ function handleChangePassword(event) {
     window.currentUser.password = newPassword;
 
     // Save to localStorage
-    saveUsers();
+    if (typeof window.saveUsers === 'function') {
+        window.saveUsers();
+    } else {
+        localStorage.setItem('ezcubic_users', JSON.stringify(window.users));
+    }
 
     // Update in localStorage current user
     localStorage.setItem('ezcubic_currentUser', JSON.stringify(window.currentUser));

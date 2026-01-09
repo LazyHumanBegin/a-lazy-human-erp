@@ -676,6 +676,9 @@ async function tryLoginWithCloudSync(email, password) {
             if (typeof updateCompanyNameInUI === 'function') updateCompanyNameInUI();
             if (typeof updateDashboard === 'function') updateDashboard();
             
+            // Trigger PWA install prompt event
+            window.dispatchEvent(new Event('user-logged-in'));
+            
             // Reload chatbot with user-specific data
             if (typeof reloadChatbotForUser === 'function') {
                 reloadChatbotForUser();

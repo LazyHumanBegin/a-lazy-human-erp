@@ -237,6 +237,7 @@ const MODULE_MAP = {
     'reports': 'reports',
     'taxes': 'taxes',
     'balance-sheet': 'balance',
+    'business-targets': 'business-targets',
     'settings': 'settings',
     'user-management': 'users'
 };

@@ -116,7 +116,21 @@ const SUBSCRIPTIONS_KEY = 'ezcubic_subscriptions';
 
 function getSubscriptions() {
     const stored = localStorage.getItem(SUBSCRIPTIONS_KEY);
-    return stored ? JSON.parse(stored) : {};
+    const subs = stored ? JSON.parse(stored) : {};
+    
+    // Filter out deleted tenants
+    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+    if (deletedTenants.length > 0) {
+        const filtered = {};
+        Object.keys(subs).forEach(tenantId => {
+            if (!deletedTenants.includes(tenantId)) {
+                filtered[tenantId] = subs[tenantId];
+            }
+        });
+        return filtered;
+    }
+    
+    return subs;
 }
 
 function saveSubscriptions(subs) {
