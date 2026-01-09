@@ -673,6 +673,9 @@ function editAIAction(pendingId) {
     
     const section = sectionMap[action.action] || 'dashboard';
     
+    // Store the pending ID so we can remove it after successful creation
+    window._editingPendingId = pendingId;
+    
     // Show the section
     if (typeof showSection === 'function') {
         showSection(section);
@@ -683,10 +686,10 @@ function editAIAction(pendingId) {
         prefillFormFromAction(action);
     }, 300);
     
-    // Remove from pending since user will create manually
-    rejectAIAction(pendingId);
+    // DON'T remove from pending yet - user might cancel or close the form
+    // The card will be removed after they successfully create the item
     
-    showNotification(`📝 Opening ${section} - you can create manually with the data`, 'info');
+    showNotification(`📝 Opening ${section} - Edit the details as needed. Card will be removed after you save.`, 'info');
 }
 
 // Pre-fill form fields from action data
@@ -700,6 +703,24 @@ function prefillFormFromAction(action) {
     }
     // Add more prefill cases as needed
 }
+
+// Helper: Remove the pending card that was being edited (call this after successful manual creation)
+function clearEditingPendingCard() {
+    if (window._editingPendingId) {
+        const pendingId = window._editingPendingId;
+        window._editingPendingId = null; // Clear the flag
+        
+        const index = aiPendingApprovals.findIndex(p => p.id === pendingId);
+        if (index !== -1) {
+            const pending = aiPendingApprovals[index];
+            aiPendingApprovals.splice(index, 1);
+            savePendingApprovals();
+            updatePendingApprovalsUI();
+            console.log('✅ Removed pending card after manual creation:', pending.description);
+        }
+    }
+}
+window.clearEditingPendingCard = clearEditingPendingCard; // Make globally accessible
 
 // Execute approved action (the actual work)
 function executeApprovedAction(action) {
