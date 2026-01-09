@@ -2147,6 +2147,7 @@ function renderPlanFeaturesRows(plans) {
         { id: 'income', name: 'Record Income', category: 'Finance' },
         { id: 'expenses', name: 'Record Expenses', category: 'Finance' },
         { id: 'bills', name: 'Bills', category: 'Finance' },
+        { id: 'business-targets', name: 'Business Targets', category: 'Finance' },
         { id: 'reports', name: 'Reports', category: 'Finance' },
         { id: 'taxes', name: 'Taxes', category: 'Finance' },
         { id: 'balance', name: 'Balance Sheet', category: 'Finance' },
