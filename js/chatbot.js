@@ -2336,6 +2336,9 @@ async function processUserMessage(message) {
                 showSmartActions(aiResponse.message);
                 
                 conversationHistory.push({ role: 'assistant', content: aiResponse.message });
+                
+                // LEARNING SYSTEM: Extract and store insights from AI response
+                learnFromConversation(message, aiResponse.message);
             }
             
             if (conversationHistory.length > MAX_CONVERSATION_HISTORY) {
@@ -5401,22 +5404,18 @@ function tryLocalFirst(message) {
                 
                 const currentMargin = currentPrice > 0 ? ((currentPrice - cost) / currentPrice * 100) : 0;
                 
-                return `💰 **Pricing Recommendation: ${product.name}**\n\n` +
-                    `Current: ${formatRM(currentPrice)}${currentPrice > 0 ? ` (${currentMargin.toFixed(1)}% margin)` : ''}\n` +
-                    `Cost: ${formatRM(cost)}\n\n` +
-                    `**Suggested Pricing:**\n` +
-                    `📉 Budget: ${formatRM(markup30)} (30% markup)\n` +
-                    `✅ Recommended: ${formatRM(markup50)} (50% markup) ← Good for retail\n` +
-                    `💎 Premium: ${formatRM(markup100)} (100% markup)\n\n` +
-                    `💡 Tip: 50% markup is healthy for most retail products. Consider your market and competition!`;
+                return `💰 **${product.name}** Pricing\n\n` +
+                    `Cost: ${formatRM(cost)} → Sell: ${formatRM(markup50)} ✅\n` +
+                    `(50% markup - healthy margin)\n\n` +
+                    `Other options:\n` +
+                    `• Budget: ${formatRM(markup30)}\n` +
+                    `• Premium: ${formatRM(markup100)}`;
             } else if (currentPrice > 0) {
-                return `💰 **${product.name}**\n\nCurrent price: ${formatRM(currentPrice)}\n\n` +
-                    `⚠️ No cost data entered yet.\n\n` +
-                    `💡 Add cost price in Inventory to get smart pricing recommendations!`;
+                return `💰 **${product.name}**: ${formatRM(currentPrice)}\n\n` +
+                    `⚠️ Add cost price in Inventory for pricing tips!`;
             } else {
                 return `💰 **${product.name}**\n\n` +
-                    `⚠️ No price or cost data yet.\n\n` +
-                    `💡 Add cost price in Inventory, then I can suggest optimal selling price!`;
+                    `⚠️ Add cost & price in Inventory first!`;
             }
         }
         // If no product found, let DeepSeek handle it (return null to pass to AI)
@@ -8194,6 +8193,192 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', addVoiceStyles);
 } else {
     addVoiceStyles();
+}
+
+// ==================== AI LEARNING SYSTEM ====================
+/**
+ * Extract actionable insights from AI conversations and store them locally
+ * This allows the system to "learn" from DeepSeek recommendations
+ */
+function learnFromConversation(userMessage, aiResponse) {
+    try {
+        const lowerUser = userMessage.toLowerCase();
+        const lowerAI = aiResponse.toLowerCase();
+        
+        // LEARNING PATTERN 1: Pricing recommendations
+        // User: "How much should I sell Sushi?" 
+        // AI: "I recommend RM8-10" or "Try pricing it at RM8"
+        if ((lowerUser.includes('how much') || lowerUser.includes('what price') || lowerUser.includes('recommend')) &&
+            (lowerUser.includes('sell') || lowerUser.includes('still') || lowerUser.includes('price'))) {
+            
+            // Extract product name from user message
+            const productMatch = userMessage.match(/(?:sell|still|price)\s+(?:this\s+)?([a-zA-Z\s]+?)(?:\?|$|for)/i);
+            const productName = productMatch ? productMatch[1].trim() : null;
+            
+            // Extract recommended price from AI response
+            const priceMatch = aiResponse.match(/(?:recommend|suggest|try|price.*at|sell.*at)\s*(?:rm|RM)?\s*(\d+(?:\.\d{1,2})?)/i);
+            const recommendedPrice = priceMatch ? parseFloat(priceMatch[1]) : null;
+            
+            // Extract cost if mentioned in conversation
+            const costMatch = aiResponse.match(/(?:cost|modal)\s*(?:rm|RM)?\s*(\d+(?:\.\d{1,2})?)/i) ||
+                            userMessage.match(/(?:cost|modal)\s*(?:rm|RM)?\s*(\d+(?:\.\d{1,2})?)/i);
+            const cost = costMatch ? parseFloat(costMatch[1]) : null;
+            
+            if (productName && recommendedPrice) {
+                learnProductPricing(productName, recommendedPrice, cost);
+            }
+        }
+        
+        // LEARNING PATTERN 2: Budget recommendations
+        // User: "How much should I budget for marketing?"
+        // AI: "I recommend 10-15% of revenue, so around RM500-750"
+        if (lowerUser.includes('budget') && (lowerUser.includes('how much') || lowerUser.includes('recommend'))) {
+            const categoryMatch = userMessage.match(/budget.*(?:for|on)\s+([a-zA-Z\s]+?)(?:\?|$)/i);
+            const category = categoryMatch ? categoryMatch[1].trim() : null;
+            
+            const amountMatch = aiResponse.match(/(?:rm|RM)\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+            const recommendedAmount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : null;
+            
+            if (category && recommendedAmount) {
+                learnBudgetRecommendation(category, recommendedAmount);
+            }
+        }
+        
+        // LEARNING PATTERN 3: Expense optimization
+        // User: "Where can I cut costs?"
+        // AI mentions specific categories and amounts
+        if ((lowerUser.includes('cut') || lowerUser.includes('reduce') || lowerUser.includes('save')) && 
+            (lowerUser.includes('cost') || lowerUser.includes('expense'))) {
+            // Extract cost reduction insights
+            const insights = extractCostReductionInsights(aiResponse);
+            if (insights.length > 0) {
+                storeOptimizationInsights('cost_reduction', insights);
+            }
+        }
+        
+    } catch (err) {
+        console.warn('Learning system error:', err);
+    }
+}
+
+/**
+ * Learn product pricing from AI recommendations
+ */
+function learnProductPricing(productName, recommendedPrice, cost = null) {
+    const products = window.products || [];
+    const existing = products.find(p => p.name?.toLowerCase() === productName.toLowerCase());
+    
+    if (existing) {
+        // Update existing product with AI recommendation
+        if (recommendedPrice && !existing.price) {
+            existing.price = recommendedPrice;
+            existing.aiSuggestedPrice = recommendedPrice;
+            existing.aiSuggestedAt = new Date().toISOString();
+        }
+        if (cost && !existing.cost) {
+            existing.cost = cost;
+        }
+        
+        if (typeof saveProducts === 'function') {
+            saveProducts();
+        } else {
+            localStorage.setItem('ezcubic_products', JSON.stringify(products));
+        }
+        
+        console.log(`✅ Learned: Updated ${productName} pricing to RM${recommendedPrice}`);
+        
+    } else {
+        // Create draft product with AI recommendation
+        const draftProduct = {
+            id: 'prod_draft_' + Date.now(),
+            name: productName,
+            price: recommendedPrice,
+            cost: cost || 0,
+            stock: 0,
+            unit: 'pcs',
+            category: 'General',
+            status: 'draft',
+            aiSuggested: true,
+            aiSuggestedPrice: recommendedPrice,
+            aiSuggestedAt: new Date().toISOString(),
+            createdBy: 'Alpha 5 AI'
+        };
+        
+        products.push(draftProduct);
+        window.products = products;
+        
+        if (typeof saveProducts === 'function') {
+            saveProducts();
+        } else {
+            localStorage.setItem('ezcubic_products', JSON.stringify(products));
+        }
+        
+        console.log(`✅ Learned: Created draft product "${productName}" @ RM${recommendedPrice}`);
+        
+        // Show notification
+        if (typeof showToast === 'function') {
+            showToast(`💡 Saved AI suggestion: ${productName} @ RM${recommendedPrice}. Check Inventory to confirm!`, 'info', 5000);
+        }
+    }
+}
+
+/**
+ * Learn budget recommendations
+ */
+function learnBudgetRecommendation(category, amount) {
+    const key = 'ezcubic_ai_budget_insights';
+    const stored = localStorage.getItem(key);
+    const insights = stored ? JSON.parse(stored) : {};
+    
+    insights[category.toLowerCase()] = {
+        recommendedAmount: amount,
+        learnedAt: new Date().toISOString(),
+        source: 'Alpha 5 AI'
+    };
+    
+    localStorage.setItem(key, JSON.stringify(insights));
+    console.log(`✅ Learned: Budget for ${category} = RM${amount}`);
+}
+
+/**
+ * Extract cost reduction insights from AI response
+ */
+function extractCostReductionInsights(response) {
+    const insights = [];
+    const lines = response.split('\n');
+    
+    lines.forEach(line => {
+        // Look for patterns like "Save RM500 by..." or "Reduce utilities by RM200"
+        const match = line.match(/(?:save|reduce|cut)\s+(?:rm|RM)?\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i);
+        if (match) {
+            insights.push({
+                suggestion: line.trim(),
+                potentialSaving: parseFloat(match[1].replace(/,/g, '')),
+                learnedAt: new Date().toISOString()
+            });
+        }
+    });
+    
+    return insights;
+}
+
+/**
+ * Store optimization insights
+ */
+function storeOptimizationInsights(type, insights) {
+    const key = `ezcubic_ai_insights_${type}`;
+    const stored = localStorage.getItem(key);
+    const existing = stored ? JSON.parse(stored) : [];
+    
+    existing.push(...insights);
+    
+    // Keep only last 20 insights
+    if (existing.length > 20) {
+        existing.splice(0, existing.length - 20);
+    }
+    
+    localStorage.setItem(key, JSON.stringify(existing));
+    console.log(`✅ Learned: Stored ${insights.length} ${type} insights`);
 }
 
 // ==================== EXPORT FUNCTIONS TO WINDOW ====================
