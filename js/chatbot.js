@@ -5418,15 +5418,10 @@ function tryLocalFirst(message) {
                     `⚠️ No price or cost data yet.\n\n` +
                     `💡 Add cost price in Inventory, then I can suggest optimal selling price!`;
             }
-        } else {
-            // No specific product found
-            return `💰 **Pricing Recommendation**\n\nWhich product?\n\n` +
-                `Example:\n` +
-                `• "How much should I sell Sushi"\n` +
-                `• "What price for Laptop"\n` +
-                `• "Recommend price for T-shirt"\n\n` +
-                `Or add cost price in your product data for smart suggestions!`;
         }
+        // If no product found, let DeepSeek handle it (return null to pass to AI)
+        // DeepSeek can give more contextual, intelligent response
+        return null;
     }
     
     // ==================== PRODUCT/INVENTORY QUERIES ====================
