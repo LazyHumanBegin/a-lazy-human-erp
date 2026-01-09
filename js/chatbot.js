@@ -5369,21 +5369,30 @@ function contentFilter(message) {
     }
     
     // BLOCKED: Completely off-topic (entertainment, sports, cooking, etc.)
+    // BUT allow business context (like "show me balance sheet", "game sales", etc.)
+    const businessTerms = ['business', 'sell', 'product', 'balance sheet', 'report', 'inventory', 
+                          'profit', 'revenue', 'expense', 'sales', 'customer', 'invoice', 'order',
+                          'stock', 'account', 'payment', 'cash', 'financial', 'dashboard'];
+    
+    const hasBusinessContext = businessTerms.some(term => lower.includes(term));
+    
     const offTopicPatterns = [
         { keywords: ['recipe', 'cook', 'bake', 'ingredient'], response: "cooking recipes" },
-        { keywords: ['movie', 'film', 'netflix', 'show', 'series'], response: "entertainment" },
-        { keywords: ['football', 'basketball', 'sports', 'game', 'match'], response: "sports" },
+        { keywords: ['movie', 'film', 'netflix', 'tv show', 'series'], response: "entertainment" },
+        { keywords: ['football', 'basketball', 'sports match'], response: "sports" },
         { keywords: ['weather', 'rain', 'sunny', 'forecast'], response: "weather forecasts" },
         { keywords: ['joke', 'funny', 'laugh', 'comedy'], response: "jokes" }
     ];
     
-    for (const pattern of offTopicPatterns) {
-        if (pattern.keywords.some(keyword => lower.includes(keyword)) && 
-            !lower.includes('business') && !lower.includes('sell') && !lower.includes('product')) {
-            return {
-                blocked: true,
-                response: `Ay-yi-yi! 🤖 I'm a business assistant, not a ${pattern.response} expert! My circuits are designed for accounting, inventory, and sales.\n\nNeed help with your business instead? 💼`
-            };
+    // Only block if off-topic keywords match AND no business context
+    if (!hasBusinessContext) {
+        for (const pattern of offTopicPatterns) {
+            if (pattern.keywords.some(keyword => lower.includes(keyword))) {
+                return {
+                    blocked: true,
+                    response: `Ay-yi-yi! 🤖 I'm a business assistant, not a ${pattern.response} expert! My circuits are designed for accounting, inventory, and sales.\n\nNeed help with your business instead? 💼`
+                };
+            }
         }
     }
     
