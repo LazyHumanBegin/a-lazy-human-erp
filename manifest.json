@@ -1,7 +1,7 @@
 {
-  "name": "A Lazy Human - Malaysian Business Accounting",
-  "short_name": "A Lazy Human",
-  "description": "Complete ERP system for Malaysian businesses - Accounting, POS, Inventory, CRM & more",
+  "name": "LazyHumanSystem - AI Business Platform",
+  "short_name": "LazyHumanSystem",
+  "description": "AI-powered business management platform - Accounting, POS, Inventory, CRM, Analytics & more",
   "start_url": "./Ez.Smart.v2.1.html",
   "display": "standalone",
   "background_color": "#1e293b",

@@ -2848,22 +2848,28 @@ function doAddEmployee(action) {
 // Create BOM (Bill of Materials)
 function doCreateBOM(action) {
     const bom = {
-        id: 'BOM' + Date.now(),
+        id: 'bom_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
         name: action.name || 'New BOM',
         description: action.description || '',
         outputQuantity: parseInt(action.outputQuantity) || 1,
         laborCost: parseFloat(action.laborCost) || 0,
-        materials: action.materials || [],
+        overheadCost: parseFloat(action.overheadCost) || 0,
+        components: action.components || action.materials || [], // Support both field names
         status: 'active',
         createdAt: new Date().toISOString(),
-        createdBy: 'AI Assistant'
+        updatedAt: new Date().toISOString(),
+        createdBy: window.currentUser?.name || 'AI Assistant'
     };
     
-    if (!window.boms) window.boms = [];
-    window.boms.push(bom);
+    // Update main BOM array used by bom.js
+    if (!window.billOfMaterials) window.billOfMaterials = [];
+    window.billOfMaterials.push(bom);
     
-    localStorage.setItem('ezcubic_boms', JSON.stringify(window.boms));
-    if (typeof renderBOMs === 'function') renderBOMs();
+    // Save to correct localStorage key
+    localStorage.setItem('ezcubic_bom', JSON.stringify(window.billOfMaterials));
+    
+    // Refresh UI
+    if (typeof renderBOMList === 'function') renderBOMList();
     
     return bom;
 }
