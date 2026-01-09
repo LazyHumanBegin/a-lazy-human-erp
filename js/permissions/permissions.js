@@ -50,7 +50,7 @@ const ROLES = {
         color: '#64748b',
         icon: 'fa-user',
         canManage: [],
-        defaultPermissions: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot'],
+        defaultPermissions: ['dashboard', 'transactions', 'income', 'expenses', 'bills', 'reports', 'taxes', 'balance-sheet', 'monthly-reports', 'ai-chatbot'],
         plan: 'personal'
     },
     manager: {
@@ -95,6 +95,7 @@ const ERP_MODULE_CATEGORIES = [
             { id: 'taxes', name: 'Taxes', icon: 'fa-percentage' },
             { id: 'balance', name: 'Balance Sheet', icon: 'fa-balance-scale' },
             { id: 'monthly-reports', name: 'Monthly Reports', icon: 'fa-calendar-alt' },
+            { id: 'business-targets', name: 'Business Targets', icon: 'fa-bullseye' },
             { id: 'bank-reconciliation', name: 'Bank Reconciliation', icon: 'fa-check-double' },
             { id: 'lhdn-export', name: 'LHDN & Audit Export', icon: 'fa-file-export' }
         ]

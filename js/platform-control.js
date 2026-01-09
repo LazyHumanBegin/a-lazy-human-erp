@@ -36,9 +36,9 @@ const DEFAULT_PLATFORM_SETTINGS = {
                 branches: 0, // No branches for Personal
                 storage: 50 // MB
             },
-            // Personal only gets basic accounting features - no team management
-            features: ['dashboard', 'transactions', 'income', 'expenses', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'backup-restore', 'settings'],
-            hiddenSections: ['pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'suppliers', 'quotations', 'projects', 'payroll', 'leave-attendance', 'einvoice', 'branches', 'user-management', 'purchase-orders', 'delivery-orders', 'employees', 'kpi', 'lhdn-export', 'bank-reconciliation', 'chart-of-accounts', 'journal-entries', 'aging-reports']
+            // Personal only gets basic accounting features - no team management (12 features)
+            features: ['dashboard', 'transactions', 'income', 'expenses', 'bills', 'reports', 'taxes', 'balance', 'monthly-reports', 'ai-chatbot', 'backup-restore', 'settings'],
+            hiddenSections: ['pos', 'inventory', 'stock', 'orders', 'crm', 'customers', 'suppliers', 'quotations', 'projects', 'payroll', 'leave-attendance', 'einvoice', 'branches', 'user-management', 'purchase-orders', 'delivery-orders', 'employees', 'kpi', 'lhdn-export', 'bank-reconciliation', 'chart-of-accounts', 'journal-entries', 'aging-reports', 'business-targets']
         },
         starter: {
             name: 'Starter',
