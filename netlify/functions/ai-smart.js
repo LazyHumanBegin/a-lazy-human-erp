@@ -168,9 +168,21 @@ DATA TYPES AVAILABLE:
 - cash_flow, bank_balance, accounts_receivable, accounts_payable
 - sales_trend, expense_trend
 
+ENTITY EXTRACTION RULES:
+- For "add product [name]" - Extract EVERYTHING after "product" as the name (including special characters, accents, parentheses)
+- For "add product [name] RM[price]" - Name is everything between "product" and "RM"
+- Preserve full product names: "François Blanchard La Presse (red)" → name: "François Blanchard La Presse (red)"
+- Trim whitespace only, keep all other characters
+
 EXAMPLES:
 User: "can you help me record lunch RM15"
 {"intent":"action","action":"add_expense","entities":{"amount":15,"description":"lunch","category":"Food"},"confidence":0.95}
+
+User: "add product François Blanchard La Presse (red)"
+{"intent":"action","action":"add_product","entities":{"name":"François Blanchard La Presse (red)"},"confidence":0.95}
+
+User: "add product Beer RM15"
+{"intent":"action","action":"add_product","entities":{"name":"Beer","price":15},"confidence":0.95}
 
 User: "what's my profit this month?"
 {"intent":"query","dataNeeded":["monthly_income","monthly_expenses","profit_margin"],"confidence":0.9}
