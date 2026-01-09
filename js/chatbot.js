@@ -681,10 +681,10 @@ function editAIAction(pendingId) {
         showSection(section);
     }
     
-    // Pre-fill form based on action type (you can add more cases)
+    // Open modal and pre-fill form based on action type
     setTimeout(() => {
         prefillFormFromAction(action);
-    }, 300);
+    }, 500);
     
     // DON'T remove from pending yet - user might cancel or close the form
     // The card will be removed after they successfully create the item
@@ -695,11 +695,40 @@ function editAIAction(pendingId) {
 // Pre-fill form fields from action data
 function prefillFormFromAction(action) {
     // This will vary by action type - add specific prefill logic
-    if (action.action === 'add_product' && document.getElementById('productName')) {
-        document.getElementById('productName').value = action.name || '';
-        document.getElementById('productPrice').value = action.price || '';
-        document.getElementById('productCost').value = action.cost || '';
-        document.getElementById('productStock').value = action.quantity || '';
+    const actionType = action.action;
+    
+    if (actionType === 'add_product') {
+        // Open the product modal
+        if (typeof showProductModal === 'function') {
+            showProductModal();
+            // Pre-fill after modal opens
+            setTimeout(() => {
+                if (document.getElementById('productName')) {
+                    document.getElementById('productName').value = action.name || '';
+                }
+                if (document.getElementById('productPrice')) {
+                    document.getElementById('productPrice').value = action.price || '';
+                }
+                if (document.getElementById('productCost')) {
+                    document.getElementById('productCost').value = action.cost || '';
+                }
+                if (document.getElementById('productStock')) {
+                    document.getElementById('productStock').value = action.quantity || '';
+                }
+            }, 200);
+        }
+    } else if (actionType === 'add_expense') {
+        // Open expense form
+        if (typeof showExpenseModal === 'function') {
+            showExpenseModal();
+        }
+    } else if (actionType === 'add_customer') {
+        // Open customer form
+        if (typeof showAddCustomerForm === 'function') {
+            showAddCustomerForm();
+        } else if (typeof showCustomerModal === 'function') {
+            showCustomerModal();
+        }
     }
     // Add more prefill cases as needed
 }
