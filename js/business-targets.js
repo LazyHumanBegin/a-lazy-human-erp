@@ -1,11 +1,13 @@
 /**
  * Business Targets & Monitoring Module
  * Target-based performance tracking for business planning
- * Version: 1.0.0 - Initial release - 9 Jan 2026
+ * Version: 2.0.0 - Added Scenario Planning - 9 Jan 2026
  */
 
 // ==================== STATE ====================
 const TARGETS_KEY = 'ezcubic_business_targets';
+const SCENARIOS_KEY = 'ezcubic_business_scenarios';
+
 let businessTargets = {
     enabled: false,
     period: 'monthly', // monthly, quarterly, yearly
@@ -26,10 +28,14 @@ let businessTargets = {
     updatedAt: null
 };
 
+let businessScenarios = [];
+let currentView = 'monitoring'; // 'monitoring', 'scenarios'
+
 // ==================== INITIALIZATION ====================
 function initializeBusinessTargets() {
     loadBusinessTargets();
-    console.log('📊 Business Targets module loaded');
+    loadBusinessScenarios();
+    console.log('📊 Business Targets module loaded (v2.0 with Scenarios)');
 }
 
 function loadBusinessTargets() {
@@ -42,6 +48,17 @@ function loadBusinessTargets() {
 function saveBusinessTargets() {
     businessTargets.updatedAt = new Date().toISOString();
     localStorage.setItem(TARGETS_KEY, JSON.stringify(businessTargets));
+}
+
+function loadBusinessScenarios() {
+    const stored = localStorage.getItem(SCENARIOS_KEY);
+    if (stored) {
+        businessScenarios = JSON.parse(stored);
+    }
+}
+
+function saveBusinessScenarios() {
+    localStorage.setItem(SCENARIOS_KEY, JSON.stringify(businessScenarios));
 }
 
 // ==================== UI DISPLAY ====================
@@ -61,6 +78,8 @@ function renderBusinessTargets() {
     
     if (!businessTargets.enabled) {
         container.innerHTML = renderTargetsSetup();
+    } else if (currentView === 'scenarios') {
+        container.innerHTML = renderScenariosView();
     } else {
         container.innerHTML = renderTargetsMonitoring();
     }
@@ -184,7 +203,10 @@ function renderTargetsMonitoring() {
         <div class="targets-monitoring">
             <div class="monitoring-header">
                 <h2>📊 Business Performance Monitoring</h2>
-                <button class="btn-outline" onclick="editTargets()">⚙️ Edit Targets</button>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-outline" onclick="switchToScenarios()">🔄 Scenario Planning</button>
+                    <button class="btn-outline" onclick="editTargets()">⚙️ Edit Targets</button>
+                </div>
             </div>
             
             <!-- Summary Cards -->
@@ -240,6 +262,149 @@ function renderTargetsMonitoring() {
                 </div>
             </div>
         </div>
+    `;
+}
+
+// ==================== SCENARIOS VIEW ====================
+function renderScenariosView() {
+    return `
+        <div class="scenarios-view">
+            <div class="scenarios-header">
+                <h2>🔄 Scenario Planning & Comparison</h2>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-primary" onclick="showCreateScenarioModal()">➕ New Scenario</button>
+                    <button class="btn-outline" onclick="switchToMonitoring()">📊 Back to Monitoring</button>
+                </div>
+            </div>
+            
+            ${businessScenarios.length === 0 ? renderEmptyScenarios() : renderScenariosList()}
+            
+            ${businessScenarios.length >= 2 ? renderScenariosComparison() : ''}
+        </div>
+    `;
+}
+
+function renderEmptyScenarios() {
+    return `
+        <div style="text-align: center; padding: 60px 20px; background: white; border-radius: 12px; margin-top: 20px;">
+            <div style="font-size: 64px; margin-bottom: 20px;">📊</div>
+            <h3 style="color: #1e293b; margin-bottom: 10px;">No Scenarios Yet</h3>
+            <p style="color: #64748b; margin-bottom: 30px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                Create different business scenarios to plan ahead. Compare "what-if" situations like 
+                hiring more staff, changing prices, or expanding operations.
+            </p>
+            <button class="btn-primary" onclick="showCreateScenarioModal()">
+                ➕ Create Your First Scenario
+            </button>
+        </div>
+    `;
+}
+
+function renderScenariosList() {
+    return `
+        <div class="scenarios-list">
+            <h3>💼 Your Scenarios</h3>
+            <div class="scenarios-grid">
+                ${businessScenarios.map(scenario => renderScenarioCard(scenario)).join('')}
+            </div>
+        </div>
+    `;
+}
+
+function renderScenarioCard(scenario) {
+    const contributionMargin = scenario.sellingPrice - scenario.variableCost;
+    const totalFixed = Object.values(scenario.fixedCosts).reduce((sum, v) => sum + v, 0);
+    const breakEven = contributionMargin > 0 ? Math.ceil(totalFixed / contributionMargin) : 0;
+    
+    return `
+        <div class="scenario-card">
+            <div class="scenario-header">
+                <h4>${scenario.name}</h4>
+                <div class="scenario-actions">
+                    <button class="btn-sm btn-outline" onclick="editScenario('${scenario.id}')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-sm btn-outline" onclick="deleteScenario('${scenario.id}')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="scenario-body">
+                <div class="scenario-metric">
+                    <span class="metric-label">Break-Even:</span>
+                    <span class="metric-value">${breakEven} units</span>
+                </div>
+                <div class="scenario-metric">
+                    <span class="metric-label">Fixed Costs:</span>
+                    <span class="metric-value">RM ${totalFixed.toFixed(0)}</span>
+                </div>
+                <div class="scenario-metric">
+                    <span class="metric-label">Selling Price:</span>
+                    <span class="metric-value">RM ${scenario.sellingPrice.toFixed(2)}</span>
+                </div>
+                <div class="scenario-metric">
+                    <span class="metric-label">Target Margin:</span>
+                    <span class="metric-value">${scenario.targetMargin}%</span>
+                </div>
+            </div>
+            <div class="scenario-footer">
+                <small style="color: #94a3b8;">Created ${new Date(scenario.createdAt).toLocaleDateString()}</small>
+                <button class="btn-sm btn-primary" onclick="applyScenario('${scenario.id}')">
+                    Apply to Targets
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function renderScenariosComparison() {
+    if (businessScenarios.length < 2) return '';
+    
+    return `
+        <div class="scenarios-comparison">
+            <h3>📊 Scenario Comparison</h3>
+            <div class="comparison-table-wrapper">
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Metric</th>
+                            ${businessScenarios.slice(0, 4).map(s => `<th>${s.name}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${renderComparisonRow('Break-Even Units', businessScenarios.slice(0, 4).map(s => {
+                            const cm = s.sellingPrice - s.variableCost;
+                            const fc = Object.values(s.fixedCosts).reduce((sum, v) => sum + v, 0);
+                            return cm > 0 ? Math.ceil(fc / cm) : 0;
+                        }))}
+                        ${renderComparisonRow('Fixed Costs', businessScenarios.slice(0, 4).map(s => 
+                            'RM ' + Object.values(s.fixedCosts).reduce((sum, v) => sum + v, 0).toFixed(0)
+                        ))}
+                        ${renderComparisonRow('Selling Price', businessScenarios.slice(0, 4).map(s => 
+                            'RM ' + s.sellingPrice.toFixed(2)
+                        ))}
+                        ${renderComparisonRow('Variable Cost', businessScenarios.slice(0, 4).map(s => 
+                            'RM ' + s.variableCost.toFixed(2)
+                        ))}
+                        ${renderComparisonRow('Target Margin', businessScenarios.slice(0, 4).map(s => 
+                            s.targetMargin + '%'
+                        ))}
+                        ${renderComparisonRow('Contribution Margin', businessScenarios.slice(0, 4).map(s => 
+                            'RM ' + (s.sellingPrice - s.variableCost).toFixed(2)
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+}
+
+function renderComparisonRow(label, values) {
+    return `
+        <tr>
+            <td><strong>${label}</strong></td>
+            ${values.map(v => `<td>${v}</td>`).join('')}
+        </tr>
     `;
 }
 
@@ -555,6 +720,270 @@ function updateTotalFixedCosts() {
     if (display) {
         display.textContent = total.toFixed(2);
     }
+}
+
+// ==================== SCENARIO MANAGEMENT ====================
+function switchToScenarios() {
+    currentView = 'scenarios';
+    renderBusinessTargets();
+}
+window.switchToScenarios = switchToScenarios;
+
+function switchToMonitoring() {
+    currentView = 'monitoring';
+    renderBusinessTargets();
+}
+window.switchToMonitoring = switchToMonitoring;
+
+function showCreateScenarioModal() {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'scenarioModal';
+    modal.style.display = 'flex';
+    modal.onclick = (e) => { if (e.target === modal) closeScenarioModal(); };
+    
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3 class="modal-title">🔄 Create New Scenario</h3>
+                <button class="close-modal" onclick="closeScenarioModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Scenario Name *</label>
+                    <input type="text" id="scenarioName" class="form-control" 
+                           placeholder="e.g., Hire 2 Staff, Expand Menu, Reduce Costs">
+                </div>
+                
+                <div class="form-group">
+                    <label>Description (Optional)</label>
+                    <textarea id="scenarioDescription" class="form-control" rows="2"
+                              placeholder="Describe what this scenario represents..."></textarea>
+                </div>
+                
+                <h4 style="margin: 20px 0 10px; color: #1e293b; font-size: 16px;">💰 Fixed Costs (Monthly)</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>HR/Salaries</label>
+                        <input type="number" id="scn_salaries" class="form-control" value="0" min="0" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Rent</label>
+                        <input type="number" id="scn_rent" class="form-control" value="0" min="0" step="100">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Utilities</label>
+                        <input type="number" id="scn_utilities" class="form-control" value="0" min="0" step="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Marketing</label>
+                        <input type="number" id="scn_marketing" class="form-control" value="0" min="0" step="100">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>R&D</label>
+                        <input type="number" id="scn_rd" class="form-control" value="0" min="0" step="100">
+                    </div>
+                    <div class="form-group">
+                        <label>Other</label>
+                        <input type="number" id="scn_other" class="form-control" value="0" min="0" step="100">
+                    </div>
+                </div>
+                
+                <h4 style="margin: 20px 0 10px; color: #1e293b; font-size: 16px;">📦 Pricing & Margins</h4>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Selling Price (RM)</label>
+                        <input type="number" id="scn_price" class="form-control" value="0" min="0" step="0.50">
+                    </div>
+                    <div class="form-group">
+                        <label>Variable Cost (RM)</label>
+                        <input type="number" id="scn_variable" class="form-control" value="0" min="0" step="0.10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Target Profit Margin (%)</label>
+                    <input type="number" id="scn_margin" class="form-control" value="30" min="0" max="100" step="1">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="saveNewScenario()">
+                    💾 Create Scenario
+                </button>
+                <button class="btn-secondary" onclick="closeScenarioModal()">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+window.showCreateScenarioModal = showCreateScenarioModal;
+
+function closeScenarioModal() {
+    document.getElementById('scenarioModal')?.remove();
+}
+window.closeScenarioModal = closeScenarioModal;
+
+function saveNewScenario() {
+    const name = document.getElementById('scenarioName').value.trim();
+    if (!name) {
+        showToast('Please enter a scenario name', 'error');
+        return;
+    }
+    
+    const sellingPrice = parseFloat(document.getElementById('scn_price').value) || 0;
+    const variableCost = parseFloat(document.getElementById('scn_variable').value) || 0;
+    
+    if (sellingPrice <= 0) {
+        showToast('Please enter a valid selling price', 'error');
+        return;
+    }
+    
+    if (sellingPrice <= variableCost) {
+        showToast('Selling price must be higher than variable cost', 'error');
+        return;
+    }
+    
+    const scenario = {
+        id: 'scenario_' + Date.now(),
+        name: name,
+        description: document.getElementById('scenarioDescription').value.trim(),
+        fixedCosts: {
+            salaries: parseFloat(document.getElementById('scn_salaries').value) || 0,
+            rent: parseFloat(document.getElementById('scn_rent').value) || 0,
+            utilities: parseFloat(document.getElementById('scn_utilities').value) || 0,
+            marketing: parseFloat(document.getElementById('scn_marketing').value) || 0,
+            rd: parseFloat(document.getElementById('scn_rd').value) || 0,
+            other: parseFloat(document.getElementById('scn_other').value) || 0
+        },
+        sellingPrice: sellingPrice,
+        variableCost: variableCost,
+        targetMargin: parseFloat(document.getElementById('scn_margin').value) || 30,
+        createdAt: new Date().toISOString()
+    };
+    
+    businessScenarios.push(scenario);
+    saveBusinessScenarios();
+    
+    closeScenarioModal();
+    showToast('✅ Scenario created successfully!', 'success');
+    renderBusinessTargets();
+}
+window.saveNewScenario = saveNewScenario;
+
+function deleteScenario(scenarioId) {
+    const scenario = businessScenarios.find(s => s.id === scenarioId);
+    if (!scenario) return;
+    
+    if (!confirm(`Delete scenario "${scenario.name}"?`)) return;
+    
+    businessScenarios = businessScenarios.filter(s => s.id !== scenarioId);
+    saveBusinessScenarios();
+    showToast('Scenario deleted', 'success');
+    renderBusinessTargets();
+}
+window.deleteScenario = deleteScenario;
+
+function applyScenario(scenarioId) {
+    const scenario = businessScenarios.find(s => s.id === scenarioId);
+    if (!scenario) return;
+    
+    if (!confirm(`Apply scenario "${scenario.name}" to your current targets?\n\nThis will overwrite your current target settings.`)) return;
+    
+    // Apply scenario to business targets
+    businessTargets.fixedCosts = { ...scenario.fixedCosts };
+    businessTargets.sellingPricePerUnit = scenario.sellingPrice;
+    businessTargets.variableCostPerUnit = scenario.variableCost;
+    businessTargets.targetProfitMargin = scenario.targetMargin;
+    
+    // Recalculate targets
+    const totalFixedCosts = Object.values(businessTargets.fixedCosts).reduce((sum, v) => sum + v, 0);
+    const contributionMargin = businessTargets.sellingPricePerUnit - businessTargets.variableCostPerUnit;
+    
+    businessTargets.breakEvenUnits = Math.ceil(totalFixedCosts / contributionMargin);
+    const desiredProfit = totalFixedCosts * (businessTargets.targetProfitMargin / 100) / (1 - businessTargets.targetProfitMargin / 100);
+    businessTargets.targetUnits = Math.ceil((totalFixedCosts + desiredProfit) / contributionMargin);
+    businessTargets.targetRevenue = businessTargets.targetUnits * businessTargets.sellingPricePerUnit;
+    
+    saveBusinessTargets();
+    
+    showToast(`✅ Scenario "${scenario.name}" applied to targets!`, 'success');
+    currentView = 'monitoring';
+    renderBusinessTargets();
+}
+window.applyScenario = applyScenario;
+
+function editScenario(scenarioId) {
+    const scenario = businessScenarios.find(s => s.id === scenarioId);
+    if (!scenario) return;
+    
+    showCreateScenarioModal();
+    
+    // Pre-fill form
+    setTimeout(() => {
+        document.getElementById('scenarioName').value = scenario.name;
+        document.getElementById('scenarioDescription').value = scenario.description || '';
+        document.getElementById('scn_salaries').value = scenario.fixedCosts.salaries;
+        document.getElementById('scn_rent').value = scenario.fixedCosts.rent;
+        document.getElementById('scn_utilities').value = scenario.fixedCosts.utilities;
+        document.getElementById('scn_marketing').value = scenario.fixedCosts.marketing;
+        document.getElementById('scn_rd').value = scenario.fixedCosts.rd;
+        document.getElementById('scn_other').value = scenario.fixedCosts.other;
+        document.getElementById('scn_price').value = scenario.sellingPrice;
+        document.getElementById('scn_variable').value = scenario.variableCost;
+        document.getElementById('scn_margin').value = scenario.targetMargin;
+        
+        // Change save button to update
+        const modal = document.getElementById('scenarioModal');
+        const saveBtn = modal.querySelector('.btn-primary');
+        saveBtn.textContent = '💾 Update Scenario';
+        saveBtn.onclick = () => updateScenario(scenarioId);
+    }, 100);
+}
+window.editScenario = editScenario;
+
+function updateScenario(scenarioId) {
+    const scenario = businessScenarios.find(s => s.id === scenarioId);
+    if (!scenario) return;
+    
+    const name = document.getElementById('scenarioName').value.trim();
+    if (!name) {
+        showToast('Please enter a scenario name', 'error');
+        return;
+    }
+    
+    const sellingPrice = parseFloat(document.getElementById('scn_price').value) || 0;
+    const variableCost = parseFloat(document.getElementById('scn_variable').value) || 0;
+    
+    if (sellingPrice <= 0 || sellingPrice <= variableCost) {
+        showToast('Invalid pricing values', 'error');
+        return;
+    }
+    
+    scenario.name = name;
+    scenario.description = document.getElementById('scenarioDescription').value.trim();
+    scenario.fixedCosts = {
+        salaries: parseFloat(document.getElementById('scn_salaries').value) || 0,
+        rent: parseFloat(document.getElementById('scn_rent').value) || 0,
+        utilities: parseFloat(document.getElementById('scn_utilities').value) || 0,
+        marketing: parseFloat(document.getElementById('scn_marketing').value) || 0,
+        rd: parseFloat(document.getElementById('scn_rd').value) || 0,
+        other: parseFloat(document.getElementById('scn_other').value) || 0
+    };
+    scenario.sellingPrice = sellingPrice;
+    scenario.variableCost = variableCost;
+    scenario.targetMargin = parseFloat(document.getElementById('scn_margin').value) || 30;
+    scenario.updatedAt = new Date().toISOString();
+    
+    saveBusinessScenarios();
+    closeScenarioModal();
+    showToast('✅ Scenario updated!', 'success');
+    renderBusinessTargets();
 }
 
 // ==================== INITIALIZE ON LOAD ====================

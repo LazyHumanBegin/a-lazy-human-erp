@@ -7274,6 +7274,133 @@
             font-weight: 600;
             font-size: 14px;
         }
+        
+        /* Scenarios View */
+        .scenarios-view {
+            padding: 20px;
+        }
+        .scenarios-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .scenarios-header h2 {
+            color: #1e293b;
+            margin: 0;
+        }
+        .scenarios-list {
+            margin-bottom: 40px;
+        }
+        .scenarios-list h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .scenarios-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .scenario-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .scenario-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .scenario-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .scenario-header h4 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .scenario-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .scenario-actions button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .scenario-actions button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        .scenario-body {
+            padding: 20px;
+        }
+        .scenario-metric {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .scenario-metric:last-child {
+            border-bottom: none;
+        }
+        .scenario-footer {
+            padding: 16px 20px;
+            background: #f8fafc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* Scenarios Comparison */
+        .scenarios-comparison {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .scenarios-comparison h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        .comparison-table-wrapper {
+            overflow-x: auto;
+        }
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .comparison-table th {
+            background: #f8fafc;
+            color: #1e293b;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .comparison-table tr:hover {
+            background: #f8fafc;
+        }
+        .comparison-table td:first-child {
+            font-weight: 600;
+            color: #475569;
+        }
     </style>
 
     <!-- Modular JavaScript Files - v2.9.4 Performance Optimized -->
