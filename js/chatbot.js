@@ -5356,9 +5356,12 @@ function contentFilter(message) {
     }
     
     // BLOCKED: Inappropriate/offensive content
-    const offensiveKeywords = ['fuck', 'shit', 'bitch', 'damn', 'hell', 'ass', 'sex', 'porn'];
+    const offensiveKeywords = ['fuck', 'shit', 'bitch', 'damn', 'hell', 'sex', 'porn'];
     
-    if (offensiveKeywords.some(keyword => lower.includes(keyword))) {
+    // Check for offensive words as whole words only (not substrings)
+    const offensivePattern = new RegExp('\\b(' + offensiveKeywords.join('|') + ')\\b', 'i');
+    
+    if (offensivePattern.test(lower)) {
         return {
             blocked: true,
             response: "Ay-yi-yi! 🤖 My master programmed me to keep things professional! Let's keep the conversation business-appropriate, okay?\n\nHow can I help with your accounting, sales, or inventory? 📦"
