@@ -21,6 +21,9 @@ function checkVersionUpdate() {
     if (cachedVersion && cachedVersion !== APP_VERSION) {
         console.log(`🔄 Version update detected: ${cachedVersion} → ${APP_VERSION}`);
         
+        // CRITICAL: Update cached version BEFORE auto-refresh to prevent infinite loop
+        localStorage.setItem(CACHED_VERSION_KEY, APP_VERSION);
+        
         // For PWA on mobile/tablet, auto-refresh immediately to get new version
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -34,10 +37,10 @@ function checkVersionUpdate() {
         }
         
         showVersionUpdateBanner(cachedVersion, APP_VERSION);
+    } else {
+        // Update cached version for first-time users
+        localStorage.setItem(CACHED_VERSION_KEY, APP_VERSION);
     }
-    
-    // Update cached version
-    localStorage.setItem(CACHED_VERSION_KEY, APP_VERSION);
 }
 
 /**
