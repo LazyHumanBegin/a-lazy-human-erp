@@ -339,7 +339,7 @@ let lastPlatformUserSync = 0;
 const PLATFORM_SYNC_INTERVAL = 30000; // 30 seconds minimum between syncs
 let platformSyncInProgress = false; // Prevent concurrent syncs
 
-async function autoSyncPlatformUsers() {
+async function autoSyncPlatformUsers(force = false) {
     const currentUser = window.currentUser || JSON.parse(localStorage.getItem('ezcubic_current_user') || '{}');
     
     // Only auto-sync for founder/erp_assistant
@@ -353,9 +353,9 @@ async function autoSyncPlatformUsers() {
         return false;
     }
     
-    // Rate limit: only sync once every 30 seconds
+    // Rate limit: only sync once every 30 seconds (unless forced)
     const now = Date.now();
-    if (now - lastPlatformUserSync < PLATFORM_SYNC_INTERVAL) {
+    if (!force && now - lastPlatformUserSync < PLATFORM_SYNC_INTERVAL) {
         console.log('☁️ Platform sync skipped (rate limited)');
         return false;
     }
@@ -492,7 +492,7 @@ async function autoSyncPlatformUsers() {
             // Re-render Platform Control if data was updated
             if (usersUpdated || tenantsUpdated) {
                 if (typeof showToast === 'function') {
-                    showToast('☁️ New users synced from cloud', 'info');
+                    showToast(`☁️ Platform synced - ${localUsers?.length || 0} businesses loaded`, 'success');
                 }
                 // Important: Schedule re-render after current render completes
                 setTimeout(() => {
@@ -502,6 +502,8 @@ async function autoSyncPlatformUsers() {
                         renderPlatformControl();
                     }
                 }, 100);
+            } else {
+                console.log('☁️ Platform data already up-to-date');
             }
             
             platformSyncInProgress = false;
@@ -1795,9 +1797,9 @@ function renderPlatformControl() {
     
     console.log('🎨 renderPlatformControl called');
     
-    // AUTO-SYNC: Founder automatically downloads latest users from cloud
-    // This ensures Platform Control always shows the most up-to-date user list
-    autoSyncPlatformUsers();
+    // FORCE SYNC: Always download latest data when Platform Control opens
+    // This ensures all devices show the same business count
+    autoSyncPlatformUsers(true);
     
     const settings = getPlatformSettings();
     const tenants = getTenants();
@@ -1830,7 +1832,11 @@ function renderPlatformControl() {
     
     const tenantList = Object.values(tenants);
     
+    // Debug: Log deletion tracking
+    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
     console.log('🎨 Tenants:', tenantList.length, 'Subscriptions:', Object.keys(subs).length);
+    console.log('🗑️ Deleted tracking - Users:', deletedUsers.length, 'Tenants:', deletedTenants.length);
     
     // Calculate platform stats
     let totalRevenue = 0;
