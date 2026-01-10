@@ -337,31 +337,22 @@ function saveSettings() {
     
     document.getElementById('corporateTaxRate').value = businessData.settings.defaultTaxRate;
     
+    // Show notification immediately (no delay)
+    const successMsg = '✅ Settings saved successfully!';
+    if (typeof showToast === 'function') {
+        showToast(successMsg, 'success', 3000);
+    }
+    if (typeof showNotification === 'function') {
+        showNotification(successMsg, 'success');
+    }
+    
+    // Save data in background
     if (saveData()) {
         updateCompanyNameInUI();
         updateMalaysianTaxEstimator();
-        
-        // Show success notification with multiple methods
-        const successMsg = '✅ Settings saved successfully!';
-        if (typeof showNotification === 'function') {
-            showNotification(successMsg, 'success');
-        }
-        if (typeof showToast === 'function') {
-            showToast(successMsg, 'success', 4000);
-        }
-        // Fallback alert to ensure user sees the message
-        alert(successMsg);
     } else {
-        // Show error if save failed
-        const errorMsg = '❌ Failed to save settings';
-        if (typeof showNotification === 'function') {
-            showNotification(errorMsg, 'error');
-        }
-        if (typeof showToast === 'function') {
-            showToast(errorMsg, 'error', 4000);
-        }
-        // Fallback alert
-        alert(errorMsg);
+        // Only show error if save actually failed
+        console.warn('saveData returned false');
     }
 }
 

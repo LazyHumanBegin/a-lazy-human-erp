@@ -6,7 +6,7 @@
 
 // Auto-incrementing cache version based on deploy timestamp
 // This ensures cache is refreshed on every deployment
-const CACHE_VERSION = '2.13.3-20260110'; // v2.13.3 - FIX: Async password + guaranteed notifications
+const CACHE_VERSION = '2.13.4-20260110'; // v2.13.4 - Instant notifications without delay
 const CACHE_NAME = `ezcubic-erp-${CACHE_VERSION}`;
 
 // Files to cache for offline fallback

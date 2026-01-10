@@ -1018,7 +1018,6 @@ async function handleChangePassword(event) {
         if (typeof showToast === 'function') {
             showToast('❌ Please fill in all fields', 'error');
         }
-        alert('❌ Please fill in all fields');
         return;
     }
 
@@ -1027,7 +1026,6 @@ async function handleChangePassword(event) {
         if (typeof showToast === 'function') {
             showToast('❌ New password must be at least 6 characters', 'error');
         }
-        alert('❌ New password must be at least 6 characters');
         return;
     }
 
@@ -1036,7 +1034,6 @@ async function handleChangePassword(event) {
         if (typeof showToast === 'function') {
             showToast('❌ New passwords do not match', 'error');
         }
-        alert('❌ New passwords do not match');
         return;
     }
 
@@ -1045,7 +1042,6 @@ async function handleChangePassword(event) {
         if (typeof showToast === 'function') {
             showToast('❌ New password must be different from current password', 'error');
         }
-        alert('❌ New password must be different from current password');
         return;
     }
 
@@ -1070,7 +1066,9 @@ async function handleChangePassword(event) {
         if (typeof showToast === 'function') {
             showToast('❌ Current password is incorrect', 'error');
         }
-        alert('❌ Current password is incorrect');
+        if (typeof showNotification === 'function') {
+            showNotification('❌ Current password is incorrect', 'error');
+        }
         return;
     }
 
@@ -1120,44 +1118,23 @@ function savePasswordChanges() {
 
     // Close modal first
     closeModal('changePasswordModal');
+    
+    // Show success notification IMMEDIATELY (no delay)
+    const successMsg = '✅ Password updated successfully!';
+    if (typeof showToast === 'function') {
+        showToast(successMsg, 'success', 3000);
+    }
+    if (typeof showNotification === 'function') {
+        showNotification(successMsg, 'success');
+    }
 
-    // Sync to cloud
+    // Sync to cloud in background (don't wait for it)
     if (typeof window.directUploadUsersToCloud === 'function') {
         window.directUploadUsersToCloud(false).then(() => {
             console.log('☁️ Password change synced to cloud');
-            
-            // Show success with multiple methods to ensure visibility
-            if (typeof showToast === 'function') {
-                showToast('✅ Password updated successfully!', 'success', 4000);
-            }
-            if (typeof showNotification === 'function') {
-                showNotification('✅ Password updated successfully!', 'success');
-            }
-            // Fallback alert
-            alert('✅ Password updated successfully!');
         }).catch(err => {
             console.warn('⚠️ Failed to sync password to cloud:', err);
-            
-            // Still show success for local save
-            if (typeof showToast === 'function') {
-                showToast('✅ Password updated locally (cloud sync pending)', 'success', 4000);
-            }
-            if (typeof showNotification === 'function') {
-                showNotification('✅ Password updated locally', 'success');
-            }
-            // Fallback alert
-            alert('✅ Password updated successfully!');
         });
-    } else {
-        // Show success with multiple methods to ensure visibility
-        if (typeof showToast === 'function') {
-            showToast('✅ Password updated successfully!', 'success', 4000);
-        }
-        if (typeof showNotification === 'function') {
-            showNotification('✅ Password updated successfully!', 'success');
-        }
-        // Fallback alert
-        alert('✅ Password updated successfully!');
     }
 }
 
