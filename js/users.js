@@ -1095,15 +1095,36 @@ function savePasswordChanges() {
         window.directUploadUsersToCloud(false).then(() => {
             console.log('☁️ Password change synced to cloud');
             closeModal('changePasswordModal');
-            showToast('✅ Password updated successfully!', 'success');
+            
+            // Show success with both methods
+            if (typeof showToast === 'function') {
+                showToast('✅ Password updated successfully!', 'success', 3000);
+            }
+            if (typeof showNotification === 'function') {
+                showNotification('✅ Password updated successfully!', 'success');
+            }
         }).catch(err => {
             console.warn('⚠️ Failed to sync password to cloud:', err);
             closeModal('changePasswordModal');
-            showToast('✅ Password updated locally (cloud sync pending)', 'success');
+            
+            // Still show success for local save
+            if (typeof showToast === 'function') {
+                showToast('✅ Password updated locally (cloud sync pending)', 'success', 3000);
+            }
+            if (typeof showNotification === 'function') {
+                showNotification('✅ Password updated locally', 'success');
+            }
         });
     } else {
         closeModal('changePasswordModal');
-        showToast('✅ Password updated successfully!', 'success');
+        
+        // Show success with both methods
+        if (typeof showToast === 'function') {
+            showToast('✅ Password updated successfully!', 'success', 3000);
+        }
+        if (typeof showNotification === 'function') {
+            showNotification('✅ Password updated successfully!', 'success');
+        }
     }
 }
 

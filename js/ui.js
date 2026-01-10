@@ -340,7 +340,22 @@ function saveSettings() {
     if (saveData()) {
         updateCompanyNameInUI();
         updateMalaysianTaxEstimator();
-        showNotification('Settings saved successfully!', 'success');
+        
+        // Show success notification
+        if (typeof showNotification === 'function') {
+            showNotification('✅ Settings saved successfully!', 'success');
+        }
+        if (typeof showToast === 'function') {
+            showToast('✅ Company settings saved!', 'success');
+        }
+    } else {
+        // Show error if save failed
+        if (typeof showNotification === 'function') {
+            showNotification('❌ Failed to save settings', 'error');
+        }
+        if (typeof showToast === 'function') {
+            showToast('❌ Failed to save settings', 'error');
+        }
     }
 }
 
