@@ -5525,12 +5525,14 @@ async function getAIResponse(message) {
         }
     }
     
-    // PRE-STEP: Check if user wants predictive insights (general)
-    if (lowerMsg.includes('predict') || lowerMsg.includes('insights') ||
-        lowerMsg.includes('business health') || lowerMsg.includes('how is my business') ||
-        lowerMsg.includes('how\'s my business') || lowerMsg.includes('business doing') ||
-        lowerMsg.includes('analyze my') || lowerMsg.includes('analyse my') ||
-        lowerMsg.includes('stock alert')) {
+    // PRE-STEP: Check if user wants predictive insights (SPECIFIC triggers only)
+    // Only show business health dashboard for very specific requests
+    if ((lowerMsg.includes('business health') && !lowerMsg.includes('what is')) ||
+        (lowerMsg.includes('health score') || lowerMsg.includes('business score')) ||
+        (lowerMsg.includes('how is my business doing') || lowerMsg.includes('how\'s my business doing')) ||
+        (lowerMsg === 'analyze my business' || lowerMsg === 'analyse my business') ||
+        (lowerMsg === 'business insights' || lowerMsg === 'show insights') ||
+        (lowerMsg === 'business dashboard' || lowerMsg === 'show dashboard')) {
         return { success: true, message: formatPredictiveInsights(), source: 'predictions' };
     }
     

@@ -62,7 +62,7 @@ function generateDailySummary() {
     });
     
     // Build message
-    let message = `📊 *EZ Smart Daily Summary*\n`;
+    let message = `📊 *LazyBiz Daily Summary*\n`;
     message += `📅 ${today}\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
@@ -89,7 +89,7 @@ function generateDailySummary() {
     }
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥`;
+    message += `_Sent from LazyBiz_ 🦥`;
     
     return message;
 }
@@ -143,7 +143,7 @@ function generateWeeklySummary() {
         .slice(0, 5);
     
     // Build message
-    let message = `📊 *EZ Smart Weekly Report*\n`;
+    let message = `📊 *LazyBiz Weekly Report*\n`;
     message += `📅 ${weekStart.toLocaleDateString('en-MY')} - ${now.toLocaleDateString('en-MY')}\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
@@ -169,7 +169,7 @@ function generateWeeklySummary() {
     }
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥`;
+    message += `_Sent from LazyBiz_ 🦥`;
     
     return message;
 }
@@ -221,7 +221,7 @@ function generateMonthlySummary() {
     const monthName = now.toLocaleDateString('en-MY', { month: 'long', year: 'numeric' });
     
     // Build message
-    let message = `📊 *EZ Smart Monthly Report*\n`;
+    let message = `📊 *LazyBiz Monthly Report*\n`;
     message += `📅 ${monthName}\n`;
     message += `━━━━━━━━━━━━━━━━━━━━\n\n`;
     
@@ -245,7 +245,7 @@ function generateMonthlySummary() {
     }
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥`;
+    message += `_Sent from LazyBiz_ 🦥`;
     
     return message;
 }
@@ -287,7 +287,7 @@ function generateInvoiceSummary(invoice) {
     }
     
     message += `\n━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥`;
+    message += `_Sent from LazyBiz_ 🦥`;
     
     return message;
 }
@@ -328,7 +328,7 @@ function generateQuotationSummary(quotation) {
     message += `\n💵 *Total: RM ${total.toFixed(2)}*\n\n`;
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥\n`;
+    message += `_Sent from LazyBiz_ 🦥\n`;
     message += `_Reply YES to confirm this quotation_`;
     
     return message;
@@ -346,7 +346,7 @@ function generateLowStockAlert() {
     }).sort((a, b) => (a.stock || 0) - (b.stock || 0));
     
     if (lowStock.length === 0) {
-        return `✅ *Stock Status*\n\nAll items are well stocked! 👍\n\n_Sent from EZ Smart_ 🦥`;
+        return `✅ *Stock Status*\n\nAll items are well stocked! 👍\n\n_Sent from LazyBiz_ 🦥`;
     }
     
     let message = `⚠️ *Low Stock Alert*\n`;
@@ -363,7 +363,7 @@ function generateLowStockAlert() {
     });
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥`;
+    message += `_Sent from LazyBiz_ 🦥`;
     
     return message;
 }
@@ -394,7 +394,7 @@ function generatePaymentReminder(invoice) {
     message += `Please arrange payment at your earliest convenience. Thank you! 🙏\n\n`;
     
     message += `━━━━━━━━━━━━━━━━━━━━\n`;
-    message += `_Sent from EZ Smart_ 🦥`;
+    message += `_Sent from LazyBiz_ 🦥`;
     
     return message;
 }
