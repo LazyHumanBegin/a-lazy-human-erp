@@ -18463,3 +18463,615 @@ img {
 }
 
 /* ==================== END UI POLISH v2.13.6 ==================== */
+
+/* ==================== RESPONSIVE DESIGN v2.19.0 - DEVICE-SPECIFIC OPTIMIZATION ==================== */
+
+/* ============================================
+   DESKTOP FIRST (1400px+) - Optimal Experience
+   ============================================ */
+@media (min-width: 1400px) {
+    .app-container {
+        max-width: 1600px;
+    }
+    
+    .content-card {
+        padding: 24px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    /* Larger fonts for comfortable desktop viewing */
+    body {
+        font-size: 15px;
+    }
+}
+
+/* ============================================
+   LARGE DESKTOP (1200px-1399px)
+   ============================================ */
+@media (min-width: 1200px) and (max-width: 1399px) {
+    .app-container {
+        max-width: 1200px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* ============================================
+   TABLET LANDSCAPE (992px-1199px) - iPad Pro Landscape
+   ============================================ */
+@media (min-width: 992px) and (max-width: 1199px) {
+    .app-container {
+        grid-template-columns: 260px 1fr;
+        gap: 12px;
+    }
+    
+    .nav-panel {
+        padding: 15px;
+    }
+    
+    .content-card {
+        padding: 18px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+    
+    /* Slightly smaller fonts */
+    body {
+        font-size: 14px;
+    }
+    
+    .card-header h2 {
+        font-size: 18px;
+    }
+}
+
+/* ============================================
+   TABLET PORTRAIT (768px-991px) - iPad Portrait
+   ============================================ */
+@media (min-width: 768px) and (max-width: 991px) {
+    body {
+        padding: 12px;
+        font-size: 14px;
+    }
+    
+    .app-container {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    /* Navigation as horizontal tabs on tablet */
+    .nav-panel {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        max-height: none;
+        overflow: visible;
+    }
+    
+    .logo {
+        text-align: center;
+        margin-bottom: 16px;
+        padding-bottom: 16px;
+        border-bottom: 2px solid #f1f5f9;
+    }
+    
+    .logo h1 {
+        font-size: 20px;
+    }
+    
+    /* Horizontal navigation for tablet */
+    .nav-menu {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+    }
+    
+    .nav-btn {
+        padding: 12px 16px;
+        font-size: 13px;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .nav-btn i {
+        font-size: 20px;
+        margin-bottom: 0;
+    }
+    
+    /* Stats grid - 2 columns on tablet */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    
+    .stat-card {
+        padding: 16px;
+    }
+    
+    .stat-value {
+        font-size: 24px;
+    }
+    
+    /* Content cards */
+    .content-card {
+        padding: 18px;
+        border-radius: 12px;
+    }
+    
+    .card-header h2 {
+        font-size: 18px;
+    }
+    
+    /* Tables - make scrollable */
+    .table-container {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    table {
+        min-width: 600px;
+    }
+    
+    /* Forms - better spacing */
+    .form-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+    
+    input, select, textarea {
+        font-size: 15px;
+        padding: 12px;
+    }
+    
+    /* Buttons */
+    .btn-primary, .btn-secondary {
+        padding: 14px 20px;
+        font-size: 14px;
+        min-height: 48px;
+    }
+    
+    /* Modals - full screen on tablet */
+    .modal-content {
+        width: 90%;
+        max-width: 700px;
+        max-height: 85vh;
+        border-radius: 16px;
+    }
+    
+    /* Chatbot - side panel style */
+    .ai-chatbot-container {
+        width: 420px;
+        max-height: 80vh;
+    }
+}
+
+/* ============================================
+   MOBILE LANDSCAPE (568px-767px) - Phone Landscape
+   ============================================ */
+@media (min-width: 568px) and (max-width: 767px) and (orientation: landscape) {
+    body {
+        padding: 8px;
+        font-size: 13px;
+    }
+    
+    .app-container {
+        gap: 8px;
+    }
+    
+    /* Compact header */
+    .logo {
+        padding: 10px;
+    }
+    
+    .logo h1 {
+        font-size: 16px;
+    }
+    
+    .logo .tagline {
+        font-size: 10px;
+    }
+    
+    /* Stats in 4 columns for landscape */
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+    
+    .stat-card {
+        padding: 10px;
+    }
+    
+    .stat-value {
+        font-size: 18px;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+    }
+    
+    /* Compact navigation */
+    .nav-menu {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 6px;
+    }
+    
+    .nav-btn {
+        padding: 8px;
+        font-size: 11px;
+    }
+    
+    .nav-btn i {
+        font-size: 16px;
+    }
+    
+    /* Content */
+    .content-card {
+        padding: 12px;
+    }
+    
+    .card-header h2 {
+        font-size: 15px;
+    }
+    
+    /* Forms - single column */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+/* ============================================
+   MOBILE PORTRAIT (481px-567px) - Large Phones
+   ============================================ */
+@media (min-width: 481px) and (max-width: 567px) {
+    body {
+        padding: 8px;
+        font-size: 14px;
+    }
+    
+    .app-container {
+        gap: 10px;
+    }
+    
+    /* Logo */
+    .logo {
+        padding: 14px;
+        text-align: center;
+    }
+    
+    .logo h1 {
+        font-size: 18px;
+    }
+    
+    /* Stats - 2 columns */
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    
+    .stat-card {
+        padding: 14px;
+    }
+    
+    .stat-value {
+        font-size: 22px;
+    }
+    
+    /* Navigation */
+    .nav-btn {
+        padding: 14px;
+        font-size: 14px;
+    }
+    
+    .nav-btn i {
+        font-size: 18px;
+        margin-right: 10px;
+    }
+    
+    /* Content */
+    .content-card {
+        padding: 16px;
+        margin-bottom: 10px;
+    }
+    
+    .card-header h2 {
+        font-size: 17px;
+    }
+    
+    /* Forms */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    input, select, textarea {
+        font-size: 16px;
+        padding: 14px;
+    }
+    
+    /* Buttons - full width, larger */
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        padding: 16px;
+        font-size: 15px;
+        min-height: 52px;
+    }
+    
+    /* Tables - card view */
+    .transaction-item {
+        flex-direction: column;
+        gap: 8px;
+        padding: 14px;
+    }
+}
+
+/* ============================================
+   SMALL MOBILE (320px-480px) - Small Phones
+   ============================================ */
+@media (max-width: 480px) {
+    body {
+        padding: 6px;
+        font-size: 13px;
+    }
+    
+    .app-container {
+        gap: 8px;
+    }
+    
+    /* Compact logo */
+    .logo {
+        padding: 12px;
+        text-align: center;
+    }
+    
+    .logo h1 {
+        font-size: 16px;
+    }
+    
+    .logo .tagline {
+        font-size: 10px;
+    }
+    
+    .version {
+        font-size: 10px;
+    }
+    
+    /* Stats - single column on very small screens */
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    
+    .stat-card {
+        padding: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .stat-value {
+        font-size: 20px;
+    }
+    
+    .stat-label {
+        font-size: 12px;
+    }
+    
+    /* Navigation - compact vertical */
+    .nav-menu {
+        gap: 6px;
+    }
+    
+    .nav-btn {
+        padding: 12px;
+        font-size: 13px;
+    }
+    
+    .nav-btn i {
+        font-size: 16px;
+        margin-right: 8px;
+    }
+    
+    /* Content cards */
+    .content-card {
+        padding: 12px;
+        margin-bottom: 8px;
+        border-radius: 10px;
+    }
+    
+    .card-header {
+        margin-bottom: 12px;
+        padding-bottom: 10px;
+    }
+    
+    .card-header h2 {
+        font-size: 15px;
+    }
+    
+    /* Forms - full width everything */
+    .form-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .form-group {
+        margin-bottom: 10px;
+    }
+    
+    label {
+        font-size: 12px;
+        margin-bottom: 6px;
+    }
+    
+    input, select, textarea {
+        font-size: 16px; /* Prevent zoom on iOS */
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    /* Buttons - large touch targets */
+    .btn-primary, .btn-secondary {
+        width: 100%;
+        padding: 14px;
+        font-size: 14px;
+        min-height: 48px;
+        border-radius: 8px;
+    }
+    
+    /* Tables - switch to card view */
+    table {
+        display: none; /* Hide tables on small mobile */
+    }
+    
+    .transaction-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .transaction-item {
+        flex-direction: column;
+        gap: 6px;
+        padding: 12px;
+        border-radius: 8px;
+    }
+    
+    /* Modals - full screen */
+    .modal-content {
+        width: 95%;
+        max-width: 100%;
+        max-height: 92vh;
+        border-radius: 12px;
+        margin: 4vh auto;
+    }
+    
+    .modal-header h3 {
+        font-size: 16px;
+    }
+    
+    /* Chatbot - full screen */
+    .ai-chatbot-container {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+    }
+    
+    .chatbot-header {
+        border-radius: 0;
+    }
+}
+
+/* ============================================
+   TOUCH DEVICE OPTIMIZATIONS
+   ============================================ */
+@media (hover: none) and (pointer: coarse) {
+    /* Larger touch targets for all interactive elements */
+    button, a, .clickable {
+        min-height: 44px;
+        min-width: 44px;
+    }
+    
+    /* Remove hover states on touch devices */
+    .nav-btn:hover,
+    .btn-primary:hover,
+    .btn-secondary:hover {
+        transform: none;
+    }
+    
+    /* Better active states */
+    .nav-btn:active {
+        transform: scale(0.97);
+        background: #2563eb;
+        color: white;
+    }
+    
+    button:active {
+        transform: scale(0.98);
+        opacity: 0.9;
+    }
+    
+    /* Prevent text selection on buttons */
+    button, .nav-btn, .clickable {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
+    }
+}
+
+/* ============================================
+   LANDSCAPE MODE SPECIFIC FIXES
+   ============================================ */
+@media (max-height: 500px) and (orientation: landscape) {
+    /* Reduce vertical padding when height is limited */
+    .content-card {
+        padding: 10px 16px;
+    }
+    
+    .modal-content {
+        max-height: 95vh;
+        overflow-y: auto;
+    }
+    
+    .ai-chatbot-container {
+        height: 95vh;
+        max-height: 95vh;
+    }
+}
+
+/* ============================================
+   PRINT STYLES (for reports)
+   ============================================ */
+@media print {
+    body {
+        padding: 0;
+        background: white;
+    }
+    
+    .nav-panel,
+    .mobile-menu-btn,
+    .chatbot-toggle-btn,
+    .ai-chatbot-container,
+    button {
+        display: none !important;
+    }
+    
+    .app-container {
+        grid-template-columns: 1fr;
+        max-width: 100%;
+    }
+    
+    .content-card {
+        box-shadow: none;
+        border: 1px solid #e2e8f0;
+        page-break-inside: avoid;
+    }
+    
+    table {
+        page-break-inside: auto;
+    }
+    
+    tr {
+        page-break-inside: avoid;
+        page-break-after: auto;
+    }
+}
+
+/* ==================== END RESPONSIVE DESIGN v2.19.0 ==================== */
