@@ -208,6 +208,9 @@
                 <div class="tagline">Smart To Be Lazy</div>
                 <div class="version-cloud-wrapper" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 5px;">
                     <span class="version" id="appVersion">v--</span><!-- Auto-updated by JS from APP_VERSION -->
+                    <button id="manualRefreshBtn" onclick="manualRefreshApp()" title="Refresh to get latest updates" style="background: none; border: 1px solid #475569; color: #94a3b8; padding: 2px 6px; border-radius: 4px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
+                        <i class="fas fa-sync-alt"></i>
+                    </button>
                     <span id="cloudSyncBadge" class="cloud-sync-badge-inline" style="display: none;" title="Cloud Sync - Click to sync" onclick="window.forceSyncNow && window.forceSyncNow()">
                         <i class="fas fa-cloud"></i>
                     </span>
@@ -7406,7 +7409,7 @@
     <!-- Modular JavaScript Files - v2.9.4 Performance Optimized -->
     <!-- CRITICAL: Load immediately for core functionality -->
     <script src="js/core.js?v=2130001"></script>
-    <script src="js/data.js?v=1768023800"></script>
+    <script src="js/data.js?v=1768024000"></script>
     <script src="js/ui.js?v=2032029"></script>
     
     <!-- HIGH PRIORITY: Defer but load early for main features -->
@@ -7493,7 +7496,7 @@
     <script src="js/user-management/user-management-actions.js?v=1768022484"></script>
     
     <!-- Users Module - defines users array, calls initializeUserSystem -->
-    <script src="js/users.js?v=1768022484"></script>
+    <script src="js/users.js?v=1768024000"></script>
     
     <!-- Cloud Database (Supabase) -->
     <script src="js/supabase.js?v=2032007"></script>

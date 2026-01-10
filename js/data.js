@@ -200,6 +200,44 @@ function showVersionReminderToast() {
     }
 }
 
+/**
+ * Manual refresh - user clicks refresh button
+ * Shows loading indicator and clears cache
+ */
+function manualRefreshApp() {
+    const btn = document.getElementById('manualRefreshBtn');
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+    }
+    
+    console.log('🔄 Manual refresh triggered by user');
+    
+    // Show notification
+    if (typeof showToast === 'function') {
+        showToast('🔄 Refreshing app...', 'info', 2000);
+    }
+    
+    // Clear cache and reload
+    setTimeout(() => {
+        if ('serviceWorker' in navigator && 'caches' in window) {
+            caches.keys().then(cacheNames => {
+                return Promise.all(
+                    cacheNames.map(cacheName => caches.delete(cacheName))
+                );
+            }).then(() => {
+                window.location.reload(true);
+            }).catch(() => {
+                window.location.reload(true);
+            });
+        } else {
+            window.location.reload(true);
+        }
+    }, 500);
+}
+window.manualRefreshApp = manualRefreshApp;
+
 // Export functions
 window.checkVersionUpdate = checkVersionUpdate;
 window.refreshApp = refreshApp;
