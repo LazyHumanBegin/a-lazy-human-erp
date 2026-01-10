@@ -1813,9 +1813,13 @@ function renderPlatformControl() {
     // Add any missing tenants from users
     managedUsers.forEach(user => {
         if (!tenants[user.tenantId]) {
+            // Handle undefined/null/empty user names
+            const userName = user.name || user.email?.split('@')[0] || 'Unknown User';
+            const businessType = user.role === 'personal' ? 'Personal' : 'Business';
+            
             tenants[user.tenantId] = {
                 id: user.tenantId,
-                businessName: user.businessName || user.companyName || `${user.name}'s ${user.role === 'personal' ? 'Personal' : 'Business'}`,
+                businessName: user.businessName || user.companyName || `${userName}'s ${businessType}`,
                 ownerEmail: user.email,
                 ownerId: user.id,
                 role: user.role, // Track if it's personal or business
@@ -1989,7 +1993,7 @@ function renderPlatformControl() {
                             return `
                                 <tr>
                                     <td>
-                                        <strong>${escapeHtml(tenant.businessName)}</strong>
+                                        <strong>${escapeHtml(tenant.businessName || tenant.id || 'Unknown Business')}</strong>
                                         <small style="display: block; color: #64748b;">${tenant.id}</small>
                                     </td>
                                     <td>
