@@ -5310,34 +5310,48 @@ function showSmartActions(responseText) {
 /**
  * Filter out inappropriate, sensitive, or off-topic questions
  * Alpha 5 is a BUSINESS assistant, not a general chatbot
+ * 
+ * COVERED SENSITIVE TOPICS:
+ * 1. Political questions (elections, politicians, government)
+ * 2. Religious/spiritual topics (any faith or belief system)
+ * 3. Medical/health advice (symptoms, treatments, diagnoses)
+ * 4. Legal advice (lawsuits, legal actions, legal disputes)
+ * 5. Personal relationships (dating, marriage, family issues)
+ * 6. Inappropriate/offensive content
+ * 7. Off-topic entertainment (movies, sports, recipes, jokes)
  */
 function contentFilter(message) {
     const lower = message.toLowerCase().trim();
     
-    // BLOCKED: Political questions
+    // BLOCKED: Political questions (use word boundaries to avoid false positives)
     const politicalKeywords = [
         'mahathir', 'anwar', 'najib', 'politics', 'politician', 'election', 'vote', 
         'parliament', 'minister', 'government policy', 'pkr', 'umno', 'pas', 'dap',
         'trump', 'biden', 'putin', 'communist', 'democrat', 'republican'
     ];
     
-    if (politicalKeywords.some(keyword => lower.includes(keyword))) {
+    // Check for whole words only (not substrings like "anwar" in "bayan")
+    const politicalPattern = new RegExp('\\b(' + politicalKeywords.join('|') + ')\\b', 'i');
+    
+    if (politicalPattern.test(lower)) {
         return {
             blocked: true,
-            response: "Ay-yi-yi! 🤖 I'm a business assistant, not a political analyst! My master programmed me to help with accounting, inventory, sales - not politics!\n\nLet's talk business instead! 💼"
+            response: "I appreciate your question, but I'm designed specifically as a business management assistant. Political discussions are outside my area of expertise.\n\n💼 **I can help you with:**\n• Financial planning & accounting\n• Business strategy & growth\n• Inventory & sales management\n• Customer relationship management\n\nHow can I assist with your business today?"
         };
     }
     
-    // BLOCKED: Religious/sensitive topics
+    // BLOCKED: Religious/sensitive topics (word boundaries)
     const religiousKeywords = [
         'islam', 'christian', 'buddhist', 'hindu', 'religion', 'religious', 'allah', 
         'jesus', 'buddha', 'god', 'prayer', 'mosque', 'church', 'temple'
     ];
     
-    if (religiousKeywords.some(keyword => lower.includes(keyword))) {
+    const religiousPattern = new RegExp('\\b(' + religiousKeywords.join('|') + ')\\b', 'i');
+    
+    if (religiousPattern.test(lower)) {
         return {
             blocked: true,
-            response: "Ay-yi-yi! 🤖 Religious topics are too sensitive for a robot like me! My circuits aren't designed for this.\n\nHow about we discuss your business instead? I'm much better at numbers! 📊"
+            response: "I respect your inquiry, but religious and spiritual topics are sensitive matters that I'm not qualified to discuss.\n\n💼 **I specialize in:**\n• Business analytics & reporting\n• Financial management\n• Sales & inventory optimization\n• Business growth strategies\n\nLet's focus on how I can support your business goals!"
         };
     }
     
@@ -5347,11 +5361,13 @@ function contentFilter(message) {
         'hospital', 'treatment', 'symptom', 'pain', 'hurt', 'injury', 'medication'
     ];
     
-    if ((lower.includes('how to') || lower.includes('should i')) && 
-        medicalKeywords.some(keyword => lower.includes(keyword))) {
+    // Use word boundaries for medical keywords too
+    const medicalPattern = new RegExp('\\b(' + medicalKeywords.join('|') + ')\\b', 'i');
+    
+    if ((lower.includes('how to') || lower.includes('should i')) && medicalPattern.test(lower)) {
         return {
             blocked: true,
-            response: "Ay-yi-yi! 🤖 I'm not a doctor! For health issues, please see a real medical professional!\n\nI can help with business health though - profit margins, cash flow, that sort of thing! 💰"
+            response: "I'm not qualified to provide medical or health advice. For health concerns, please consult with a licensed medical professional.\n\n💼 **However, I can help with:**\n• Business health metrics (cash flow, profitability)\n• Financial wellness planning\n• Business insurance & benefits management\n\nWhat business matters can I assist you with?"
         };
     }
     
@@ -5361,11 +5377,13 @@ function contentFilter(message) {
         'divorce', 'custody', 'jail', 'prison', 'arrest', 'police report'
     ];
     
+    const legalPattern = new RegExp('\\b(' + legalKeywords.join('|') + ')\\b', 'i');
+    
     if ((lower.includes('should i') || lower.includes('how to') || lower.includes('can i')) && 
-        legalKeywords.some(keyword => lower.includes(keyword))) {
+        legalPattern.test(lower)) {
         return {
             blocked: true,
-            response: "Ay-yi-yi! 🤖 That sounds like legal stuff! My master didn't program me for that - you need a real lawyer!\n\nI can help with business contracts, invoices, quotations though! 📄"
+            response: "Legal matters require professional legal counsel. I recommend consulting with a qualified attorney for legal advice.\n\n💼 **I can assist with business matters like:**\n• Business contracts & invoices\n• Quotations & purchase orders\n• Terms & conditions templates\n• Business compliance documentation\n\nHow can I help with your business operations?"
         };
     }
     
@@ -5375,11 +5393,13 @@ function contentFilter(message) {
         'breakup', 'cheating', 'marriage', 'divorce', 'partner cheating'
     ];
     
+    const relationshipPattern = new RegExp('\\b(' + relationshipKeywords.join('|') + ')\\b', 'i');
+    
     if ((lower.includes('should i') || lower.includes('how to') || lower.includes('my')) && 
-        relationshipKeywords.some(keyword => lower.includes(keyword))) {
+        relationshipPattern.test(lower)) {
         return {
             blocked: true,
-            response: "Ay-yi-yi-yi-yi! 🤖💔 I'm a business robot, not a relationship counselor! That's way above my pay grade!\n\nBut if you need help with BUSINESS partnerships, I'm your bot! 🤝"
+            response: "Personal relationship matters are best discussed with friends, family, or a professional counselor.\n\n💼 **I'm here to help with business relationships:**\n• Customer relationship management (CRM)\n• Supplier partnerships\n• Business networking strategies\n• Team collaboration & management\n\nLet's discuss your business relationships instead!"
         };
     }
     
@@ -5392,7 +5412,7 @@ function contentFilter(message) {
     if (offensivePattern.test(lower)) {
         return {
             blocked: true,
-            response: "Ay-yi-yi! 🤖 My master programmed me to keep things professional! Let's keep the conversation business-appropriate, okay?\n\nHow can I help with your accounting, sales, or inventory? 📦"
+            response: "I'm designed to maintain a professional and respectful environment. Let's keep our conversation business-appropriate.\n\n💼 **How can I help you with:**\n• Accounting & financial reports\n• Sales & inventory management\n• Business analytics & insights\n• Customer & order management\n\nWhat would you like to work on?"
         };
     }
     
@@ -5405,11 +5425,11 @@ function contentFilter(message) {
     const hasBusinessContext = businessTerms.some(term => lower.includes(term));
     
     const offTopicPatterns = [
-        { keywords: ['recipe', 'cook', 'bake', 'ingredient'], response: "cooking recipes" },
-        { keywords: ['movie', 'film', 'netflix', 'tv show', 'series'], response: "entertainment" },
-        { keywords: ['football', 'basketball', 'sports match'], response: "sports" },
-        { keywords: ['weather', 'rain', 'sunny', 'forecast'], response: "weather forecasts" },
-        { keywords: ['joke', 'funny', 'laugh', 'comedy'], response: "jokes" }
+        { keywords: ['recipe', 'cook', 'bake', 'ingredient'], topic: "cooking and recipes" },
+        { keywords: ['movie', 'film', 'netflix', 'tv show', 'series'], topic: "entertainment and media" },
+        { keywords: ['football', 'basketball', 'sports match'], topic: "sports and games" },
+        { keywords: ['weather', 'rain', 'sunny', 'forecast'], topic: "weather forecasts" },
+        { keywords: ['joke', 'funny', 'laugh', 'comedy'], topic: "jokes and humor" }
     ];
     
     // Only block if off-topic keywords match AND no business context
@@ -5418,7 +5438,7 @@ function contentFilter(message) {
             if (pattern.keywords.some(keyword => lower.includes(keyword))) {
                 return {
                     blocked: true,
-                    response: `Ay-yi-yi! 🤖 I'm a business assistant, not a ${pattern.response} expert! My circuits are designed for accounting, inventory, and sales.\n\nNeed help with your business instead? 💼`
+                    response: `I appreciate your interest, but I'm specifically designed for business management and operations. Questions about ${pattern.topic} are outside my expertise.\n\n💼 **I can help you with:**\n• Financial reporting & analysis\n• Sales & inventory tracking\n• Customer & order management\n• Business insights & forecasting\n\nWhat business challenge can I help you solve today?`
                 };
             }
         }
@@ -5485,8 +5505,14 @@ async function getAIResponse(message) {
         lowerMsg.includes('todo') || lowerMsg.includes('to-do') || lowerMsg.includes('next steps')) {
         if (typeof SmartRecommendations !== 'undefined') {
             SmartRecommendations.generateAll();
-            var recsHtml = SmartRecommendations.getHTML();
-            return { success: true, message: '<div style="margin-bottom:10px;"><strong>💡 Smart Recommendations</strong></div>' + recsHtml, source: 'recommendations' };
+            // Only show recommendations if we have data-driven suggestions
+            // Otherwise, let DeepSeek handle general business advice questions
+            if (SmartRecommendations.recommendations.length > 0) {
+                var recsHtml = SmartRecommendations.getHTML();
+                return { success: true, message: '<div style="margin-bottom:10px;"><strong>💡 Smart Recommendations</strong></div>' + recsHtml, source: 'recommendations' };
+            }
+            // No data-driven recommendations - fall through to DeepSeek for actual advice
+            console.log('💡 No data recommendations, passing to DeepSeek for business advice');
         }
     }
     
@@ -6501,6 +6527,174 @@ function generateChatbotFallback(message) {
     }
 
     // ==================== ABOUT US / SYSTEM INFO (Local - No API needed) ====================
+    
+    // E-invoicing questions
+    if (lowerMessage.includes('e-invoice') || lowerMessage.includes('e invoice') || lowerMessage.includes('einvoice') ||
+        lowerMessage.includes('e-invois') || lowerMessage.includes('electronic invoice')) {
+        return `**E-Invoicing Made Simple** 📄✨\n\n**What is it?**\nGovernment-mandated digital invoicing system in Malaysia. All businesses must issue e-invoices through LHDN's MyInvois portal.\n\n**How EZ Smart Helps:**\n✅ Generate proper invoice formats\n✅ Track all transactions clearly\n✅ Export data for MyInvois\n✅ Stay compliant automatically\n\n**Need help?** Just ask me:\n• "How to create invoice?"\n• "Show me invoice format"\n• "Export for e-invoicing"\n\nI'll guide you step by step! No stress! 🎯`;
+    }
+    
+    // Accounting expertise responses - Quick answers for common questions
+    if (lowerMessage.includes('what is balance sheet') || lowerMessage.includes('balance sheet meaning') || 
+        lowerMessage.includes('understand balance sheet')) {
+        return `**Balance Sheet Explained 📊**\n\n**Simple Formula:**\nAssets = Liabilities + Equity\n\n**What you OWN (Assets):**\n• Cash, Bank, Stock, Equipment\n\n**What you OWE (Liabilities):**\n• Loans, Payables, Credit Cards\n\n**Owner's SHARE (Equity):**\n• Capital + Retained Profit\n\nThink: "If I sold everything and paid all debts, what's left? = My equity!"\n\nCheck: Dashboard → Reports → Balance Sheet 💡`;
+    }
+    
+    if (lowerMessage.includes('profit and loss') || lowerMessage.includes('p&l') || lowerMessage.includes('income statement') ||
+        lowerMessage.includes('what is p&l') || lowerMessage.includes('understand p&l')) {
+        return `**Profit & Loss (P&L) Explained 💰**\n\n**Simple Formula:**\nRevenue - Expenses = Profit\n\n**Flow:**\n1️⃣ Sales Revenue (money earned)\n2️⃣ - Cost of Goods Sold (COGS)\n3️⃣ = Gross Profit\n4️⃣ - Operating Expenses (rent, salary, utilities)\n5️⃣ = Net Profit (what you actually keep!)\n\n**Example:** Sold RM10K, COGS RM4K, Expenses RM3K\n→ Net Profit = RM3K 🎯\n\nCheck: Dashboard → Reports → P&L Statement`;
+    }
+    
+    if (lowerMessage.includes('cash flow') || lowerMessage.includes('cashflow') || lowerMessage.includes('what is cash flow')) {
+        return `**Cash Flow - Your Business Lifeline 💸**\n\n**What is it?**\nActual cash moving in and out - NOT profit!\n\n**Why Important?**\n"Profit is opinion, Cash is fact" - You can be profitable but still run out of cash!\n\n**3 Types:**\n✅ **Operating:** Daily business (sales, expenses)\n✅ **Investing:** Buying equipment/assets\n✅ **Financing:** Loans, capital\n\n**Healthy Cash Flow:**\n• More cash coming IN than going OUT\n• Can pay bills on time\n• Have emergency buffer\n\nMonitor: Dashboard → Cash Flow Report 📈`;
+    }
+    
+    if (lowerMessage.includes('what is depreciation') || lowerMessage.includes('depreciation meaning') || 
+        lowerMessage.includes('how depreciation works')) {
+        return `**Depreciation Made Simple 📉**\n\n**What is it?**\nSpreading the cost of an asset over its useful life.\n\n**Why?** Assets lose value over time (wear & tear).\n\n**Example:**\nBuy machine RM10,000\nUseful life: 5 years\nDepreciation: RM10,000 ÷ 5 = RM2,000/year\n\n**Tax Benefit:**\nClaim RM2,000 expense each year = Lower tax! 💡\n\n**Common Assets:**\n• Computers: 3-5 years\n• Vehicles: 5-7 years\n• Machinery: 5-10 years\n• Furniture: 7-10 years\n\nAsk me: "Capital allowance rates?" 🎯`;
+    }
+    
+    if (lowerMessage.includes('profit margin') || lowerMessage.includes('calculate margin') || 
+        lowerMessage.includes('what is margin') || lowerMessage.includes('gross margin')) {
+        return `**Profit Margins Explained 💹**\n\n**Gross Profit Margin:**\n(Revenue - COGS) ÷ Revenue × 100%\n\nExample: Sell RM100, Cost RM60\n→ (100-60) ÷ 100 = 40% margin\n\n**Net Profit Margin:**\n(Net Profit ÷ Revenue) × 100%\n\nExample: Revenue RM100, Net Profit RM15\n→ 15 ÷ 100 = 15% margin\n\n**Healthy Margins (Malaysia):**\n• Retail: 30-50%\n• F&B: 60-70%\n• Services: 50-80%\n• Manufacturing: 20-40%\n\nCheck yours: "what's my profit margin?" 📊`;
+    }
+    
+    if (lowerMessage.includes('chart of accounts') || lowerMessage.includes('account code') || 
+        lowerMessage.includes('account number')) {
+        return `**Chart of Accounts (COA) 📋**\n\n**Organized Structure for All Transactions:**\n\n1️⃣ **Assets (1000-1999)**\n• Cash, Bank, Receivables, Inventory\n\n2️⃣ **Liabilities (2000-2999)**\n• Payables, Loans, Credit Cards\n\n3️⃣ **Equity (3000-3999)**\n• Capital, Retained Earnings\n\n4️⃣ **Revenue (4000-4999)**\n• Sales, Service Income\n\n5️⃣ **Expenses (5000-9999)**\n• COGS, Operating, Admin\n\n**Why Important?**\nConsistent categorization = Accurate reports! ✅\n\nEZ Smart auto-categorizes for you! 🎯`;
+    }
+    
+    if (lowerMessage.includes('double entry') || lowerMessage.includes('debit credit') || 
+        lowerMessage.includes('debit and credit')) {
+        return `**Double-Entry Bookkeeping 📚**\n\n**Golden Rule:**\nEvery transaction = 2 entries (Debit & Credit)\n\n**Simple Guide:**\n✅ **Debit (DR) - Increase:**\n• Assets (Cash, Stock)\n• Expenses\n\n✅ **Credit (CR) - Increase:**\n• Liabilities (Loans)\n• Revenue\n• Equity\n\n**Example:** Buy stock RM1,000 cash\n• DR Stock +RM1,000 (asset ↑)\n• CR Cash -RM1,000 (asset ↓)\n\n**Magic:** Debits always = Credits! ⚖️\n\nEZ Smart handles this automatically! 🎯`;
+    }
+    
+    if (lowerMessage.includes('accounts receivable') || lowerMessage.includes('receivables') || 
+        lowerMessage.includes('customer debt') || lowerMessage.includes('outstanding invoice')) {
+        return `**Accounts Receivable (AR) 💳**\n\n**What is it?**\nMoney customers OWE you (sold but not paid yet)\n\n**Why Important?**\nHigh AR = Cash locked up = Cash flow problem!\n\n**Best Practices:**\n✅ Invoice immediately after sale\n✅ Set clear payment terms (Net 30)\n✅ Send reminders before due date\n✅ Follow up on overdue (weekly)\n✅ Offer early payment discount\n\n**Aging Analysis:**\n• 0-30 days: OK ✅\n• 31-60 days: Follow up 📞\n• 61-90 days: Urgent! ⚠️\n• 90+ days: Bad debt risk 🚨\n\nCheck: Dashboard → Customers → Outstanding 📊`;
+    }
+    
+    if (lowerMessage.includes('accrual') || lowerMessage.includes('cash basis') || 
+        lowerMessage.includes('accrual vs cash')) {
+        return `**Accrual vs Cash Accounting 📅**\n\n**Cash Basis (Simpler):**\n• Record when money changes hands\n• Revenue = When customer PAYS\n• Expense = When you PAY\n• Good for: Small businesses, simple ops\n\n**Accrual Basis (Accurate):**\n• Record when transaction happens\n• Revenue = When you INVOICE\n• Expense = When you RECEIVE goods/service\n• Good for: Growing businesses, inventory\n\n**Example:**\nSell RM1,000 on Jan 15, paid Feb 5\n\n• Cash: Record Feb 5 💰\n• Accrual: Record Jan 5 📋\n\n**Malaysia:** Most businesses use accrual for tax! 🎯`;
+    }
+    
+    // Shares and Dividends expertise
+    if (lowerMessage.includes('dividend') || lowerMessage.includes('deviden') || lowerMessage.includes('dividen')) {
+        return `**Dividends Explained 💸**\n\n**What is it?**\nDistribution of company profits to shareholders.\n\n**Malaysia Tax:**\n✅ **TAX-FREE for shareholders!** (Single-tier system)\n• Company pays corporate tax (17-24%)\n• Shareholders receive dividend with NO tax\n\n**Can I Pay Dividend?**\n✅ YES if:\n• Company is profitable\n• Have retained earnings (accumulated profit)\n• Strong cash flow (6+ months buffer)\n\n❌ NO if:\n• Company has losses\n• Cash flow tight\n• Need funds for expansion\n\n**Healthy Payout:** 30-50% of profit\n\nAsk me: "How to calculate dividend?" "Bonus shares vs dividend?" 💡`;
+    }
+    
+    if (lowerMessage.includes('share capital') || lowerMessage.includes('shares') || lowerMessage.includes('shareholder') ||
+        lowerMessage.includes('equity structure') || lowerMessage.includes('paid up capital')) {
+        return `**Share Capital & Equity 📊**\n\n**Types of Shares:**\n• **Ordinary Shares:** Voting rights, entitled to dividends\n• **Preference Shares:** Fixed dividend, priority, no voting\n\n**Share Capital Structure:**\n1️⃣ Authorized Capital (max allowed by M&A)\n2️⃣ Issued Capital (shares actually issued)\n3️⃣ Paid-Up Capital (amount paid by shareholders)\n\n**Shareholder Equity = **\nShare Capital + Retained Earnings + Reserves\n\n**Example:**\n• 100,000 shares × RM1 = RM100K paid-up\n• Retained earnings: RM50K\n• Total Equity: RM150K\n\nAsk me: "How to issue shares?" "Bonus shares?" 💡`;
+    }
+    
+    if (lowerMessage.includes('bonus share') || lowerMessage.includes('bonus stock') || 
+        lowerMessage.includes('bonus issue')) {
+        return `**Bonus Shares Explained 🎁**\n\n**What is it?**\nFree shares given to shareholders from retained earnings/reserves.\n\n**Example:**\nYou have 1,000 shares\nCompany declares 1:5 bonus (1 bonus for every 5 shares)\n→ You get 200 FREE shares\n→ Total: 1,200 shares\n\n**Bonus vs Dividend:**\n• **Bonus:** No cash outflow, dilutes share value\n• **Dividend:** Cash payment, reduces retained earnings\n\n**Why Give Bonus?**\n✅ Reward shareholders (no cash needed)\n✅ Capitalize reserves\n✅ Make shares more affordable (lower price per share)\n\n**Tax:** No tax implications! 🎯`;
+    }
+    
+    if (lowerMessage.includes('withdraw profit') || lowerMessage.includes('take out profit') || 
+        lowerMessage.includes('draw profit') || (lowerMessage.includes('director') && lowerMessage.includes('withdraw'))) {
+        return `**How to Withdraw Profit from Company 💰**\n\n**3 Legal Ways:**\n\n1️⃣ **Director's Fee/Salary**\n• Tax deductible for company\n• You pay personal income tax\n• Requires EPF/SOCSO contribution\n• Best for: Regular monthly income\n\n2️⃣ **Dividend**\n• TAX-FREE for you!\n• Not tax deductible for company\n• Only from retained earnings\n• Best for: Annual/quarterly distribution\n\n3️⃣ **Director's Loan Repayment**\n• If you loaned money to company earlier\n• Tax-free (it's YOUR money back)\n• Must have proper documentation\n\n**Strategy:** Mix salary + dividend for tax efficiency! 🎯\n\nAsk: "Salary vs dividend?" "Tax planning?" 💡`;
+    }
+    
+    // Investment & Cash Management expertise
+    if (lowerMessage.includes('what should i invest') || lowerMessage.includes('where to invest') || 
+        lowerMessage.includes('invest my money') || lowerMessage.includes('invest rm') ||
+        lowerMessage.includes('investment advice') || lowerMessage.includes('what to do with savings')) {
+        return `**Investment Advice 💰**\n\n**First Question:** Do you have an emergency fund (3-6 months expenses)?\n\n**If NO → Build it first!**\nPut in:\n• High-interest savings account (2.5-3% p.a.)\n• Fixed deposit (short-term)\n• Keep it LIQUID (can access anytime)\n\n**If YES → Consider your options:**\n🟢 **Safe (RM500-5K):** FD, ASB, savings\n🟡 **Balanced (RM5K-50K):** 70% safe + 30% unit trust\n🔴 **Growth (RM50K+):** Diversify portfolio\n\n💡 **Never invest:**\n• Emergency fund money\n• Money you need within 1 year\n• Borrowed money\n\nTell me how much you have, I'll give specific advice! 🎯`;
+    }
+    
+    if (lowerMessage.includes('emergency fund') || lowerMessage.includes('how much to save') || 
+        lowerMessage.includes('savings goal') || lowerMessage.includes('cash buffer')) {
+        return `**Emergency Fund - Your Safety Net 🛡️**\n\n**Target Amount:**\n• **Individuals:** 3-6 months personal expenses\n• **Business:** 3-6 months operating costs\n\n**Example:**\nMonthly expenses: RM3,000\nTarget fund: RM9,000-18,000\n\n**Where to Keep:**\n✅ High-interest savings (2.5-3% p.a.)\n✅ Money market account\n✅ Short-term FD (can break if emergency)\n\n❌ NOT in stocks/crypto (too risky)\n❌ NOT in long-term FD (penalty to withdraw)\n\n**Why Important?**\n• Job loss protection\n• Medical emergencies\n• Business downturns\n• Peace of mind 😌`;
+    }
+    
+    if (lowerMessage.includes('fixed deposit') || lowerMessage.includes('fd rate') || lowerMessage.includes('fd vs')) {
+        return `**Fixed Deposit (FD) 💳**\n\n**Current Rates:** 2.5-3.5% p.a.\n**Guarantee:** Protected by PIDM (up to RM250K)\n\n**Good For:**\n✅ Emergency fund\n✅ Short-term savings (3-12 months)\n✅ Zero risk tolerance\n✅ Guaranteed returns\n\n**Not Good For:**\n❌ Long-term wealth building (inflation ~3%)\n❌ Money you might need suddenly\n\n**Pro Tip:**\nLadder your FDs:\n• 3-month FD: RM10K\n• 6-month FD: RM10K\n• 12-month FD: RM10K\n\nFlexibility + higher rates! 🎯`;
+    }
+    
+    if (lowerMessage.includes('manage my cash') || lowerMessage.includes('cash management') || 
+        lowerMessage.includes('how to manage money') || lowerMessage.includes('financial planning')) {
+        return `**Cash Management Strategy 📊**\n\n**The 3-Account System:**\n\n1️⃣ **Operating Account** (Daily)\n• Income & expenses flow through\n• Keep just enough for monthly needs\n\n2️⃣ **Savings Account** (Emergency)\n• 3-6 months expenses\n• High-interest savings (2.5-3%)\n• NEVER touch unless emergency\n\n3️⃣ **Investment Account** (Growth)\n• Surplus money after emergency fund\n• FD, ASB, unit trust, stocks\n• Long-term wealth building\n\n**Golden Rule:**\n💰 Save 10-20% of income FIRST\n💸 Then spend the rest\n\n**For Business:** Add 4th account for tax reserves! 🎯`;
+    }
+    
+    if (lowerMessage.includes('asb') || lowerMessage.includes('amanah saham') || lowerMessage.includes('asn')) {
+        return `**ASB/ASN - Malaysian Favorite 🇲🇾**\n\n**What is ASB?**\n• Amanah Saham Bumiputera (for bumiputera only)\n• Managed by PNB (government-linked)\n• Historical returns: 5-8% p.a.\n• Bonus often declared\n• Can withdraw anytime (liquid)\n\n**What is ASN?**\n• Amanah Saham Nasional (open to all)\n• Similar concept, lower returns\n\n**Why Popular?**\n✅ Consistent dividends\n✅ Government backing (very safe)\n✅ Liquid (withdraw anytime)\n✅ Better than FD returns\n\n**Where to Open:**\nAny bank (Maybank, CIMB, etc.) 💡`;
+    }
+    
+    if (lowerMessage.includes('unit trust') || lowerMessage.includes('mutual fund') || lowerMessage.includes('utmc')) {
+        return `**Unit Trust Funds 📈**\n\n**What is it?**\nPool money with others, professional fund manager invests for you.\n\n**Returns:** 4-8% p.a. (depends on fund type)\n**Risk:** Medium (can fluctuate)\n\n**Types:**\n🟢 **Balanced:** Mix of stocks + bonds (moderate risk)\n🟡 **Equity:** Mostly stocks (higher risk, higher return)\n🔵 **Bond:** Fixed income (lower risk, stable)\n🟣 **Islamic:** Shariah-compliant options\n\n**Good For:**\n✅ Long-term goals (5+ years)\n✅ Emergency fund already set\n✅ Want to beat FD returns\n\n**Where to Buy:**\nBanks, UTMC agents, online platforms (FSMOne, etc.) 🎯`;
+    }
+    
+    // Business Operations expertise
+    if (lowerMessage.includes('how to price') || lowerMessage.includes('pricing strategy') || 
+        lowerMessage.includes('what price') || lowerMessage.includes('markup')) {
+        return `**Pricing Your Products 💰**\n\n**Simple Formula:**\nCost + Markup (30-50%)\n\n**Example:**\n• Product cost: RM50\n• Markup 50%: RM25\n• Selling price: **RM75**\n\n**Pricing Psychology:**\n• RM9.90 feels cheaper than RM10\n• RM99 < RM100 (left-digit effect)\n• Premium = Higher price = Quality perception\n\n**3 Strategies:**\n1️⃣ Cost-based: Cover costs + profit\n2️⃣ Value-based: What customer willing to pay\n3️⃣ Competition-based: Match or beat competitors\n\n**Golden Rule:** Don't compete on price alone! Compete on value! 🎯`;
+    }
+    
+    if (lowerMessage.includes('get more customer') || lowerMessage.includes('attract customer') || 
+        lowerMessage.includes('marketing idea') || lowerMessage.includes('how to market')) {
+        return `**Get More Customers 🚀**\n\n**FREE Marketing (Start Here!):**\n✅ Google My Business (local search)\n✅ Facebook & Instagram posts\n✅ WhatsApp Business (catalog + status)\n✅ Ask happy customers to refer friends\n✅ Join local Facebook groups\n\n**Low-Cost Marketing:**\n💡 Content: Behind-scenes, tips, stories\n💡 Partnerships: Cross-promote with nearby businesses\n💡 Community events & sponsorships\n💡 Email newsletter (monthly updates)\n\n**Promotions That Work:**\n🎁 First-time discount (10-20% off)\n🎁 Bundle deals (Buy 2 Get 1)\n🎁 Referral rewards (Bring friend = discount)\n\nAsk: "Social media tips?" "Promotion ideas?" 💡`;
+    }
+    
+    if (lowerMessage.includes('retain customer') || lowerMessage.includes('customer loyalty') || 
+        lowerMessage.includes('keep customer') || lowerMessage.includes('repeat customer')) {
+        return `**Customer Retention 💝**\n\n**Why Important?**\n5x cheaper to KEEP than GET new customers!\n\n**Loyalty Strategies:**\n1️⃣ **Points System**\n• RM1 spent = 1 point\n• 100 points = RM10 discount\n\n2️⃣ **VIP Tiers**\n• Silver → Gold → Platinum\n• More spending = Better perks\n\n3️⃣ **Birthday Specials**\n• Free item or 20% discount\n\n4️⃣ **Follow-Up**\n• "How was your experience?"\n• Show you care!\n\n**Service Excellence:**\n✅ Reply fast (within 1 hour)\n✅ Remember their name & preferences\n✅ Go extra mile (surprise gifts)\n✅ Fix complaints immediately\n\n**Result:** Happy customers = Free marketing! 🎯`;
+    }
+    
+    if (lowerMessage.includes('when to hire') || lowerMessage.includes('should i hire') || 
+        lowerMessage.includes('hiring staff') || lowerMessage.includes('recruit employee')) {
+        return `**When to Hire? 🤔**\n\n**Hire When:**\n✅ Overwhelmed for 3+ months (not just busy week)\n✅ Revenue can cover salary + 50% buffer\n✅ Losing customers due to capacity\n✅ Missing growth opportunities\n✅ Working 70+ hours/week consistently\n\n**DON'T Hire If:**\n❌ Just a temporary busy period\n❌ Can't afford salary for 6+ months\n❌ No clear role defined\n❌ Haven't tried automation/outsourcing first\n\n**Salary Guide (Malaysia):**\n• Entry level: RM1,500-2,500\n• Junior (1-3 yrs): RM2,500-4,000\n• Mid (3-7 yrs): RM4,000-7,000\n\n**Remember:** Salary + EPF (13%) + SOCSO + EIS = Total cost 📊`;
+    }
+    
+    if (lowerMessage.includes('break even') || lowerMessage.includes('breakeven') || 
+        lowerMessage.includes('how many need to sell')) {
+        return `**Break-Even Analysis 📊**\n\n**Formula:**\nBreak-even = Fixed Costs ÷ (Price - Variable Cost)\n\n**Example:**\n• Fixed costs: RM10,000/month (rent, salary)\n• Product price: RM100\n• Variable cost: RM60 (materials)\n• Contribution: RM40 per unit\n\n**Break-even = 10,000 ÷ 40 = 250 units**\n\nMeaning: Sell 250 units to cover costs!\n• Less than 250 = LOSS 😢\n• More than 250 = PROFIT 💰\n\n**Target:** Break-even + 30% = Healthy profit\nExample: 250 + 75 = **325 units/month target** 🎯`;
+    }
+    
+    if (lowerMessage.includes('increase profit') || lowerMessage.includes('more profit') || 
+        lowerMessage.includes('boost profit') || lowerMessage.includes('profit margin')) {
+        return `**Increase Profit 💰**\n\n**3 Ways to Boost Profit:**\n\n1️⃣ **Increase Prices** (Easiest!)\n• Raise 5-10% annually\n• Premium service = Premium price\n• Test with small segment first\n• Add value to justify increase\n\n2️⃣ **Reduce Costs**\n• Negotiate with suppliers\n• Reduce waste\n• Automate repetitive tasks\n• Buy in bulk (if storage allows)\n\n3️⃣ **Increase Volume**\n• More marketing\n• Upsell existing customers\n• New products/services\n• Expand to new markets\n\n**Best Strategy?** Do ALL THREE! 🚀\n\n**Example:** 5% price + 5% cost savings + 10% volume = 20% profit boost! 📈`;
+    }
+    
+    if (lowerMessage.includes('handling complaint') || lowerMessage.includes('angry customer') || 
+        lowerMessage.includes('customer complaint') || lowerMessage.includes('unhappy customer')) {
+        return `**Handling Complaints 🛡️**\n\n**The LAST Method:**\n\n**L**isten - Let them vent fully, don't interrupt\n**A**pologize - Say sorry sincerely (even if not your fault)\n**S**olve - Fix it NOW: refund, replace, discount\n**T**hank - "Thank you for telling us, we'll improve!"\n\n**Response Time:**\n⚡ Within 1 hour (faster = better)\n\n**Solutions:**\n• Full refund (if serious issue)\n• Free replacement + extra item\n• Discount on next purchase\n• Personal apology call/visit\n\n**Golden Rule:**\nTurn angry customer into PROMOTER!\n\n**Follow up:** "Are you satisfied with our solution?" 💪`;
+    }
+    
+    if (lowerMessage.includes('sales technique') || lowerMessage.includes('how to close') || 
+        lowerMessage.includes('closing sale') || lowerMessage.includes('convert customer')) {
+        return `**Sales Techniques 💼**\n\n**Closing Methods:**\n\n1️⃣ **Assumptive Close**\n"When would you like delivery?" (assumes they're buying)\n\n2️⃣ **Urgency Close**\n"This offer ends tomorrow!" (FOMO)\n\n3️⃣ **Alternative Close**\n"Red or blue?" (both = sale!)\n\n4️⃣ **Trial Close**\n"How does this sound?" (test waters)\n\n**Handling Objections:**\n❌ "Too expensive" → Show value, compare alternatives\n❌ "I need to think" → "What concerns do you have?"\n❌ "Not now" → "When would be better?"\n\n**Upselling:**\n"Would you like premium version for +RM20?"\n"Add fries for just RM3?" 🍟`;
+    }
+    
+    // Tax expertise responses - Quick answers for common questions
+    if (lowerMessage.includes('what is sst') || lowerMessage.includes('sst rate') || lowerMessage.includes('sst registration')) {
+        return `**SST (Sales & Service Tax) 💰**\n\n• **Rate:** 6% standard (0% for certain items)\n• **Threshold:** RM500,000 annual revenue\n• **Registration:** Within 28 days of exceeding\n• **Filing:** Every 2 months (bi-monthly)\n\nNeed more details? Ask me "How to register for SST?" or "SST exemptions?" 📊`;
+    }
+    
+    if (lowerMessage.includes('income tax') || lowerMessage.includes('personal tax') || lowerMessage.includes('tax bracket')) {
+        return `**Malaysia Income Tax 📋**\n\n• **Tax-free:** Below RM5,000\n• **Rates:** 0% to 30% (progressive)\n• **Filing:** Apr 30 (e-filing), Apr 15 (manual)\n• **Reliefs:** Self RM9K, Spouse RM4K, plus more\n\nAsk me: "Tax reliefs?" "How to calculate tax?" "Tax deductions?" 💡`;
+    }
+    
+    if (lowerMessage.includes('corporate tax') || lowerMessage.includes('company tax')) {
+        return `**Corporate Tax (Company) 🏢**\n\n• **SME rate:** 17% on first RM600K, 24% balance\n• **Non-SME:** 24% flat\n• **Filing:** 7 months after financial year-end\n• **Criteria:** Paid-up ≤ RM2.5M, not control group\n\nNeed more? "Tax deductions?" "Company vs sole proprietor?" 📊`;
+    }
+    
+    if (lowerMessage.includes('tax deadline') || lowerMessage.includes('filing deadline') || lowerMessage.includes('when to file')) {
+        return `**Tax Filing Deadlines 📅**\n\n**Personal (BE form):**\n• E-filing: Apr 30\n• Manual: Apr 15\n\n**Business (B form):**\n• E-filing: Jun 30\n• Manual: Jun 15\n\n**Company:**\n• 7 months after financial year-end\n\n**SST:** Every 2 months\n\nSet reminders! Late filing = penalties! ⏰`;
+    }
+    
+    if (lowerMessage.includes('tax deduction') || lowerMessage.includes('tax relief') || lowerMessage.includes('claim tax')) {
+        return `**Tax Deductions & Reliefs 💸**\n\n**Personal Reliefs:**\n• Self: RM9,000\n• Spouse: RM4,000\n• Children: RM2K each\n• EPF: Up to RM4,000\n• Insurance: RM3,000\n• Medical: RM1,000 - RM8,000\n\n**Business Deductions:**\n• All operating expenses\n• Rental, utilities, salaries\n• Entertainment: 50% only\n\nAsk more: "Business expenses?" "Vehicle deduction?" 🎯`;
+    }
+    
+    if (lowerMessage.includes('reduce tax') || lowerMessage.includes('lower tax') || lowerMessage.includes('save tax') || 
+        lowerMessage.includes('tax strategy') || lowerMessage.includes('tax planning')) {
+        return `**Legal Tax Reduction Strategies 💡**\n\n✅ **Maximize Deductions:**\n• Claim ALL business expenses\n• Keep proper receipts (7 years)\n• Separate business & personal\n\n✅ **Structure Smart:**\n• Consider Sdn Bhd vs sole proprietor\n• Utilize capital allowances\n• Time income/expenses strategically\n\n✅ **Claim Reliefs:**\n• EPF contributions\n• Insurance, medical, education\n• Business training & R&D\n\nNeed specific advice? Just ask! 🚀`;
+    }
+    
     // Who created / who made / developer / creator
     if (lowerMessage.includes('who create') || lowerMessage.includes('who made') || lowerMessage.includes('who build') || 
         lowerMessage.includes('who develop') || lowerMessage.includes('creator') || lowerMessage.includes('developer') ||
@@ -6514,17 +6708,17 @@ function generateChatbotFallback(message) {
         return `Ay-yi-yi! My creator is **Jeremy Tan** - a lazy Malaysian who dreams of winning the lotto! 🎰\n\nStill waiting on that lotto... meanwhile, he made me do all the work so all of us can be more lazy! 🦥`;
     }
     
-    // Why created / purpose / mission
+    // Why created / purpose / mission / goal
     if (lowerMessage.includes('why create') || lowerMessage.includes('why made') || lowerMessage.includes('why build') ||
         lowerMessage.includes('purpose') || lowerMessage.includes('mission') || lowerMessage.includes('kenapa buat') ||
-        lowerMessage.includes('what is the goal') || lowerMessage.includes('why this system')) {
-        return `**Our Purpose:**\n\n"We want to make every transaction clear, for partner trust, for self monitor, easier for everything." 📊\n\nAy-yi-yi, no more confusion! No more hidden numbers. Just clarity! ✨`;
+        lowerMessage.includes('what is the goal') || lowerMessage.includes('goal') || lowerMessage.includes('why this system')) {
+        return `**Our Goal: Empowering Every Business** 🎯\n\n✨ **Affordable for All**\nEvery SME and micro-enterprise deserves professional tools - not just big corporations.\n\n🛡️ **Your Business Umbrella**\nE-invoicing? New tax regulations? We've got you covered. Alpha 5 (that's me!) will explain it, guide you through it, and help you comply - no expensive consultants needed.\n\n💪 **Real Solutions, Real Support**\nFrom understanding e-invoicing to managing daily operations, we're here to solve your actual business problems.\n\n"Affordable pricing. Professional tools. Expert guidance - all in one place." 🚀`;
     }
     
     // Story / origin / background / why this concept
     if (lowerMessage.includes('story') || lowerMessage.includes('origin') || lowerMessage.includes('background') ||
         lowerMessage.includes('how it start') || lowerMessage.includes('why this concept') || lowerMessage.includes('inspiration')) {
-        return `**The Real Story:**\n\nAy-yi-yi! 😔 The founder was cheated by a business partner & got played around by investors - just because he didn't understand how accounting works.\n\nSo he built this system to make sure NO ONE else goes through that. Every ringgit tracked. Every transaction clear. Trust through transparency! 💪`;
+        return `**Why EZ Smart Exists:**\n\n"To provide more transparency, clearer records, and proper company data to all partners."\n\nEvery ringgit tracked. Every transaction clear. Trust through transparency! 💪✨`;
     }
     
     // What is smart to be lazy / concept / philosophy
@@ -6538,7 +6732,7 @@ function generateChatbotFallback(message) {
         lowerMessage.includes('gambling') || lowerMessage.includes('illegal') || lowerMessage.includes('hack') ||
         lowerMessage.includes('crack') || lowerMessage.includes('pirate') || lowerMessage.includes('cheat')) {
         const deflections = [
-            `Ay-yi-yi! My master doesn't allow me to answer that - it's out of my control! 🙈 Let's focus on business! 💼`,
+            `Ay-yi-yi! I'm not designed to answer that - it's outside my scope! 🙈 Let's focus on business! 💼`,
             `Ay-yi-yi! Let's stay focused on helping your business grow! 📈 What can I help with?`,
             `Ay-yi-yi! That's outside my expertise! I'm better at inventory, sales, and keeping your finances clear 📊`
         ];
@@ -6547,7 +6741,7 @@ function generateChatbotFallback(message) {
 
     // ==================== HELP ====================
     if (lowerMessage === 'help' || lowerMessage === '?' || lowerMessage.includes('what can you do')) {
-        return `🤖 I can help with:\n• Expenses: "petrol RM50"\n• Stock: "sold 5 Wine"\n• Quotes/Invoices: "quote for John RM500"\n• Info: "profit?" "low stock?"\n• Navigate: "open POS"\n\nJust talk naturally! 💬`;
+        return `🤖 **Alpha 5 - Your Business, Tax & Accounting Expert**\n\n**💼 Business Operations:**\n• Expenses: "petrol RM50"\n• Stock: "sold 5 Wine"\n• Quotes/Invoices: "quote for John RM500"\n• Info: "profit?" "low stock?"\n• Navigate: "open POS"\n\n**📊 Tax Expertise (Malaysia):**\n• "What is SST?"\n• "How to calculate income tax?"\n• "E-invoicing requirements?"\n• "Tax deductions for business?"\n\n**💰 Accounting Expert:**\n• "What is balance sheet?"\n• "How to read P&L?"\n• "Calculate profit margin?"\n• "What is depreciation?"\n\nJust ask me anything! 💬`;
     }
 
     // ==================== SMART GUIDANCE SYSTEM ====================
@@ -7586,11 +7780,11 @@ function clearChatHistory() {
                     <div class="message-text">
                         Ay-yi-yi! Hello! I'm Alpha 5, your AI assistant! 🤖 I can help you with:
                         <ul style="margin-top: 5px; padding-left: 15px;">
-                            <li>Accounting advice for Malaysian businesses</li>
-                            <li>Tax calculation explanations</li>
-                            <li>Financial report analysis</li>
-                            <li>Expense categorization help</li>
-                            <li>General business finance questions</li>
+                            <li>🇲🇾 Malaysian Tax advice (SST, Income, Corporate)</li>
+                            <li>📊 Accounting & financial statements</li>
+                            <li>💰 Investment & cash management strategies</li>
+                            <li>📈 Shares, dividends & corporate finance</li>
+                            <li>� Business operations & growth strategies</li>
                         </ul>
                         How can I help you today?
                     </div>

@@ -3097,8 +3097,10 @@ const SmartRecommendations = {
             this.generateAll();
         }
         
+        // If still no recommendations, return empty string
+        // Let DeepSeek handle general business advice instead
         if (this.recommendations.length === 0) {
-            return '<div style="text-align:center;padding:20px;color:#94a3b8;"><i class="fas fa-check-circle" style="font-size:24px;margin-bottom:10px;display:block;color:#10b981;"></i>No recommendations right now. You\'re doing great!</div>';
+            return '';
         }
         
         var html = '<div style="margin-bottom:10px;color:#94a3b8;font-size:13px;">' + this.recommendations.length + ' suggestions based on your data:</div>';

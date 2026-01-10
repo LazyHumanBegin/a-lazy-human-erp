@@ -1119,13 +1119,20 @@ function savePasswordChanges() {
     // Close modal first
     closeModal('changePasswordModal');
     
-    // Show success notification IMMEDIATELY (no delay)
+    // Show success notification IMMEDIATELY - GUARANTEED to show
     const successMsg = '✅ Password updated successfully!';
-    if (typeof showToast === 'function') {
-        showToast(successMsg, 'success', 3000);
-    }
-    if (typeof showNotification === 'function') {
-        showNotification(successMsg, 'success');
+    try {
+        if (window.showToast) {
+            window.showToast(successMsg, 'success', 3000);
+        } else if (window.showNotification) {
+            window.showNotification(successMsg, 'success');
+        } else {
+            // Create notification directly
+            createPasswordNotification(successMsg, 'success');
+        }
+    } catch (e) {
+        console.error('Notification error:', e);
+        createPasswordNotification(successMsg, 'success');
     }
 
     // Sync to cloud in background (don't wait for it)
@@ -1136,6 +1143,33 @@ function savePasswordChanges() {
             console.warn('⚠️ Failed to sync password to cloud:', err);
         });
     }
+}
+
+// Simple notification that ALWAYS works for password changes
+function createPasswordNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        min-width: 250px;
+        background: ${type === 'success' ? '#10b981' : '#ef4444'};
+        animation: fadeIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 // Close dropdown when clicking outside

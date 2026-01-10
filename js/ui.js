@@ -337,13 +337,22 @@ function saveSettings() {
     
     document.getElementById('corporateTaxRate').value = businessData.settings.defaultTaxRate;
     
-    // Show notification immediately (no delay)
+    // Show notification immediately (no delay) - GUARANTEED
     const successMsg = '✅ Settings saved successfully!';
-    if (typeof showToast === 'function') {
-        showToast(successMsg, 'success', 3000);
-    }
-    if (typeof showNotification === 'function') {
-        showNotification(successMsg, 'success');
+    
+    // Try modern notification first
+    try {
+        if (window.showToast) {
+            window.showToast(successMsg, 'success', 3000);
+        } else if (window.showNotification) {
+            window.showNotification(successMsg, 'success');
+        } else {
+            // Create notification directly
+            createSimpleNotification(successMsg, 'success');
+        }
+    } catch (e) {
+        console.error('Notification error:', e);
+        createSimpleNotification(successMsg, 'success');
     }
     
     // Save data in background
@@ -351,9 +360,35 @@ function saveSettings() {
         updateCompanyNameInUI();
         updateMalaysianTaxEstimator();
     } else {
-        // Only show error if save actually failed
         console.warn('saveData returned false');
     }
+}
+
+// Simple notification that ALWAYS works
+function createSimpleNotification(message, type) {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 10000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        min-width: 250px;
+        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#2563eb'};
+        animation: fadeIn 0.3s ease;
+    `;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.3s';
+        setTimeout(() => notification.remove(), 300);
+    }, 3000);
 }
 
 // Save Document Numbering Settings
