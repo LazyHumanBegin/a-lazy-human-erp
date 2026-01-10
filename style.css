@@ -18512,15 +18512,54 @@ img {
     
     .nav-panel {
         padding: 15px;
+        background: white;
     }
     
+    /* Fix navigation button alignment */
+    .nav-btn {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        padding: 12px;
+        min-height: 44px;
+    }
+    
+    .nav-btn i {
+        font-size: 18px;
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    
+    /* Content cards with proper visibility */
     .content-card {
         padding: 18px;
+        background: white;
+        color: #334155;
     }
     
+    .card-header h2 {
+        font-size: 18px;
+        color: #1e293b;
+    }
+    
+    /* Stats grid */
     .stats-grid {
         grid-template-columns: repeat(3, 1fr);
         gap: 12px;
+    }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+    }
+    
+    .stat-label {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .stat-value {
+        color: white;
     }
     
     /* Slightly smaller fonts */
@@ -18528,8 +18567,37 @@ img {
         font-size: 14px;
     }
     
-    .card-header h2 {
-        font-size: 18px;
+    /* AI Chatbot - compact for landscape with sidebar */
+    .ai-chatbot-container {
+        width: 360px;
+        height: 55vh;
+        max-height: 55vh;
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .ai-chatbot-container.active {
+        height: 55vh;
+        max-height: 55vh;
+    }
+    
+    .chatbot-messages {
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .message-text {
+        font-size: 13px;
+        padding: 10px 12px;
+    }
+    
+    .chatbot-input-container {
+        padding: 10px;
+    }
+    
+    #chatbotInput {
+        font-size: 13px;
+        padding: 10px 12px;
     }
 }
 
@@ -18568,7 +18636,7 @@ img {
         font-size: 20px;
     }
     
-    /* Horizontal navigation for tablet */
+    /* Horizontal navigation for tablet - Fixed icon alignment */
     .nav-menu {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -18576,18 +18644,38 @@ img {
     }
     
     .nav-btn {
-        padding: 12px 16px;
+        padding: 14px 16px;
         font-size: 13px;
         text-align: center;
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 6px;
+        min-height: 70px;
+        background: #f8fafc;
+        border-radius: 10px;
+        transition: all 0.2s;
     }
     
     .nav-btn i {
-        font-size: 20px;
+        font-size: 22px;
         margin-bottom: 0;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+    }
+    
+    .nav-btn.active {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        color: white;
+    }
+    
+    .nav-btn.active i {
+        color: white;
     }
     
     /* Stats grid - 2 columns on tablet */
@@ -18604,14 +18692,54 @@ img {
         font-size: 24px;
     }
     
-    /* Content cards */
+    /* Content cards - fix visibility */
     .content-card {
         padding: 18px;
         border-radius: 12px;
+        background: white;
+    }
+    
+    .card-header {
+        background: transparent;
     }
     
     .card-header h2 {
         font-size: 18px;
+        color: #1e293b;
+    }
+    
+    /* Fix stat card text visibility */
+    .stat-card {
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+    }
+    
+    .stat-label {
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .stat-value {
+        color: white;
+    }
+    
+    /* Fix other text colors */
+    .content-card p, 
+    .content-card span:not(.stat-value):not(.stat-label) {
+        color: #475569;
+    }
+    
+    /* Table text visibility */
+    table {
+        background: white;
+        color: #334155;
+    }
+    
+    th {
+        color: #1e293b;
+        background: #f8fafc;
+    }
+    
+    td {
+        color: #475569;
     }
     
     /* Tables - make scrollable */
@@ -18650,10 +18778,64 @@ img {
         border-radius: 16px;
     }
     
-    /* Chatbot - side panel style */
+    /* Chatbot - compact for tablet (keyboard friendly) */
     .ai-chatbot-container {
-        width: 420px;
-        max-height: 80vh;
+        width: 380px;
+        height: 50vh;
+        max-height: 50vh;
+        bottom: 10px;
+        right: 10px;
+    }
+    
+    .ai-chatbot-container.active {
+        height: 50vh;
+        max-height: 50vh;
+    }
+    
+    /* Adjust chatbot messages for smaller window */
+    .chatbot-messages {
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .chatbot-message {
+        max-width: 90%;
+    }
+    
+    .message-text {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .message-avatar {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+    }
+    
+    /* Compact input area */
+    .chatbot-input-container {
+        padding: 10px;
+    }
+    
+    .quick-question-buttons {
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+    
+    .quick-question {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+    
+    #chatbotInput {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    #sendChatBtn {
+        padding: 10px;
+        min-height: 40px;
     }
 }
 
