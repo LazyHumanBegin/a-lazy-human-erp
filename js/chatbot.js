@@ -8315,8 +8315,18 @@ function initVoiceRecognition() {
             showVoiceStatus('😅 No speech detected. Try again!');
         } else if (event.error === 'not-allowed') {
             showVoiceStatus('🚫 Microphone access denied. Please allow microphone.');
+        } else if (event.error === 'aborted') {
+            // Tablet fix: 'aborted' often means network issue or timeout
+            console.log('🎤 Recognition aborted - retrying...');
+            showVoiceStatus('🔄 Connection issue. Tap microphone to try again.');
+            // Auto-retry once after 1 second
+            setTimeout(() => {
+                if (!isListening) {
+                    hideVoiceStatus();
+                }
+            }, 2000);
         } else {
-            showVoiceStatus('❌ Error: ' + event.error);
+            showVoiceStatus('❌ Error: ' + event.error + '. Please try again.');
         }
         
         setTimeout(hideVoiceStatus, 3000);

@@ -41,6 +41,7 @@ function generateSessionToken() {
  * Start periodic session validation
  */
 let sessionValidationInterval = null;
+let sessionRealtimeChannel = null;
 
 function startSessionValidation() {
     // Clear any existing interval
@@ -54,6 +55,71 @@ function startSessionValidation() {
             validateSessionToken(window.currentUser);
         }
     }, 2 * 1000); // 2 seconds - immediate detection for single-device login
+    
+    // INSTANT DETECTION: Setup realtime listener for immediate logout
+    setupRealtimeSessionListener();
+}
+
+/**
+ * Setup realtime listener for INSTANT multi-device logout detection
+ * This triggers immediately when another device logs in (no 2-second delay)
+ */
+async function setupRealtimeSessionListener() {
+    if (!window.currentUser) return;
+    
+    // Clean up existing listener
+    if (sessionRealtimeChannel) {
+        try {
+            await sessionRealtimeChannel.unsubscribe();
+        } catch (e) {}
+        sessionRealtimeChannel = null;
+    }
+    
+    try {
+        let client = null;
+        if (window.supabase && window.supabase.createClient && typeof getUsersSupabaseClient === 'function') {
+            client = getUsersSupabaseClient();
+        }
+        if (!client) {
+            console.warn('⚠️ Realtime session listener: No Supabase client');
+            return;
+        }
+        
+        const userId = window.currentUser.id;
+        const sessionKey = 'session_' + userId;
+        
+        // Subscribe to realtime changes on this user's session
+        sessionRealtimeChannel = client
+            .channel('session_changes_' + userId)
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'tenant_data',
+                filter: `tenant_id=eq.sessions`
+            }, (payload) => {
+                // Check if this change is for our user's session
+                if (payload.new?.data_key === sessionKey || payload.old?.data_key === sessionKey) {
+                    console.log('🔔 INSTANT: Session change detected for this user!', payload.eventType);
+                    
+                    // Another device logged in - validate IMMEDIATELY
+                    if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                        setTimeout(() => {
+                            if (window.currentUser) {
+                                console.log('🔄 INSTANT: Validating session...');
+                                validateSessionToken(window.currentUser);
+                            }
+                        }, 50); // 50ms delay - nearly instant
+                    }
+                }
+            })
+            .subscribe((status) => {
+                if (status === 'SUBSCRIBED') {
+                    console.log('👁️ REALTIME: Session monitoring active for', userId);
+                }
+            });
+    } catch (err) {
+        console.warn('⚠️ Could not setup realtime session listener:', err);
+    }
 }
 
 /**
@@ -157,16 +223,32 @@ function checkSession() {
 
 /**
  * Validate session token against cloud - force logout if another device logged in
+ * Uses generation number to handle unlimited devices
  */
 async function validateSessionToken(user) {
     const localToken = localStorage.getItem(AUTH_SESSION_TOKEN_KEY);
+    const localGeneration = parseInt(localStorage.getItem('ezcubic_session_generation') || '0');
     if (!localToken) return;
     
     try {
-        const cloudToken = await getCloudSessionToken(user.id);
+        const sessionData = await getCloudSessionData(user.id);
         
-        if (cloudToken && cloudToken !== localToken) {
-            console.log('⚠️ Session invalidated - another device logged in');
+        if (!sessionData) {
+            console.log('⚠️ No cloud session data - logging out');
+            forceLogoutOtherDevice();
+            return;
+        }
+        
+        // Check if our session generation is outdated
+        if (sessionData.generation > localGeneration) {
+            console.log('⚠️ Session invalidated - another device logged in (gen:', sessionData.generation, 'vs local:', localGeneration + ')');
+            forceLogoutOtherDevice();
+            return;
+        }
+        
+        // Check if our specific token is still in the active sessions list
+        if (!sessionData.activeTokens || !sessionData.activeTokens.includes(localToken)) {
+            console.log('⚠️ Session token not found in active sessions - logging out');
             forceLogoutOtherDevice();
         }
     } catch (err) {
@@ -175,9 +257,9 @@ async function validateSessionToken(user) {
 }
 
 /**
- * Get session token from cloud storage
+ * Get full session data from cloud storage (generation + active tokens)
  */
-async function getCloudSessionToken(userId) {
+async function getCloudSessionData(userId) {
     try {
         let client = null;
         if (window.supabase && window.supabase.createClient && typeof getUsersSupabaseClient === 'function') {
@@ -193,14 +275,15 @@ async function getCloudSessionToken(userId) {
             .single();
         
         if (error || !data) return null;
-        return data.data?.sessionToken || null;
+        return data.data || null;
     } catch (err) {
         return null;
     }
 }
 
 /**
- * Save session token to cloud storage
+ * Save session token to cloud storage with generation number
+ * Increments generation to invalidate ALL previous sessions
  */
 async function saveCloudSessionToken(userId, token, deviceInfo) {
     try {
@@ -210,18 +293,35 @@ async function saveCloudSessionToken(userId, token, deviceInfo) {
         }
         if (!client) return false;
         
+        // Get current session data to increment generation
+        const currentData = await getCloudSessionData(userId);
+        const currentGeneration = currentData?.generation || 0;
+        const newGeneration = currentGeneration + 1;
+        
+        console.log('💾 Saving new session - Gen:', newGeneration, 'Token:', token.substring(0, 20) + '...');
+        
+        // Save new session with incremented generation
+        // This invalidates ALL previous sessions regardless of device count
         const { error } = await client
             .from('tenant_data')
             .upsert({
                 tenant_id: 'sessions',
                 data_key: 'session_' + userId,
                 data: {
-                    sessionToken: token,
+                    generation: newGeneration,
+                    activeTokens: [token], // Only THIS token is valid now
+                    currentToken: token,
                     deviceInfo: deviceInfo,
                     loginTime: new Date().toISOString()
                 },
                 updated_at: new Date().toISOString()
             }, { onConflict: 'tenant_id,data_key' });
+        
+        if (!error) {
+            // Store generation locally for validation
+            localStorage.setItem('ezcubic_session_generation', newGeneration.toString());
+            console.log('✅ Session saved - all previous sessions invalidated');
+        }
         
         return !error;
     } catch (err) {
@@ -236,6 +336,7 @@ async function saveCloudSessionToken(userId, token, deviceInfo) {
 function forceLogoutOtherDevice() {
     localStorage.removeItem(AUTH_CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
+    localStorage.removeItem('ezcubic_session_generation');
     window.currentUser = null;
     
     // Reload chatbot for new (null) user context
@@ -755,6 +856,7 @@ function logout() {
     window.currentUser = null;
     localStorage.removeItem(AUTH_CURRENT_USER_KEY);
     localStorage.removeItem(AUTH_SESSION_TOKEN_KEY);
+    localStorage.removeItem('ezcubic_session_generation');
     
     // Stop session validation
     if (sessionValidationInterval) {

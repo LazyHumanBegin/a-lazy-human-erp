@@ -1683,8 +1683,14 @@ function toggleVoiceInput() {
     };
     
     recognition.onerror = function(event) {
-        showNotification('Voice recognition error: ' + event.error, 'error');
-        stopVoiceInput();
+        if (event.error === 'aborted') {
+            console.log('⚠️ Speech recognition aborted (connection issue)');
+            showNotification('Microphone interrupted. Please try again.', 'warning');
+            setTimeout(() => stopVoiceInput(), 2000);
+        } else {
+            showNotification('Voice recognition error: ' + event.error, 'error');
+            stopVoiceInput();
+        }
     };
     
     recognition.onend = function() {
