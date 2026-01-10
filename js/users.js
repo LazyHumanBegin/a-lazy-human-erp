@@ -429,11 +429,11 @@ async function loadUsersFromCloud() {
             console.log('☁️ Downloading users from cloud...');
             const client = getUsersSupabaseClient();
             
+            // CRITICAL: Download ALL global data including deletion tracking lists
             const { data, error } = await client
                 .from('tenant_data')
                 .select('*')
-                .eq('tenant_id', 'global')
-                .eq('data_key', 'ezcubic_users');
+                .eq('tenant_id', 'global');
             
             if (error) {
                 console.warn('⚠️ Direct download error:', error.message);
@@ -441,13 +441,37 @@ async function loadUsersFromCloud() {
             }
             
             if (data && data.length > 0) {
-                const cloudUsers = data[0].data?.value || [];
+                // STEP 1: Download deletion tracking lists FIRST
+                let deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                let deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
                 
-                // Get deleted users and tenants list to filter them out
-                const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
-                const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
-                console.log('🗑️ Deleted users to filter:', deletedUsers.length);
-                console.log('🗑️ Deleted tenants to filter:', deletedTenants.length);
+                for (const record of data) {
+                    if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                        const cloudDeletedUsers = record.data.value;
+                        // Merge local and cloud deletion lists
+                        deletedUsers = [...new Set([...deletedUsers, ...cloudDeletedUsers])];
+                        localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+                        console.log('  📥 Downloaded deleted users tracking from cloud:', cloudDeletedUsers.length);
+                    }
+                    if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                        const cloudDeletedTenants = record.data.value;
+                        // Merge local and cloud deletion lists
+                        deletedTenants = [...new Set([...deletedTenants, ...cloudDeletedTenants])];
+                        localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+                        console.log('  📥 Downloaded deleted tenants tracking from cloud:', cloudDeletedTenants.length);
+                    }
+                }
+                
+                console.log('🗑️ Deleted users to filter (merged):', deletedUsers.length);
+                console.log('🗑️ Deleted tenants to filter (merged):', deletedTenants.length);
+                
+                // STEP 2: Now process users with updated deletion lists
+                let cloudUsers = [];
+                for (const record of data) {
+                    if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                        cloudUsers = record.data.value;
+                    }
+                }
                 
                 // Merge cloud users with local
                 const localUsers = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
@@ -459,6 +483,8 @@ async function loadUsersFromCloud() {
                     const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
                     if (!isUserDeleted && !isTenantDeleted) {
                         userMap.set(u.id, u);
+                    } else if (isUserDeleted) {
+                        console.log('🗑️ Filtering out deleted local user:', u.email);
                     } else if (isTenantDeleted) {
                         console.log('🗑️ Skipping user from deleted tenant:', u.email);
                     }
@@ -569,25 +595,61 @@ async function findUserInCloud(email) {
     try {
         const client = getUsersSupabaseClient();
         
+        // Download ALL global data (including deletion tracking)
         const { data, error } = await client
             .from('tenant_data')
             .select('*')
-            .eq('tenant_id', 'global')
-            .eq('data_key', 'ezcubic_users')
-            .single();
+            .eq('tenant_id', 'global');
         
         if (error) {
             console.warn('⚠️ Cloud lookup error:', error.message);
             return null;
         }
         
-        const cloudUsers = data?.data?.value || [];
+        // STEP 1: Get deletion tracking from cloud first
+        let deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        let deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+        
+        for (const record of data || []) {
+            if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                const cloudDeletedUsers = record.data.value;
+                deletedUsers = [...new Set([...deletedUsers, ...cloudDeletedUsers])];
+                localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+            }
+            if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                const cloudDeletedTenants = record.data.value;
+                deletedTenants = [...new Set([...deletedTenants, ...cloudDeletedTenants])];
+                localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+            }
+        }
+        
+        // STEP 2: Find user in cloud data
+        let cloudUsers = [];
+        for (const record of data || []) {
+            if (record.data_key === 'ezcubic_users' && record.data?.value) {
+                cloudUsers = record.data.value;
+            }
+        }
+        
         const foundUser = cloudUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
         
         if (foundUser) {
+            // Check if user or their tenant is deleted
+            const isUserDeleted = deletedUsers.includes(foundUser.id) || deletedUsers.includes(foundUser.email);
+            const isTenantDeleted = foundUser.tenantId && deletedTenants.includes(foundUser.tenantId);
+            
+            if (isUserDeleted) {
+                console.log('🗑️ User found but is marked as deleted:', foundUser.email);
+                return null;
+            }
+            if (isTenantDeleted) {
+                console.log('🗑️ User found but tenant is deleted:', foundUser.email);
+                return null;
+            }
+            
             console.log('☁️ Found user in cloud:', foundUser.email, '- Role:', foundUser.role);
             
-            // Also download their tenant info if available
+            // Also download their tenant info if available (and not deleted)
             if (foundUser.tenantId) {
                 await downloadTenantInfoFromCloud(foundUser.tenantId);
             }
