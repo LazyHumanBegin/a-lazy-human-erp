@@ -1685,8 +1685,16 @@ function toggleVoiceInput() {
     recognition.onerror = function(event) {
         if (event.error === 'aborted') {
             console.log('⚠️ Speech recognition aborted (connection issue)');
-            showNotification('Microphone interrupted. Please try again.', 'warning');
+            showNotification('Microphone interrupted. Check your connection and try again.', 'warning');
             setTimeout(() => stopVoiceInput(), 2000);
+        } else if (event.error === 'network') {
+            console.log('⚠️ Network error during speech recognition');
+            showNotification('Network connection lost. Please check your internet.', 'error');
+            stopVoiceInput();
+        } else if (event.error === 'not-allowed') {
+            console.log('⚠️ Microphone permission denied');
+            showNotification('Microphone access denied. Please allow microphone in settings.', 'error');
+            stopVoiceInput();
         } else {
             showNotification('Voice recognition error: ' + event.error, 'error');
             stopVoiceInput();

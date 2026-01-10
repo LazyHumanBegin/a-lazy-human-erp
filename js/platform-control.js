@@ -487,6 +487,36 @@ async function autoSyncPlatformUsers(force = false) {
                         console.log(`☁️ Tenants synced: ${afterCount - beforeCount} new`);
                     }
                 }
+                
+                // CRITICAL: Also sync subscriptions (plans & expiry dates)
+                if (record.data_key === 'ezcubic_subscriptions' && record.data?.value) {
+                    const cloudSubs = record.data.value;
+                    let localSubs = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+                    
+                    // FIRST: Remove any deleted tenant subscriptions from local
+                    deletedTenants.forEach(tenantId => {
+                        if (localSubs[tenantId]) {
+                            console.log('  🗑️ Removing subscription for deleted tenant:', tenantId);
+                            delete localSubs[tenantId];
+                        }
+                    });
+                    
+                    // Merge cloud subscriptions (skip deleted ones)
+                    const beforeSubCount = Object.keys(localSubs).length;
+                    Object.entries(cloudSubs).forEach(([id, sub]) => {
+                        if (!deletedTenants.includes(id)) {
+                            localSubs[id] = sub;
+                        } else {
+                            console.log('  🗑️ Skipping subscription for deleted tenant:', id);
+                        }
+                    });
+                    const afterSubCount = Object.keys(localSubs).length;
+                    
+                    if (afterSubCount !== beforeSubCount) {
+                        localStorage.setItem('ezcubic_subscriptions', JSON.stringify(localSubs));
+                        console.log(`☁️ Subscriptions synced: ${afterSubCount} total`);
+                    }
+                }
             }
             
             // Re-render Platform Control if data was updated

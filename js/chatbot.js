@@ -8315,11 +8315,14 @@ function initVoiceRecognition() {
             showVoiceStatus('😅 No speech detected. Try again!');
         } else if (event.error === 'not-allowed') {
             showVoiceStatus('🚫 Microphone access denied. Please allow microphone.');
+        } else if (event.error === 'network') {
+            console.log('🎤 Network error during speech recognition');
+            showVoiceStatus('📡 Network connection lost. Check your internet.');
         } else if (event.error === 'aborted') {
             // Tablet fix: 'aborted' often means network issue or timeout
-            console.log('🎤 Recognition aborted - retrying...');
-            showVoiceStatus('🔄 Connection issue. Tap microphone to try again.');
-            // Auto-retry once after 1 second
+            console.log('🎤 Recognition aborted - connection issue');
+            showVoiceStatus('🔄 Connection interrupted. Tap microphone to try again.');
+            // Auto-hide status after 2 seconds
             setTimeout(() => {
                 if (!isListening) {
                     hideVoiceStatus();
