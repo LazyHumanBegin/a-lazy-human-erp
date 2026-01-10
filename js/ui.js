@@ -196,6 +196,74 @@ function closeMobileMenu() {
     }
 }
 
+// Toggle tablet sidebar (768-991px portrait mode)
+function toggleTabletSidebar() {
+    const navPanel = document.getElementById('navPanel');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    
+    if (navPanel) {
+        navPanel.classList.toggle('show');
+        
+        // Toggle overlay
+        if (overlay) {
+            overlay.classList.toggle('show');
+        }
+        
+        // Change icon based on state
+        if (toggleBtn) {
+            const icon = toggleBtn.querySelector('i');
+            if (navPanel.classList.contains('show')) {
+                icon.className = 'fas fa-times';
+            } else {
+                icon.className = 'fas fa-bars';
+            }
+        }
+    }
+}
+
+// Close tablet sidebar when clicking overlay
+function closeTabletSidebar() {
+    const navPanel = document.getElementById('navPanel');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggleBtn = document.getElementById('sidebarToggle');
+    
+    if (navPanel && navPanel.classList.contains('show')) {
+        navPanel.classList.remove('show');
+        if (overlay) overlay.classList.remove('show');
+        if (toggleBtn) {
+            const icon = toggleBtn.querySelector('i');
+            icon.className = 'fas fa-bars';
+        }
+    }
+}
+
+// Show/hide tablet sidebar toggle based on screen size
+function updateTabletSidebarVisibility() {
+    const toggleBtn = document.getElementById('sidebarToggle');
+    const width = window.innerWidth;
+    
+    if (toggleBtn) {
+        // Show only on tablet portrait (768-991px)
+        if (width >= 768 && width <= 991) {
+            toggleBtn.style.display = 'flex';
+        } else {
+            toggleBtn.style.display = 'none';
+            // Hide sidebar and overlay on other screen sizes
+            const navPanel = document.getElementById('navPanel');
+            const overlay = document.getElementById('sidebarOverlay');
+            if (navPanel) navPanel.classList.remove('show');
+            if (overlay) overlay.classList.remove('show');
+        }
+    }
+}
+
+// Call on load and resize
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', updateTabletSidebarVisibility);
+    window.addEventListener('resize', updateTabletSidebarVisibility);
+}
+
 function hideWelcomeBanner() {
     document.getElementById('welcomeBanner').style.display = 'none';
     businessData.settings.showWelcome = false;
@@ -603,6 +671,9 @@ function checkAndResetSequence(settings) {
 // Export functions to window
 window.saveDocumentNumberingSettings = saveDocumentNumberingSettings;
 window.loadDocumentNumberingSettings = loadDocumentNumberingSettings;
+window.toggleTabletSidebar = toggleTabletSidebar;
+window.closeTabletSidebar = closeTabletSidebar;
+window.toggleMobileMenu = toggleMobileMenu;
 window.getDefaultDocumentNumbering = getDefaultDocumentNumbering;
 window.updateDocNumberPreview = updateDocNumberPreview;
 window.formatDocumentNumber = formatDocumentNumber;

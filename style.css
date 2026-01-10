@@ -662,8 +662,8 @@ body {
 }
 
 .nav-btn i {
-    font-size: 18px;
-    width: 24px;
+    font-size: 16px;
+    width: 20px;
     transition: transform 0.3s;
     color: #64748b;
 }
@@ -949,14 +949,14 @@ body {
 }
 
 .stat-value {
-    font-size: 28px;
+    font-size: 22px;
     font-weight: 700;
-    margin: 10px 0 5px 0;
+    margin: 8px 0 4px 0;
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .stat-label {
-    font-size: 12px;
+    font-size: 11px;
     opacity: 0.95;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -18515,19 +18515,19 @@ img {
         background: white;
     }
     
-    /* Fix navigation button alignment */
+    /* Fix navigation button alignment - smaller icons */
     .nav-btn {
         display: flex;
         align-items: center;
         justify-content: flex-start;
         gap: 10px;
-        padding: 12px;
-        min-height: 44px;
+        padding: 10px 12px;
+        min-height: 40px;
     }
     
     .nav-btn i {
-        font-size: 18px;
-        width: 20px;
+        font-size: 16px;
+        width: 18px;
         text-align: center;
         flex-shrink: 0;
     }
@@ -18544,22 +18544,25 @@ img {
         color: #1e293b;
     }
     
-    /* Stats grid */
+    /* Stats grid - compact sizing */
     .stats-grid {
         grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
+        gap: 10px;
     }
     
     .stat-card {
         background: linear-gradient(135deg, #2563eb, #3b82f6);
+        padding: 12px;
     }
     
     .stat-label {
         color: rgba(255, 255, 255, 0.9);
+        font-size: 11px;
     }
     
     .stat-value {
         color: white;
+        font-size: 20px;
     }
     
     /* Slightly smaller fonts */
@@ -18615,58 +18618,126 @@ img {
         gap: 12px;
     }
     
-    /* Navigation as horizontal tabs on tablet */
+    /* Collapsible sidebar for tablet portrait */
     .nav-panel {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 240px;
+        height: 100vh;
         background: white;
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-        max-height: none;
-        overflow: visible;
+        border-radius: 0;
+        padding: 12px;
+        box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+        overflow-y: auto;
+        z-index: 1000;
+        transition: transform 0.3s ease;
+        transform: translateX(-100%);
+    }
+    
+    .nav-panel.show {
+        transform: translateX(0);
     }
     
     .logo {
         text-align: center;
-        margin-bottom: 16px;
-        padding-bottom: 16px;
+        margin-bottom: 12px;
+        padding-bottom: 12px;
         border-bottom: 2px solid #f1f5f9;
     }
     
     .logo h1 {
-        font-size: 20px;
+        font-size: 16px;
     }
     
-    /* Horizontal navigation for tablet - Fixed icon alignment */
+    /* Vertical navigation - Compact with smaller icons */
     .nav-menu {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
     }
     
     .nav-btn {
-        padding: 14px 16px;
+        padding: 10px 12px;
         font-size: 13px;
-        text-align: center;
+        text-align: left;
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
-        justify-content: center;
-        gap: 6px;
-        min-height: 70px;
+        justify-content: flex-start;
+        gap: 10px;
+        min-height: 40px;
         background: #f8fafc;
-        border-radius: 10px;
+        border-radius: 8px;
         transition: all 0.2s;
     }
     
     .nav-btn i {
-        font-size: 22px;
+        font-size: 16px;
         margin-bottom: 0;
         line-height: 1;
-        display: flex;
+        width: 18px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    
+    /* Sidebar toggle button - Visible by default */
+    .sidebar-toggle {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        width: 50px;
+        height: 50px;
+        background: linear-gradient(135deg, #2563eb, #3b82f6);
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+        display: none;
         align-items: center;
         justify-content: center;
-        width: 24px;
-        height: 24px;
+        cursor: pointer;
+        z-index: 1001;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar-toggle i {
+        font-size: 20px;
+        color: white;
+    }
+    
+    .sidebar-toggle:hover {
+        background: linear-gradient(135deg, #1d4ed8, #2563eb);
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px rgba(37, 99, 235, 0.5);
+    }
+    
+    .sidebar-toggle:active {
+        transform: scale(0.95);
+    }
+    
+    /* Overlay when sidebar is open */
+    .sidebar-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+    }
+    
+    .sidebar-overlay.show {
+        opacity: 1;
+        pointer-events: all;
+    }
+    
+    /* Main content takes full width */
+    .main-content {
+        margin-left: 0;
+        width: 100%;
     }
     
     .nav-btn.active {
@@ -18678,18 +18749,60 @@ img {
         color: white;
     }
     
-    /* Stats grid - 2 columns on tablet */
+    /* Stats grid - 2 columns on tablet with compact sizing */
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
-        gap: 12px;
+        gap: 10px;
     }
     
     .stat-card {
-        padding: 16px;
+        padding: 12px;
     }
     
     .stat-value {
-        font-size: 24px;
+        font-size: 20px;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+    }
+    
+    .stat-change {
+        font-size: 10px;
+    }
+    
+    /* Fix white text visibility on tables */
+    table {
+        background: white;
+    }
+    
+    thead th {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+    
+    tbody td {
+        color: #334155;
+        background: white;
+    }
+    
+    tbody tr:hover td {
+        background: #f8fafc;
+        color: #1e293b;
+    }
+    
+    /* Ensure all text in content cards is visible */
+    .content-card,
+    .content-card p,
+    .content-card span:not(.stat-value):not(.stat-label),
+    .content-card div {
+        color: #475569;
+    }
+    
+    .content-card h2,
+    .content-card h3,
+    .content-card h4 {
+        color: #1e293b;
     }
     
     /* Content cards - fix visibility */
@@ -18750,8 +18863,7 @@ img {
     
     table {
         min-width: 600px;
-    }
-    
+    width: 100%;
     /* Forms - better spacing */
     .form-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -18765,10 +18877,9 @@ img {
     
     /* Buttons */
     .btn-primary, .btn-secondary {
-        padding: 14px 20px;
-        font-size: 14px;
-        min-height: 48px;
-    }
+    padding: 10px 16px;
+    font-size: 13px;
+    min-height: 38px;
     
     /* Modals - full screen on tablet */
     .modal-content {
