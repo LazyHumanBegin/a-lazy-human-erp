@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.13.4';  // FIX: Instant notifications - no delay, no blocking alerts
+const APP_VERSION = '2.18.0';  // Alpha 5: 5 Complete Professional Expertise Areas (Tax, Accounting, Finance, Investment, Operations)
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================
