@@ -238,22 +238,31 @@ function syncUserPermissionsWithPlan() {
     let updateCount = 0;
     
     users.forEach(user => {
-        // Skip founder, erp_assistant, and personal users (they have fixed permissions)
+        // Skip founder, erp_assistant (they have full access)
         if (user.role === 'founder' || user.role === 'erp_assistant') {
             return; // Founder and ERP Assistant always have full access
         }
         
-        // Get user's tenant subscription to find their plan
-        const subscriptions = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
-        const userSubscription = subscriptions[user.tenantId];
+        let planId = null;
+        let plan = null;
         
-        if (!userSubscription) {
-            console.log(`  ℹ️ No subscription found for user ${user.email}`);
-            return;
+        // PERSONAL users: plan is stored directly on user object
+        if (user.role === 'personal' || user.plan === 'personal') {
+            planId = 'personal';
+            plan = settings.plans.personal;
+        } else {
+            // BUSINESS users: plan is stored in subscription
+            const subscriptions = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+            const userSubscription = subscriptions[user.tenantId];
+            
+            if (!userSubscription) {
+                console.log(`  ℹ️ No subscription found for user ${user.email}`);
+                return;
+            }
+            
+            planId = userSubscription.plan;
+            plan = settings.plans[planId];
         }
-        
-        const planId = userSubscription.plan;
-        const plan = settings.plans[planId];
         
         if (!plan) {
             console.log(`  ⚠️ Plan ${planId} not found for user ${user.email}`);
@@ -261,17 +270,19 @@ function syncUserPermissionsWithPlan() {
         }
         
         // Get current plan features
-        const planFeatures = plan.features.includes('all') ? ['all'] : plan.features;
+        const planFeatures = plan.features.includes('all') ? ['all'] : [...plan.features];
         
         // Check if user's permissions match the plan
         const currentPermissions = user.permissions || [];
-        const needsUpdate = JSON.stringify(currentPermissions.sort()) !== JSON.stringify(planFeatures.sort());
+        const sortedCurrent = [...currentPermissions].sort();
+        const sortedPlan = [...planFeatures].sort();
+        const needsUpdate = JSON.stringify(sortedCurrent) !== JSON.stringify(sortedPlan);
         
         if (needsUpdate) {
             user.permissions = planFeatures;
             user.updatedAt = new Date().toISOString();
             updateCount++;
-            console.log(`  ✅ Updated ${user.email} permissions to match ${planId} plan`);
+            console.log(`  ✅ Updated ${user.email} permissions to match ${planId} plan (${planFeatures.length} features)`);
         }
     });
     
