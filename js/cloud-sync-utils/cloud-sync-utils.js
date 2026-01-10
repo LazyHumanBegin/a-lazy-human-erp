@@ -613,14 +613,30 @@
             let usersDownloaded = 0;
             let tenantsDownloaded = 0;
             
+            // CRITICAL: Download deletion tracking lists FIRST before processing any data
+            let deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            let deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            for (const record of data || []) {
+                // Process deletion tracking lists FIRST
+                if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                    deletedUsers = record.data.value;
+                    localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+                    console.log('  📥 Downloaded deleted users tracking:', deletedUsers.length);
+                }
+                
+                if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                    deletedTenants = record.data.value;
+                    localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+                    console.log('  📥 Downloaded deleted tenants tracking:', deletedTenants.length);
+                }
+            }
+            
+            // Now process users and tenants with the updated deletion lists
             for (const record of data || []) {
                 if (record.data_key === 'ezcubic_users' && record.data?.value) {
                     const cloudUsers = record.data.value;
                     const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
-                    
-                    // Get deleted lists to filter them out
-                    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
-                    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
                     
                     // ROLE-BASED FILTERING
                     let usersToSync = cloudUsers;
@@ -718,17 +734,6 @@
                     
                     localStorage.setItem('ezcubic_subscriptions', JSON.stringify(localSubs));
                     console.log('  Subscriptions synced');
-                }
-                
-                // Sync deletion tracking lists (if they exist in cloud)
-                if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
-                    localStorage.setItem('ezcubic_deleted_users', JSON.stringify(record.data.value));
-                    console.log('  Deleted users tracking synced');
-                }
-                
-                if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
-                    localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(record.data.value));
-                    console.log('  Deleted tenants tracking synced');
                 }
             }
             
