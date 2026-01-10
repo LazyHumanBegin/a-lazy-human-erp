@@ -341,21 +341,27 @@ function saveSettings() {
         updateCompanyNameInUI();
         updateMalaysianTaxEstimator();
         
-        // Show success notification
+        // Show success notification with multiple methods
+        const successMsg = '✅ Settings saved successfully!';
         if (typeof showNotification === 'function') {
-            showNotification('✅ Settings saved successfully!', 'success');
+            showNotification(successMsg, 'success');
         }
         if (typeof showToast === 'function') {
-            showToast('✅ Company settings saved!', 'success');
+            showToast(successMsg, 'success', 4000);
         }
+        // Fallback alert to ensure user sees the message
+        alert(successMsg);
     } else {
         // Show error if save failed
+        const errorMsg = '❌ Failed to save settings';
         if (typeof showNotification === 'function') {
-            showNotification('❌ Failed to save settings', 'error');
+            showNotification(errorMsg, 'error');
         }
         if (typeof showToast === 'function') {
-            showToast('❌ Failed to save settings', 'error');
+            showToast(errorMsg, 'error', 4000);
         }
+        // Fallback alert
+        alert(errorMsg);
     }
 }
 

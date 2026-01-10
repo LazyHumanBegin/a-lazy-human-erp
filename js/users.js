@@ -1006,7 +1006,7 @@ function showChangePasswordModal() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-function handleChangePassword(event) {
+async function handleChangePassword(event) {
     event.preventDefault();
 
     const currentPassword = document.getElementById('currentPassword').value;
@@ -1015,34 +1015,62 @@ function handleChangePassword(event) {
 
     // Validate inputs
     if (!currentPassword || !newPassword || !confirmPassword) {
-        showToast('❌ Please fill in all fields', 'error');
+        if (typeof showToast === 'function') {
+            showToast('❌ Please fill in all fields', 'error');
+        }
+        alert('❌ Please fill in all fields');
         return;
     }
 
     // Validate new password length
     if (newPassword.length < 6) {
-        showToast('❌ New password must be at least 6 characters', 'error');
+        if (typeof showToast === 'function') {
+            showToast('❌ New password must be at least 6 characters', 'error');
+        }
+        alert('❌ New password must be at least 6 characters');
         return;
     }
 
     // Validate new passwords match
     if (newPassword !== confirmPassword) {
-        showToast('❌ New passwords do not match', 'error');
+        if (typeof showToast === 'function') {
+            showToast('❌ New passwords do not match', 'error');
+        }
+        alert('❌ New passwords do not match');
         return;
     }
 
     // Don't allow same password
     if (newPassword === currentPassword) {
-        showToast('❌ New password must be different from current password', 'error');
+        if (typeof showToast === 'function') {
+            showToast('❌ New password must be different from current password', 'error');
+        }
+        alert('❌ New password must be different from current password');
         return;
     }
 
     // Validate current password - handle both hashed and plain text
-    const isCurrentPasswordValid = window.currentUser.password === currentPassword || 
-                                   (typeof verifyPassword === 'function' && verifyPassword(currentPassword, window.currentUser.password));
+    let isCurrentPasswordValid = false;
+    
+    try {
+        // Check if password verification function exists (async)
+        if (typeof verifyPassword === 'function') {
+            isCurrentPasswordValid = await verifyPassword(currentPassword, window.currentUser.password);
+        } else {
+            // Fallback to plain text comparison
+            isCurrentPasswordValid = window.currentUser.password === currentPassword;
+        }
+    } catch (err) {
+        console.error('Error verifying password:', err);
+        // Fallback to plain text comparison
+        isCurrentPasswordValid = window.currentUser.password === currentPassword;
+    }
     
     if (!isCurrentPasswordValid) {
-        showToast('❌ Current password is incorrect', 'error');
+        if (typeof showToast === 'function') {
+            showToast('❌ Current password is incorrect', 'error');
+        }
+        alert('❌ Current password is incorrect');
         return;
     }
 
@@ -1090,41 +1118,46 @@ function savePasswordChanges() {
     // Update in localStorage current user
     localStorage.setItem('ezcubic_current_user', JSON.stringify(window.currentUser));
 
+    // Close modal first
+    closeModal('changePasswordModal');
+
     // Sync to cloud
     if (typeof window.directUploadUsersToCloud === 'function') {
         window.directUploadUsersToCloud(false).then(() => {
             console.log('☁️ Password change synced to cloud');
-            closeModal('changePasswordModal');
             
-            // Show success with both methods
+            // Show success with multiple methods to ensure visibility
             if (typeof showToast === 'function') {
-                showToast('✅ Password updated successfully!', 'success', 3000);
+                showToast('✅ Password updated successfully!', 'success', 4000);
             }
             if (typeof showNotification === 'function') {
                 showNotification('✅ Password updated successfully!', 'success');
             }
+            // Fallback alert
+            alert('✅ Password updated successfully!');
         }).catch(err => {
             console.warn('⚠️ Failed to sync password to cloud:', err);
-            closeModal('changePasswordModal');
             
             // Still show success for local save
             if (typeof showToast === 'function') {
-                showToast('✅ Password updated locally (cloud sync pending)', 'success', 3000);
+                showToast('✅ Password updated locally (cloud sync pending)', 'success', 4000);
             }
             if (typeof showNotification === 'function') {
                 showNotification('✅ Password updated locally', 'success');
             }
+            // Fallback alert
+            alert('✅ Password updated successfully!');
         });
     } else {
-        closeModal('changePasswordModal');
-        
-        // Show success with both methods
+        // Show success with multiple methods to ensure visibility
         if (typeof showToast === 'function') {
-            showToast('✅ Password updated successfully!', 'success', 3000);
+            showToast('✅ Password updated successfully!', 'success', 4000);
         }
         if (typeof showNotification === 'function') {
             showNotification('✅ Password updated successfully!', 'success');
         }
+        // Fallback alert
+        alert('✅ Password updated successfully!');
     }
 }
 

@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.13.2';  // FIX: Save settings & password change notifications + manual refresh button
+const APP_VERSION = '2.13.3';  // FIX: Async password validation + guaranteed notifications with alerts
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================
