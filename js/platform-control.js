@@ -2148,6 +2148,9 @@ function renderPlatformControl() {
                                 <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e2e8f0;">
                                     <span style="color: ${plan.color}; font-weight: 600;">${plan.name}</span>
                                     <small style="display: block; color: #64748b;">RM ${plan.price}/mo</small>
+                                    <small style="display: block; color: #94a3b8; font-size: 11px; margin-top: 4px;">
+                                        ${plan.features.includes('all') ? 'All Features' : plan.features.length + ' features'}
+                                    </small>
                                 </th>
                             `).join('')}
                         </tr>

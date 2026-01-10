@@ -168,7 +168,7 @@
     /**
      * Execute delete user
      */
-    function executeDeleteUser(userId) {
+    async function executeDeleteUser(userId) {
         if (currentUser.role !== 'founder') {
             showToast('Only founder can delete users', 'error');
             return;
@@ -242,7 +242,11 @@
             window.users = users;
         }
         
+        // Save to localStorage - ensure this completes before uploading to cloud
         saveUsers();
+        
+        // CRITICAL: Wait a moment for localStorage to finish writing
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         closeModal('confirmDeleteUserModal');
         showToast(`User "${userName}" has been deleted`, 'success');
@@ -252,6 +256,9 @@
         // Use directUploadUsersToCloud to overwrite cloud data
         if (typeof window.directUploadUsersToCloud === 'function') {
             console.log('☁️ Direct upload users to cloud (REPLACE mode)...');
+            console.log('📊 Local users count before upload:', JSON.parse(localStorage.getItem('ezcubic_users') || '[]').length);
+            console.log('📊 Deletion tracking:', JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]'));
+            
             window.directUploadUsersToCloud().then(() => {
                 console.log('✅ User deletion synced to cloud');
                 showToast('Deletion synced to cloud!', 'success');

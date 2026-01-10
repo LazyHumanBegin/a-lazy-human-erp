@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.12.4';  // Fixed: Purge deleted data, multi-device sync, auto permission sync
+const APP_VERSION = '2.12.5';  // Fixed: Multi-device deletion sync order (download tracking lists first)
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================
@@ -20,6 +20,19 @@ function checkVersionUpdate() {
     // First time user or version changed
     if (cachedVersion && cachedVersion !== APP_VERSION) {
         console.log(`🔄 Version update detected: ${cachedVersion} → ${APP_VERSION}`);
+        
+        // For PWA on mobile/tablet, auto-refresh immediately to get new version
+        const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        if (isPWA && isMobile) {
+            console.log('📱 PWA on mobile detected - auto-refreshing for update...');
+            setTimeout(() => {
+                location.reload(true); // Force reload, bypass cache
+            }, 500);
+            return; // Don't show banner, just refresh
+        }
+        
         showVersionUpdateBanner(cachedVersion, APP_VERSION);
     }
     

@@ -505,6 +505,11 @@
             
             console.log('✅ Direct upload successful!');
             
+            // Sync user permissions with plans after upload (in case plan features changed)
+            if (typeof syncUserPermissionsWithPlan === 'function') {
+                setTimeout(() => syncUserPermissionsWithPlan(), 500);
+            }
+            
             // Upload deletion tracking lists to cloud (so all devices sync the same deletions)
             if (deletedUsers.length > 0) {
                 const { error: delUsersError } = await client.from('tenant_data').upsert({
