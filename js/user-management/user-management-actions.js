@@ -185,8 +185,15 @@
         const userEmail = user.email;
         const userTenantId = user.tenantId;
         
-        // CRITICAL: Track deleted user to prevent re-sync from cloud
-        // Store deleted user IDs so cloud sync knows not to restore them
+        console.log('🗑️ STARTING USER DELETION:', userId, userEmail);
+        
+        // STEP 1: IMMEDIATE - Remove from local array
+        users.splice(userIndex, 1);
+        if (window.users) {
+            window.users = users;
+        }
+        
+        // STEP 2: IMMEDIATE - Track deletion (add to blocking list)
         const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
         if (userId && !deletedUsers.includes(userId)) {
             deletedUsers.push(userId);
@@ -195,18 +202,16 @@
             deletedUsers.push(userEmail);
         }
         localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
-        console.log('🗑️ Marked user as deleted:', userId, userEmail);
+        console.log('🗑️ STEP 2: Deletion tracking updated:', deletedUsers);
         
-        // If user is business_admin or personal, also delete their tenant and subscription
+        // STEP 3: Handle tenant/subscription deletion
         if ((user.role === 'business_admin' || user.role === 'personal') && userTenantId) {
-            // Track deleted tenant
             const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
             if (!deletedTenants.includes(userTenantId)) {
                 deletedTenants.push(userTenantId);
             }
             localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
             
-            // Delete tenant
             const tenants = typeof getTenants === 'function' ? getTenants() : JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
             if (tenants[userTenantId]) {
                 delete tenants[userTenantId];
@@ -217,7 +222,6 @@
                 }
             }
             
-            // Delete subscription
             const subs = typeof getSubscriptions === 'function' ? getSubscriptions() : JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
             if (subs[userTenantId]) {
                 delete subs[userTenantId];
@@ -228,48 +232,30 @@
                 }
             }
             
-            // Delete tenant data
             localStorage.removeItem('ezcubic_tenant_' + userTenantId);
-            
-            console.log(`🗑️ Deleted tenant, subscription, and tenant data for: ${userTenantId}`);
+            console.log(`🗑️ STEP 3: Deleted tenant data for: ${userTenantId}`);
         }
         
-        // Remove user from array
-        users.splice(userIndex, 1);
-        
-        // Also update window.users
-        if (window.users) {
-            window.users = users;
-        }
-        
-        // Save to localStorage - ensure this completes before uploading to cloud
+        // STEP 4: Save cleaned users list
         saveUsers();
-        
-        // CRITICAL: Wait a moment for localStorage to finish writing
         await new Promise(resolve => setTimeout(resolve, 100));
         
+        // STEP 5: CRITICAL - Upload to cloud IMMEDIATELY (this will filter out deleted user)
+        console.log('🗑️ STEP 5: Uploading cleaned data to cloud...');
+        if (typeof window.directUploadUsersToCloud === 'function') {
+            try {
+                await window.directUploadUsersToCloud(false);
+                console.log('✅ Cloud updated - deleted user removed from cloud');
+            } catch (err) {
+                console.error('❌ Cloud upload failed:', err);
+            }
+        }
+        
         closeModal('confirmDeleteUserModal');
-        showToast(`User "${userName}" has been deleted`, 'success');
+        showToast(`✅ User "${userName}" deleted from local AND cloud`, 'success');
         renderUserManagement();
         
-        // CRITICAL: Force upload to cloud (not merge - REPLACE)
-        // Use directUploadUsersToCloud to overwrite cloud data
-        if (typeof window.directUploadUsersToCloud === 'function') {
-            console.log('☁️ Direct upload users to cloud (REPLACE mode)...');
-            console.log('📊 Local users count before upload:', JSON.parse(localStorage.getItem('ezcubic_users') || '[]').length);
-            console.log('📊 Deletion tracking:', JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]'));
-            
-            window.directUploadUsersToCloud().then(() => {
-                console.log('✅ User deletion synced to cloud');
-                showToast('Deletion synced to cloud!', 'success');
-            }).catch(err => {
-                console.warn('⚠️ Cloud sync failed:', err);
-                showToast('Deleted locally. Cloud sync pending.', 'warning');
-            });
-        } else if (typeof window.fullCloudSync === 'function') {
-            console.log('☁️ Syncing delete to cloud (merge mode - may cause issues)...');
-            window.fullCloudSync().catch(err => console.warn('Cloud sync failed:', err));
-        }
+        console.log('🗑️ DELETION COMPLETE');
     }
     
     // ==================== USER LIMIT MODAL ====================
