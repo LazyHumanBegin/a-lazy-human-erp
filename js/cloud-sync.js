@@ -155,17 +155,41 @@ const CloudSync = {
     },
 
     // Merge users from cloud with local (avoid duplicates, newer wins)
+    // CRITICAL: Respects deletion tracking to prevent deleted users from coming back
     async mergeUsers(cloudUsers) {
+        // Get deletion tracking lists
+        const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+        
         const localUsersStr = localStorage.getItem('ezcubic_users');
-        const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+        let localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+        
+        // FIRST: Filter out deleted users from local
+        localUsers = localUsers.filter(u => {
+            const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+            const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+            if (isDeleted || isTenantDeleted) {
+                console.log(`🗑️ Removing deleted local user: ${u.email}`);
+                return false;
+            }
+            return true;
+        });
         
         // Create map of local users by ID
         const userMap = new Map();
         localUsers.forEach(u => userMap.set(u.id, u));
         
-        // Merge cloud users
+        // Merge cloud users (skip deleted ones)
         let updated = false;
         for (const cloudUser of cloudUsers) {
+            // CRITICAL: Skip deleted users
+            const isDeleted = deletedUsers.includes(cloudUser.id) || deletedUsers.includes(cloudUser.email);
+            const isTenantDeleted = cloudUser.tenantId && deletedTenants.includes(cloudUser.tenantId);
+            if (isDeleted || isTenantDeleted) {
+                console.log(`🗑️ Skipping deleted cloud user: ${cloudUser.email}`);
+                continue;
+            }
+            
             const localUser = userMap.get(cloudUser.id);
             
             if (!localUser) {

@@ -370,7 +370,7 @@ async function autoSyncPlatformUsers() {
         if (window.supabase?.createClient && typeof getUsersSupabaseClient === 'function') {
             const client = getUsersSupabaseClient();
             
-            // Get users from cloud
+            // Get ALL global data from cloud (including deletion tracking)
             const { data, error } = await client.from('tenant_data')
                 .select('*')
                 .eq('tenant_id', 'global');
@@ -381,18 +381,56 @@ async function autoSyncPlatformUsers() {
                 return false;
             }
             
+            // CRITICAL: First, download and merge deletion tracking lists
+            let deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            let deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            for (const record of data || []) {
+                if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                    const cloudDeletedUsers = record.data.value;
+                    deletedUsers = [...new Set([...deletedUsers, ...cloudDeletedUsers])];
+                    localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+                    console.log('  📥 Synced deleted users tracking:', deletedUsers.length);
+                }
+                if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                    const cloudDeletedTenants = record.data.value;
+                    deletedTenants = [...new Set([...deletedTenants, ...cloudDeletedTenants])];
+                    localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+                    console.log('  📥 Synced deleted tenants tracking:', deletedTenants.length);
+                }
+            }
+            
             let usersUpdated = false;
             let tenantsUpdated = false;
             
             for (const record of data || []) {
                 if (record.data_key === 'ezcubic_users' && record.data?.value) {
                     const cloudUsers = record.data.value;
-                    const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+                    let localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
                     
-                    // Merge: Add cloud users not in local, update existing ones
+                    // FIRST: Remove any deleted users from local
+                    localUsers = localUsers.filter(u => {
+                        const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                        const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+                        if (isDeleted || isTenantDeleted) {
+                            console.log('  🗑️ Removing deleted local user:', u.email);
+                            return false;
+                        }
+                        return true;
+                    });
+                    
+                    // Merge: Add cloud users not in local (BUT skip deleted ones)
                     // IMPORTANT: Preserve admin-controlled fields - local is truth for plan/role/permissions
                     let newUsersCount = 0;
                     cloudUsers.forEach(cu => {
+                        // CRITICAL: Skip deleted users
+                        const isDeleted = deletedUsers.includes(cu.id) || deletedUsers.includes(cu.email);
+                        const isTenantDeleted = cu.tenantId && deletedTenants.includes(cu.tenantId);
+                        if (isDeleted || isTenantDeleted) {
+                            console.log('  🗑️ Skipping deleted cloud user:', cu.email);
+                            return;
+                        }
+                        
                         const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
                         if (existingIdx === -1) {
                             // New user from cloud - add them
@@ -422,14 +460,28 @@ async function autoSyncPlatformUsers() {
                 
                 if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
                     const cloudTenants = record.data.value;
-                    const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+                    let localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
                     
-                    // Merge all tenants for founder
+                    // FIRST: Remove any deleted tenants from local
+                    deletedTenants.forEach(tenantId => {
+                        if (localTenants[tenantId]) {
+                            console.log('  🗑️ Removing deleted local tenant:', tenantId);
+                            delete localTenants[tenantId];
+                        }
+                    });
+                    
+                    // Merge cloud tenants (skip deleted ones)
                     const beforeCount = Object.keys(localTenants).length;
-                    Object.assign(localTenants, cloudTenants);
+                    Object.entries(cloudTenants).forEach(([id, tenant]) => {
+                        if (!deletedTenants.includes(id)) {
+                            localTenants[id] = tenant;
+                        } else {
+                            console.log('  🗑️ Skipping deleted cloud tenant:', id);
+                        }
+                    });
                     const afterCount = Object.keys(localTenants).length;
                     
-                    if (afterCount > beforeCount) {
+                    if (afterCount !== beforeCount) {
                         localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
                         tenantsUpdated = true;
                         console.log(`☁️ Tenants synced: ${afterCount - beforeCount} new`);

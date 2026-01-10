@@ -526,8 +526,23 @@ async function tryLoginWithCloudSync(email, password) {
         try {
             const cloudUser = await findUserInCloud(email);
             
+            // findUserInCloud already checks deletion tracking and returns null for deleted users
             if (cloudUser) {
                 console.log('☁️ Found user in cloud:', cloudUser.email);
+                
+                // Double-check deletion tracking before adding
+                const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+                const isDeleted = deletedUsers.includes(cloudUser.id) || deletedUsers.includes(cloudUser.email);
+                const isTenantDeleted = cloudUser.tenantId && deletedTenants.includes(cloudUser.tenantId);
+                
+                if (isDeleted || isTenantDeleted) {
+                    console.log('🗑️ User is marked as deleted, cannot login:', cloudUser.email);
+                    showLoginLoading(false);
+                    showLoginError('This account has been deleted. Please contact your administrator.');
+                    return false;
+                }
+                
                 users.push(cloudUser);
                 localStorage.setItem('ezcubic_users', JSON.stringify(users));
                 

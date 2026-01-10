@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.12.7';  // CRITICAL FIX: All sync functions now download deletion tracking from cloud first
+const APP_VERSION = '2.12.8';  // COMPREHENSIVE FIX: All sync functions now check deletion tracking
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================

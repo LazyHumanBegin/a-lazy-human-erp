@@ -1268,13 +1268,35 @@
             let cloudTenants = {};
             let cloudUsers = [];
             
+            // CRITICAL: First download deletion tracking
+            let deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            let deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            for (const record of data || []) {
+                if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                    const cloudDeletedUsers = record.data.value;
+                    deletedUsers = [...new Set([...deletedUsers, ...cloudDeletedUsers])];
+                    localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+                }
+                if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                    const cloudDeletedTenants = record.data.value;
+                    deletedTenants = [...new Set([...deletedTenants, ...cloudDeletedTenants])];
+                    localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
+                }
+            }
+            
             for (const record of data || []) {
                 if (record.data_key === 'ezcubic_tenants' && record.data?.value) {
                     cloudTenants = record.data.value;
                     
-                    // Find tenant matching the Company Code
+                    // Find tenant matching the Company Code (skip deleted tenants)
                     for (const [tenantId, tenant] of Object.entries(cloudTenants)) {
                         if (tenant.companyCode && tenant.companyCode.toUpperCase() === code) {
+                            // Check if this tenant is deleted
+                            if (deletedTenants.includes(tenantId)) {
+                                console.log('🗑️ Skipping deleted tenant:', tenantId);
+                                continue;
+                            }
                             targetTenantId = tenantId;
                             targetTenantInfo = tenant;
                             break;
@@ -1294,8 +1316,16 @@
             
             console.log('🏢 Found company:', targetTenantInfo.businessName, '(' + targetTenantId + ')');
             
-            // Filter users to only this tenant
-            const tenantUsers = cloudUsers.filter(u => u.tenantId === targetTenantId);
+            // Filter users to only this tenant (skip deleted users)
+            const tenantUsers = cloudUsers.filter(u => {
+                if (u.tenantId !== targetTenantId) return false;
+                const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                if (isDeleted) {
+                    console.log('🗑️ Skipping deleted user:', u.email);
+                    return false;
+                }
+                return true;
+            });
             
             if (tenantUsers.length === 0) {
                 alert('⚠️ No users found for this company.\n\nAsk your Admin to create your account first.');
@@ -1303,8 +1333,15 @@
                 return;
             }
             
-            // Save filtered users locally
-            const localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+            // Save filtered users locally (skip deleted ones)
+            let localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+            
+            // First remove any deleted users from local
+            localUsers = localUsers.filter(u => {
+                const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                return !isDeleted;
+            });
+            
             tenantUsers.forEach(cu => {
                 const existingIdx = localUsers.findIndex(lu => lu.id === cu.id || lu.email === cu.email);
                 if (existingIdx === -1) {
@@ -1315,8 +1352,12 @@
             });
             localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
             
-            // Save tenant info
-            const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+            // Save tenant info (if not deleted)
+            let localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+            
+            // Remove any deleted tenants from local
+            deletedTenants.forEach(id => delete localTenants[id]);
+            
             localTenants[targetTenantId] = targetTenantInfo;
             localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
             
