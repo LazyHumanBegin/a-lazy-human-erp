@@ -6,7 +6,7 @@
 
 // Auto-incrementing cache version based on deploy timestamp
 // This ensures cache is refreshed on every deployment
-const CACHE_VERSION = '2.13.1-20260110'; // v2.13.1 - FIX: Unlimited device login + tablet mic + platform sync
+const CACHE_VERSION = '2.13.2-20260110'; // v2.13.2 - FIX: Notifications for save settings & password
 const CACHE_NAME = `ezcubic-erp-${CACHE_VERSION}`;
 
 // Files to cache for offline fallback
