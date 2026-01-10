@@ -307,6 +307,32 @@ async function forceUploadUsersToCloud(users) {
 }
 window.forceUploadUsersToCloud = forceUploadUsersToCloud;
 
+// ==================== SYNC USER PERMISSIONS WITH PLANS ====================
+/**
+ * Manually sync all user permissions with their current plan features
+ * Call this after editing plan features to update existing users
+ */
+function syncAllUserPermissions() {
+    if (!confirm('🔄 Sync all user permissions with their current plans?\n\nThis will update all users\' feature access to match their subscription plan\'s current features.\n\nUse this after editing plan features to apply changes to existing users.')) {
+        return;
+    }
+    
+    if (typeof syncUserPermissionsWithPlan === 'function') {
+        syncUserPermissionsWithPlan();
+        showToast('✅ User permissions synced with plans!', 'success');
+        
+        // Refresh the platform control view
+        setTimeout(() => {
+            if (typeof renderPlatformControl === 'function') {
+                renderPlatformControl();
+            }
+        }, 500);
+    } else {
+        showToast('❌ Sync function not available', 'error');
+    }
+}
+window.syncAllUserPermissions = syncAllUserPermissions;
+
 // ==================== AUTO-SYNC USERS FOR FOUNDER ====================
 // Tracks last sync to prevent excessive API calls
 let lastPlatformUserSync = 0;
@@ -2103,8 +2129,11 @@ function renderPlatformControl() {
         <div class="platform-section">
             <div class="section-header">
                 <h3><i class="fas fa-key"></i> Plan Feature Access</h3>
-                <div style="display: flex; align-items: center; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 10px;">
                     <span style="font-size: 12px; color: #64748b;">Auto-assigned when users sign up</span>
+                    <button class="btn-outline btn-sm" onclick="syncAllUserPermissions()" style="padding: 6px 12px; white-space: nowrap;">
+                        <i class="fas fa-sync"></i> Sync Users
+                    </button>
                     <button class="btn-primary btn-sm" onclick="showEditPlanFeaturesModal()">
                         <i class="fas fa-edit"></i> Edit Features
                     </button>

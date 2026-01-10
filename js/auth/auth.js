@@ -671,6 +671,12 @@ async function tryLoginWithCloudSync(email, password) {
         // Post-login UI refresh
         setTimeout(() => {
             console.log('Post-login UI refresh...');
+            
+            // Sync user permissions with plan before applying
+            if (typeof syncUserPermissionsWithPlan === 'function') {
+                syncUserPermissionsWithPlan();
+            }
+            
             if (typeof applyUserPermissions === 'function') applyUserPermissions();
             if (typeof resetNavCategoryStates === 'function') resetNavCategoryStates();
             if (typeof updateCompanyNameInUI === 'function') updateCompanyNameInUI();

@@ -505,6 +505,33 @@
             
             console.log('✅ Direct upload successful!');
             
+            // Upload deletion tracking lists to cloud (so all devices sync the same deletions)
+            if (deletedUsers.length > 0) {
+                const { error: delUsersError } = await client.from('tenant_data').upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_deleted_users',
+                    data: { key: 'ezcubic_deleted_users', value: deletedUsers, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+                
+                if (!delUsersError) {
+                    console.log('  📤 Deleted users tracking uploaded');
+                }
+            }
+            
+            if (deletedTenants.length > 0) {
+                const { error: delTenantsError } = await client.from('tenant_data').upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_deleted_tenants',
+                    data: { key: 'ezcubic_deleted_tenants', value: deletedTenants, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+                
+                if (!delTenantsError) {
+                    console.log('  📤 Deleted tenants tracking uploaded');
+                }
+            }
+            
             // Also delete the tenant's data from cloud if any tenant was deleted
             for (const tenantId of deletedTenants) {
                 console.log('  🗑️ Deleting tenant data from cloud:', tenantId);
@@ -517,10 +544,8 @@
                 }
             }
             
-            // DO NOT clear deletion tracking here!
-            // Keep it until the user explicitly clears it or a certain time has passed
-            // This ensures deleted items stay deleted even after refresh
-            console.log('  ℹ️ Keeping deletion tracking for safety');
+            // Keep deletion tracking for consistency across devices
+            console.log('  ℹ️ Keeping deletion tracking synced across devices');
             
             return { success: true, users: cleanUsers.length, tenants: Object.keys(cleanTenants).length };
             
@@ -694,6 +719,31 @@
                     localStorage.setItem('ezcubic_subscriptions', JSON.stringify(localSubs));
                     console.log('  Subscriptions synced');
                 }
+                
+                // Sync deletion tracking lists (if they exist in cloud)
+                if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                    localStorage.setItem('ezcubic_deleted_users', JSON.stringify(record.data.value));
+                    console.log('  Deleted users tracking synced');
+                }
+                
+                if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                    localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(record.data.value));
+                    console.log('  Deleted tenants tracking synced');
+                }
+            }
+            
+            // If no tracking lists found in cloud, clear local ones
+            const hasDeletedUsersInCloud = data.some(r => r.data_key === 'ezcubic_deleted_users');
+            const hasDeletedTenantsInCloud = data.some(r => r.data_key === 'ezcubic_deleted_tenants');
+            
+            if (!hasDeletedUsersInCloud && localStorage.getItem('ezcubic_deleted_users')) {
+                console.log('  🧹 Cloud has no deletion tracking - clearing local deleted users list');
+                localStorage.removeItem('ezcubic_deleted_users');
+            }
+            
+            if (!hasDeletedTenantsInCloud && localStorage.getItem('ezcubic_deleted_tenants')) {
+                console.log('  🧹 Cloud has no deletion tracking - clearing local deleted tenants list');
+                localStorage.removeItem('ezcubic_deleted_tenants');
             }
             
             // Ensure founder account exists after download

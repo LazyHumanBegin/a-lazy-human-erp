@@ -141,6 +141,10 @@ function initializeUserSystem() {
     loadUsersFromCloud().then(() => {
         // Reload users in case cloud had updates
         loadUsers();
+        
+        // Sync user permissions with current plan features
+        syncUserPermissionsWithPlan();
+        
         checkSession();
         updateAuthUI();
     }).catch(() => {
@@ -217,6 +221,72 @@ function loadUsers() {
                 }
             }
         }
+    }
+}
+
+/**
+ * Sync user permissions with their current plan's features
+ * Call this after loading users or when plan features are updated
+ */
+function syncUserPermissionsWithPlan() {
+    if (typeof getPlatformSettings !== 'function') {
+        console.warn('⚠️ getPlatformSettings not available, skipping permission sync');
+        return;
+    }
+    
+    const settings = getPlatformSettings();
+    let updateCount = 0;
+    
+    users.forEach(user => {
+        // Skip founder, erp_assistant, and personal users (they have fixed permissions)
+        if (user.role === 'founder' || user.role === 'erp_assistant') {
+            return; // Founder and ERP Assistant always have full access
+        }
+        
+        // Get user's tenant subscription to find their plan
+        const subscriptions = JSON.parse(localStorage.getItem('ezcubic_subscriptions') || '{}');
+        const userSubscription = subscriptions[user.tenantId];
+        
+        if (!userSubscription) {
+            console.log(`  ℹ️ No subscription found for user ${user.email}`);
+            return;
+        }
+        
+        const planId = userSubscription.plan;
+        const plan = settings.plans[planId];
+        
+        if (!plan) {
+            console.log(`  ⚠️ Plan ${planId} not found for user ${user.email}`);
+            return;
+        }
+        
+        // Get current plan features
+        const planFeatures = plan.features.includes('all') ? ['all'] : plan.features;
+        
+        // Check if user's permissions match the plan
+        const currentPermissions = user.permissions || [];
+        const needsUpdate = JSON.stringify(currentPermissions.sort()) !== JSON.stringify(planFeatures.sort());
+        
+        if (needsUpdate) {
+            user.permissions = planFeatures;
+            user.updatedAt = new Date().toISOString();
+            updateCount++;
+            console.log(`  ✅ Updated ${user.email} permissions to match ${planId} plan`);
+        }
+    });
+    
+    if (updateCount > 0) {
+        saveUsers();
+        console.log(`✅ Synced ${updateCount} user(s) permissions with their plans`);
+        
+        // Also upload to cloud
+        if (typeof window.directUploadUsersToCloud === 'function') {
+            window.directUploadUsersToCloud(true).catch(err => {
+                console.warn('⚠️ Failed to sync updated permissions to cloud:', err);
+            });
+        }
+    } else {
+        console.log('✅ All user permissions already match their plans');
     }
 }
 
@@ -883,6 +953,7 @@ document.addEventListener('click', (e) => {
 // ==================== EXPORTS ====================
 window.initializeUserSystem = initializeUserSystem;
 window.loadUsers = loadUsers;
+window.syncUserPermissionsWithPlan = syncUserPermissionsWithPlan;
 window.toggleUserMenu = toggleUserMenu;
 window.closeUserMenu = closeUserMenu;
 window.showChangePasswordModal = showChangePasswordModal;
