@@ -65,17 +65,38 @@
         
         // CRITICAL: Always read fresh users from localStorage to ensure we have latest data
         // This fixes issues where plan changes don't reflect until page refresh
-        const freshUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+        let freshUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
         
         // Filter out deleted users and users from deleted tenants
         const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
         const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
         
-        const activeUsers = freshUsers.filter(u => {
-            const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
-            const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
-            return !isUserDeleted && !isTenantDeleted;
-        });
+        // AUTO-CLEANUP: Actually remove deleted users from localStorage (not just filter)
+        // This ensures they never come back
+        if (deletedUsers.length > 0 || deletedTenants.length > 0) {
+            const beforeCount = freshUsers.length;
+            freshUsers = freshUsers.filter(u => {
+                // Never delete founder
+                if (u.role === 'founder') return true;
+                
+                const isUserDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+                
+                if (isUserDeleted || isTenantDeleted) {
+                    console.log('🧹 Auto-removing deleted user from storage:', u.email);
+                    return false;
+                }
+                return true;
+            });
+            
+            // Save cleaned list back to localStorage
+            if (freshUsers.length !== beforeCount) {
+                localStorage.setItem('ezcubic_users', JSON.stringify(freshUsers));
+                console.log(`🧹 Cleaned ${beforeCount - freshUsers.length} deleted users from localStorage`);
+            }
+        }
+        
+        const activeUsers = freshUsers;
         
         if (window.users) {
             window.users = activeUsers;
