@@ -194,6 +194,8 @@
             console.log('🔍 [SYNC DEBUG] STEP 1: Downloading cloud users...');
             let cloudUsers = [];
             let cloudTenants = {};
+            let cloudDeletedUsers = [];
+            let cloudDeletedTenants = [];
             
             try {
                 console.log('🔍 [SYNC DEBUG] Querying tenant_data table...');
@@ -213,6 +215,20 @@
                 
                 if (!downloadError && cloudData) {
                     console.log('🔍 [SYNC DEBUG] Processing', cloudData.length, 'cloud records...');
+                    
+                    // CRITICAL: Process deletion tracking lists FIRST
+                    for (const record of cloudData) {
+                        if (record.data_key === 'ezcubic_deleted_users' && record.data?.value) {
+                            cloudDeletedUsers = record.data.value;
+                            console.log('  ☁️ Cloud deleted users tracking:', cloudDeletedUsers.length);
+                        }
+                        if (record.data_key === 'ezcubic_deleted_tenants' && record.data?.value) {
+                            cloudDeletedTenants = record.data.value;
+                            console.log('  ☁️ Cloud deleted tenants tracking:', cloudDeletedTenants.length);
+                        }
+                    }
+                    
+                    // Now process users and tenants
                     for (const record of cloudData) {
                         console.log('🔍 [SYNC DEBUG] Record data_key:', record.data_key);
                         if (record.data_key === 'ezcubic_users' && record.data?.value) {
@@ -241,14 +257,26 @@
             const localUsers = JSON.parse(rawLocalUsers || '[]');
             const localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
             
-            // Get deleted lists to filter them out
-            const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
-            const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            // CRITICAL: Merge deletion tracking lists from local AND cloud
+            // Use Set to combine and deduplicate
+            const localDeletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+            const localDeletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+            
+            const deletedUsers = [...new Set([...localDeletedUsers, ...cloudDeletedUsers])];
+            const deletedTenants = [...new Set([...localDeletedTenants, ...cloudDeletedTenants])];
+            
+            // Update local storage with merged deletion tracking
+            localStorage.setItem('ezcubic_deleted_users', JSON.stringify(deletedUsers));
+            localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(deletedTenants));
             
             console.log('  📱 Local users:', localUsers.length);
             console.log('  📱 Local tenants:', Object.keys(localTenants).length);
-            console.log('  🗑️ Deleted users tracked:', deletedUsers.length);
-            console.log('  🗑️ Deleted tenants tracked:', deletedTenants.length);
+            console.log('  🗑️ Deleted users tracked (local):', localDeletedUsers.length);
+            console.log('  🗑️ Deleted users tracked (cloud):', cloudDeletedUsers.length);
+            console.log('  🗑️ Deleted users tracked (merged):', deletedUsers.length);
+            console.log('  🗑️ Deleted tenants tracked (local):', localDeletedTenants.length);
+            console.log('  🗑️ Deleted tenants tracked (cloud):', cloudDeletedTenants.length);
+            console.log('  🗑️ Deleted tenants tracked (merged):', deletedTenants.length);
             console.log('🔍 [SYNC DEBUG] Local users FULL DATA:');
             localUsers.forEach((u, i) => {
                 console.log(`  [${i}] email: ${u.email}, role: ${u.role}, id: ${u.id}`);
@@ -362,6 +390,38 @@
                 console.error('❌ Tenants sync failed:', tenantsError.message);
             }
             
+            // CRITICAL: Also upload deletion tracking lists so they persist across syncs
+            console.log('🔍 [SYNC DEBUG] Uploading deletion tracking lists...');
+            if (deletedUsers.length > 0) {
+                const { error: delUsersError } = await client.from('tenant_data').upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_deleted_users',
+                    data: { key: 'ezcubic_deleted_users', value: deletedUsers, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+                
+                if (!delUsersError) {
+                    console.log('  📤 Deleted users tracking uploaded:', deletedUsers.length);
+                } else {
+                    console.warn('  ⚠️ Failed to upload deleted users tracking:', delUsersError.message);
+                }
+            }
+            
+            if (deletedTenants.length > 0) {
+                const { error: delTenantsError } = await client.from('tenant_data').upsert({
+                    tenant_id: 'global',
+                    data_key: 'ezcubic_deleted_tenants',
+                    data: { key: 'ezcubic_deleted_tenants', value: deletedTenants, synced_at: new Date().toISOString() },
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'tenant_id,data_key' });
+                
+                if (!delTenantsError) {
+                    console.log('  📤 Deleted tenants tracking uploaded:', deletedTenants.length);
+                } else {
+                    console.warn('  ⚠️ Failed to upload deleted tenants tracking:', delTenantsError.message);
+                }
+            }
+            
             // STEP 4: Update local storage with merged data too
             console.log('🔍 [SYNC DEBUG] STEP 4: Updating local storage...');
             localStorage.setItem('ezcubic_users', JSON.stringify(mergedUsers));
@@ -370,6 +430,8 @@
             console.log('✅ Merged & synced to cloud!');
             console.log('  Users:', mergedUsers.length);
             console.log('  Tenants:', Object.keys(mergedTenants).length);
+            console.log('  Deleted users tracked:', deletedUsers.length);
+            console.log('  Deleted tenants tracked:', deletedTenants.length);
             console.log('🔍 [SYNC DEBUG] Sync completed successfully');
             
             // Update sync status

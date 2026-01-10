@@ -6,7 +6,7 @@
 
 // Auto-incrementing cache version based on deploy timestamp
 // This ensures cache is refreshed on every deployment
-const CACHE_VERSION = '2.12.5-20260110'; // v2.12.5 - Multi-device deletion sync order fix
+const CACHE_VERSION = '2.12.6-20260110'; // v2.12.6 - CRITICAL: fullCloudSync deletion tracking fix
 const CACHE_NAME = `ezcubic-erp-${CACHE_VERSION}`;
 
 // Files to cache for offline fallback

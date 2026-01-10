@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.12.5';  // Fixed: Multi-device deletion sync order (download tracking lists first)
+const APP_VERSION = '2.12.6';  // CRITICAL FIX: fullCloudSync now downloads & uploads deletion tracking
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================
@@ -17,6 +17,8 @@ function checkVersionUpdate() {
     const CACHED_VERSION_KEY = 'ezcubic_app_version';
     const cachedVersion = localStorage.getItem(CACHED_VERSION_KEY);
     
+    console.log('🔍 Version Check:', { cachedVersion, currentVersion: APP_VERSION });
+    
     // First time user or version changed
     if (cachedVersion && cachedVersion !== APP_VERSION) {
         console.log(`🔄 Version update detected: ${cachedVersion} → ${APP_VERSION}`);
@@ -24,21 +26,34 @@ function checkVersionUpdate() {
         // CRITICAL: Update cached version BEFORE auto-refresh to prevent infinite loop
         localStorage.setItem(CACHED_VERSION_KEY, APP_VERSION);
         
-        // For PWA on mobile/tablet, auto-refresh immediately to get new version
+        // Check if running as PWA and on mobile device
         const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const userAgent = navigator.userAgent;
         
+        console.log('📱 Device detection:', { 
+            isPWA, 
+            isMobile, 
+            userAgent,
+            standaloneMatches: window.matchMedia('(display-mode: standalone)').matches,
+            navigatorStandalone: window.navigator.standalone
+        });
+        
+        // For PWA on mobile/tablet, auto-refresh immediately to get new version
         if (isPWA && isMobile) {
-            console.log('📱 PWA on mobile detected - auto-refreshing for update...');
+            console.log('📱 PWA on mobile/tablet detected - auto-refreshing for update...');
             setTimeout(() => {
                 location.reload(true); // Force reload, bypass cache
             }, 500);
             return; // Don't show banner, just refresh
         }
         
+        // For desktop or browser mode, show banner
+        console.log('🖥️ Showing version update banner (isPWA:', isPWA, ', isMobile:', isMobile, ')');
         showVersionUpdateBanner(cachedVersion, APP_VERSION);
     } else {
         // Update cached version for first-time users
+        console.log('✅ Version is current or first visit');
         localStorage.setItem(CACHED_VERSION_KEY, APP_VERSION);
     }
 }
@@ -137,6 +152,7 @@ function showVersionUpdateBanner(oldVersion, newVersion) {
     document.head.appendChild(style);
     
     document.body.prepend(banner);
+    console.log('✅ Version update banner added to DOM');
     
     // Auto-remind after 5 minutes if not refreshed
     setTimeout(() => {
