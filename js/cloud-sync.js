@@ -78,11 +78,13 @@ const CloudSync = {
     // ============================================
 
     // Upload global data (users, tenants) to cloud - CRITICAL for multi-device
+    // Also uploads deletion tracking to ensure deleted data stays deleted across devices
     async uploadGlobalData() {
         console.log('☁️ Uploading global data (users, tenants)...');
         const results = [];
 
         try {
+            // Upload main global data (users, tenants)
             for (const key of this.globalSyncKeys) {
                 const localData = localStorage.getItem(key);
                 if (localData) {
@@ -110,6 +112,38 @@ const CloudSync = {
                     }
                 }
             }
+            
+            // CRITICAL: Also upload deletion tracking lists
+            const deletionKeys = ['ezcubic_deleted_users', 'ezcubic_deleted_tenants'];
+            for (const key of deletionKeys) {
+                const localData = localStorage.getItem(key);
+                if (localData) {
+                    const parsed = JSON.parse(localData);
+                    if (parsed && parsed.length > 0) {
+                        const { error } = await window.SupabaseConfig.getClient()
+                            .from('tenant_data')
+                            .upsert({
+                                tenant_id: 'global',
+                                data_key: key,
+                                data: {
+                                    key: key,
+                                    value: parsed,
+                                    synced_at: new Date().toISOString()
+                                },
+                                updated_at: new Date().toISOString()
+                            }, {
+                                onConflict: 'tenant_id,data_key'
+                            });
+                        
+                        if (error) {
+                            console.error(`❌ Failed to upload ${key}:`, error);
+                        } else {
+                            console.log(`☁️ Uploaded deletion tracking: ${key}`);
+                        }
+                    }
+                }
+            }
+            
             return { success: true, results };
         } catch (error) {
             console.error('❌ Global upload error:', error);
@@ -118,6 +152,7 @@ const CloudSync = {
     },
 
     // Download global data from cloud (users, tenants)
+    // CRITICAL: Downloads deletion tracking FIRST before processing users
     async downloadGlobalData() {
         console.log('☁️ Downloading global data (users, tenants)...');
 
@@ -130,6 +165,38 @@ const CloudSync = {
             if (error) throw error;
 
             if (data && data.length > 0) {
+                // ====== STEP 1: Process deletion tracking FIRST ======
+                let cloudDeletedUsers = [];
+                let cloudDeletedTenants = [];
+                
+                for (const record of data) {
+                    const key = record.data?.key || record.data_key;
+                    const value = record.data?.value;
+                    
+                    if (key === 'ezcubic_deleted_users' && value) {
+                        cloudDeletedUsers = value;
+                        console.log('  📥 Found cloud deleted users:', cloudDeletedUsers.length);
+                    }
+                    if (key === 'ezcubic_deleted_tenants' && value) {
+                        cloudDeletedTenants = value;
+                        console.log('  📥 Found cloud deleted tenants:', cloudDeletedTenants.length);
+                    }
+                }
+                
+                // Merge local + cloud deletion tracking
+                const localDeletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+                const localDeletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+                
+                const mergedDeletedUsers = [...new Set([...localDeletedUsers, ...cloudDeletedUsers])];
+                const mergedDeletedTenants = [...new Set([...localDeletedTenants, ...cloudDeletedTenants])];
+                
+                localStorage.setItem('ezcubic_deleted_users', JSON.stringify(mergedDeletedUsers));
+                localStorage.setItem('ezcubic_deleted_tenants', JSON.stringify(mergedDeletedTenants));
+                
+                console.log('  🗑️ Merged deleted users tracking:', mergedDeletedUsers.length);
+                console.log('  🗑️ Merged deleted tenants tracking:', mergedDeletedTenants.length);
+                
+                // ====== STEP 2: Now process users and tenants (with updated deletion tracking) ======
                 for (const record of data) {
                     const key = record.data?.key || record.data_key;
                     const value = record.data?.value;

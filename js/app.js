@@ -749,9 +749,11 @@ function initDetailedBalanceSheet() {
 
 // ==================== DOM CONTENT LOADED ====================
 document.addEventListener('DOMContentLoaded', function() {
-    // Check for version updates (show banner if new version available)
+    // Check for version updates IMMEDIATELY (within 5 seconds as requested)
     if (typeof checkVersionUpdate === 'function') {
-        checkVersionUpdate();
+        setTimeout(() => {
+            checkVersionUpdate();
+        }, 100); // Check almost immediately, small delay to let DOM settle
     }
     
     // Wait for tenant data to load before initializing app

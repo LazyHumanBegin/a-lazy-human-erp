@@ -48,12 +48,12 @@ function startSessionValidation() {
         clearInterval(sessionValidationInterval);
     }
     
-    // Validate session every 10 seconds for faster multi-device detection
+    // Validate session every 2 seconds for immediate multi-device detection
     sessionValidationInterval = setInterval(() => {
         if (window.currentUser) {
             validateSessionToken(window.currentUser);
         }
-    }, 10 * 1000); // 10 seconds (was 30)
+    }, 2 * 1000); // 2 seconds - immediate detection for single-device login
 }
 
 /**

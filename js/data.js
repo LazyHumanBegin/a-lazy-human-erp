@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.12.8';  // COMPREHENSIVE FIX: All sync functions now check deletion tracking
+const APP_VERSION = '2.13.0';  // AUTO-CLEANUP: Deleted users removed automatically on page load
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================
@@ -39,16 +39,8 @@ function checkVersionUpdate() {
             navigatorStandalone: window.navigator.standalone
         });
         
-        // For PWA on mobile/tablet, auto-refresh immediately to get new version
-        if (isPWA && isMobile) {
-            console.log('📱 PWA on mobile/tablet detected - auto-refreshing for update...');
-            setTimeout(() => {
-                location.reload(true); // Force reload, bypass cache
-            }, 500);
-            return; // Don't show banner, just refresh
-        }
-        
-        // For desktop or browser mode, show banner
+        // Show banner for all devices (including mobile PWA)
+        // User requested: Don't auto-refresh mobile, let user manually refresh
         console.log('🖥️ Showing version update banner (isPWA:', isPWA, ', isMobile:', isMobile, ')');
         showVersionUpdateBanner(cachedVersion, APP_VERSION);
     } else {

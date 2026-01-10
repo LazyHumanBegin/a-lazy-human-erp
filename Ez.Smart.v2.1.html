@@ -7554,22 +7554,30 @@
             e.preventDefault();
             deferredPrompt = e;
             
-            // Show immediately if user is logged in, otherwise wait a bit
+            // Show immediately for web users (as requested)
             const isLoggedIn = localStorage.getItem('ezcubic_currentUser');
-            const delay = isLoggedIn ? 1000 : 5000; // 1 second if logged in, 5 seconds if not
             
-            setTimeout(() => {
-                showPWAInstallPrompt();
-            }, delay);
+            if (isLoggedIn) {
+                // Already logged in - show immediately
+                setTimeout(() => {
+                    showPWAInstallPrompt();
+                }, 100); // Immediate
+            } else {
+                // Not logged in yet - wait 5 seconds
+                setTimeout(() => {
+                    showPWAInstallPrompt();
+                }, 5000);
+            }
         });
         
-        // Also trigger on login
+        // Also trigger IMMEDIATELY on login (as requested)
         window.addEventListener('user-logged-in', () => {
-            setTimeout(() => {
-                if (deferredPrompt) {
+            if (deferredPrompt) {
+                // Show immediately after login completes
+                setTimeout(() => {
                     showPWAInstallPrompt();
-                }
-            }, 1000); // Show 1 second after login
+                }, 100); // Show almost immediately
+            }
         });
         
         function showPWAInstallPrompt() {
@@ -7578,9 +7586,8 @@
             // Check if already dismissed permanently
             if (localStorage.getItem('pwa_prompt_dismissed')) return;
             
-            // Check if already shown this session
-            if (sessionStorage.getItem('pwa_prompt_shown')) return;
-            sessionStorage.setItem('pwa_prompt_shown', 'true');
+            // REMOVED session check - show every time on web login as requested
+            // User wants to see "Add to Home Screen" prompt every login via web
             
             // Create install banner
             const banner = document.createElement('div');

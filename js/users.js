@@ -114,8 +114,66 @@ let users = [];
 window.users = users; // CRITICAL: Expose to window for auth.js module
 let currentUser = null;
 
+// ==================== AUTO-CLEANUP DELETED USERS ====================
+/**
+ * CRITICAL: Remove deleted users from localStorage automatically
+ * This runs on every page load to ensure deleted users never reappear
+ * Even if they somehow got synced back, this will clean them up
+ */
+function autoCleanupDeletedUsers() {
+    const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+    const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+    
+    if (deletedUsers.length === 0 && deletedTenants.length === 0) {
+        return; // Nothing to clean
+    }
+    
+    // Clean up users
+    let localUsers = JSON.parse(localStorage.getItem('ezcubic_users') || '[]');
+    const originalCount = localUsers.length;
+    
+    localUsers = localUsers.filter(u => {
+        // Never delete founder
+        if (u.role === 'founder') return true;
+        
+        const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+        const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+        
+        if (isDeleted || isTenantDeleted) {
+            console.log('🧹 Auto-cleanup: Removing deleted user from localStorage:', u.email);
+            return false;
+        }
+        return true;
+    });
+    
+    if (localUsers.length !== originalCount) {
+        localStorage.setItem('ezcubic_users', JSON.stringify(localUsers));
+        console.log(`🧹 Auto-cleanup complete: Removed ${originalCount - localUsers.length} deleted users`);
+    }
+    
+    // Clean up tenants
+    let localTenants = JSON.parse(localStorage.getItem('ezcubic_tenants') || '{}');
+    let tenantsRemoved = 0;
+    
+    deletedTenants.forEach(tenantId => {
+        if (tenantId !== 'tenant_founder' && localTenants[tenantId]) {
+            console.log('🧹 Auto-cleanup: Removing deleted tenant:', tenantId);
+            delete localTenants[tenantId];
+            tenantsRemoved++;
+        }
+    });
+    
+    if (tenantsRemoved > 0) {
+        localStorage.setItem('ezcubic_tenants', JSON.stringify(localTenants));
+        console.log(`🧹 Auto-cleanup complete: Removed ${tenantsRemoved} deleted tenants`);
+    }
+}
+
 // ==================== INITIALIZATION ====================
 function initializeUserSystem() {
+    // CRITICAL: Clean up any deleted users FIRST before loading
+    autoCleanupDeletedUsers();
+    
     loadUsers();
     
     // Quick check - if no valid session, show login immediately (no flash)
@@ -163,6 +221,27 @@ function loadUsers() {
     const stored = localStorage.getItem(USERS_KEY);
     if (stored) {
         users = JSON.parse(stored);
+        
+        // CRITICAL: Filter out deleted users when loading
+        const deletedUsers = JSON.parse(localStorage.getItem('ezcubic_deleted_users') || '[]');
+        const deletedTenants = JSON.parse(localStorage.getItem('ezcubic_deleted_tenants') || '[]');
+        
+        if (deletedUsers.length > 0 || deletedTenants.length > 0) {
+            const beforeCount = users.length;
+            users = users.filter(u => {
+                // Never filter founder
+                if (u.role === 'founder') return true;
+                
+                const isDeleted = deletedUsers.includes(u.id) || deletedUsers.includes(u.email);
+                const isTenantDeleted = u.tenantId && deletedTenants.includes(u.tenantId);
+                return !isDeleted && !isTenantDeleted;
+            });
+            
+            if (users.length !== beforeCount) {
+                console.log(`🧹 loadUsers: Filtered out ${beforeCount - users.length} deleted users`);
+                saveUsers(); // Save the filtered list back
+            }
+        }
     }
     
     // Ensure founder account exists
