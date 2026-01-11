@@ -5,7 +5,7 @@
 // Single source of truth for version number
 // Update this when releasing new versions
 // Versioning rule: Every 10 patch versions, roll to next minor (e.g., 2.4.10 → 2.5.0)
-const APP_VERSION = '2.19.3';  // UI Polish: Tablet sidebar, button sizes, text visibility
+const APP_VERSION = '2.20.0';  // NEW STRATEGY: Using new_styles.css for all future changes
 window.APP_VERSION = APP_VERSION;
 
 // ==================== VERSION UPDATE CHECK ====================

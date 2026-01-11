@@ -1,0 +1,16 @@
+v2.XX.X - [Feature/Fix Name]
+
+What changed:
+- 
+
+Why:
+- 
+
+Files modified:
+- 
+
+Next steps:
+- 
+
+# Save detailed context in every commit
+# Use: git commit -t .git-commit-template.txt

@@ -134,6 +134,59 @@ function initializeCharts() {
         });
     }
     
+    // Profit & Loss Chart - Horizontal Bar
+    const profitLossCtx = document.getElementById('profitLossChart')?.getContext('2d');
+    if (profitLossCtx) {
+        window.profitLossChart = new Chart(profitLossCtx, {
+            type: 'bar',
+            data: {
+                labels: ['Revenue', 'Expenses'],
+                datasets: [{
+                    data: [0, 0],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderRadius: 8,
+                    barThickness: 50
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { 
+                            color: 'rgba(226, 232, 240, 0.3)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            callback: function(value) { return 'RM ' + value.toLocaleString(); },
+                            color: '#64748b',
+                            font: { size: 12 }
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { 
+                            color: '#1e293b',
+                            font: { size: 14, weight: 600 }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'RM ' + context.parsed.x.toLocaleString('en-MY', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
     const monthlyCtx = document.getElementById('monthlyChart')?.getContext('2d');
     if (monthlyCtx) {
         monthlyChart = new Chart(monthlyCtx, {

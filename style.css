@@ -18749,6 +18749,527 @@ img {
         color: white;
     }
     
+    /* ===== TABLET PORTRAIT FIXES - v2.19.7 ===== */
+    
+    /* 1. WhatsApp button - wider, better alignment */
+    .dropdown {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+    }
+    
+    button.btn-icon[onclick*="toggleWhatsAppMenu"] {
+        width: 50px !important;
+        height: 50px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border-radius: 50% !important;
+    }
+    
+    button.btn-icon[onclick*="toggleWhatsAppMenu"] i {
+        font-size: 26px !important;
+    }
+    
+    /* 2. Inventory table view - horizontal row layout with blue header */
+    #inventory .products-table,
+    #productsTable {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    #inventory .data-table,
+    #productsTable table {
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+    
+    #inventory .data-table thead,
+    #productsTable thead {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+    }
+    
+    #inventory .data-table th,
+    #productsTable th {
+        padding: 12px 12px !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-align: left !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        border: none !important;
+        white-space: nowrap !important;
+    }
+    
+    #inventory .data-table th:first-child,
+    #productsTable th:first-child {
+        border-radius: 8px 0 0 0 !important;
+    }
+    
+    #inventory .data-table th:last-child,
+    #productsTable th:last-child {
+        border-radius: 0 8px 0 0 !important;
+    }
+    
+    /* Align headers */
+    #inventory .data-table th:nth-child(4),
+    #inventory .data-table th:nth-child(5),
+    #productsTable th:nth-child(4),
+    #productsTable th:nth-child(5) {
+        text-align: right !important;
+    }
+    
+    #inventory .data-table th:nth-child(6),
+    #inventory .data-table th:nth-child(7),
+    #productsTable th:nth-child(6),
+    #productsTable th:nth-child(7) {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table th:last-child,
+    #productsTable th:last-child {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table tbody tr,
+    #productsTable tbody tr {
+        background: white !important;
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+    
+    #inventory .data-table tbody tr:hover,
+    #productsTable tbody tr:hover {
+        background: #f9fafb !important;
+    }
+    
+    #inventory .data-table td,
+    #productsTable td {
+        padding: 12px !important;
+        font-size: 13px !important;
+        color: #374151 !important;
+        text-align: left !important;
+        vertical-align: middle !important;
+        border: none !important;
+    }
+    
+    /* Product name bold */
+    #inventory .data-table td:nth-child(1),
+    #productsTable td:nth-child(1) {
+        font-weight: 600 !important;
+        color: #1f2937 !important;
+    }
+    
+    /* SKU gray */
+    #inventory .data-table td:nth-child(2),
+    #productsTable td:nth-child(2) {
+        color: #6b7280 !important;
+        font-size: 12px !important;
+    }
+    
+    /* Category gray */
+    #inventory .data-table td:nth-child(3),
+    #productsTable td:nth-child(3) {
+        color: #6b7280 !important;
+    }
+    
+    /* Cost and Price right aligned */
+    #inventory .data-table td:nth-child(4),
+    #inventory .data-table td:nth-child(5),
+    #productsTable td:nth-child(4),
+    #productsTable td:nth-child(5) {
+        text-align: right !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Stock center */
+    #inventory .data-table td:nth-child(6),
+    #productsTable td:nth-child(6) {
+        text-align: center !important;
+    }
+    
+    /* Status center with green badge */
+    #inventory .data-table td:nth-child(7),
+    #productsTable td:nth-child(7) {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table td:nth-child(7) .badge,
+    #productsTable td:nth-child(7) .badge,
+    #inventory .data-table td:nth-child(7) span,
+    #productsTable td:nth-child(7) span {
+        background: #d1fae5 !important;
+        color: #065f46 !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        display: inline-block !important;
+    }
+    
+    /* Actions center */
+    #inventory .data-table td:last-child,
+    #productsTable td:last-child {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table td button,
+    #inventory .data-table td .btn,
+    #productsTable td button,
+    #productsTable td .btn {
+        padding: 6px 10px !important;
+        font-size: 11px !important;
+        margin: 0 3px !important;
+        border-radius: 6px !important;
+    }
+    
+    #inventory .data-table,
+    #productsTable table {
+        width: 100% !important;
+        border-collapse: separate !important;
+        border-spacing: 0 !important;
+    }
+    
+    #inventory .data-table thead,
+    #productsTable thead {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+    }
+    
+    #inventory .data-table th,
+    #productsTable th {
+        padding: 14px 16px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-align: left !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.5px !important;
+        border: none !important;
+    }
+    
+    #inventory .data-table th:first-child,
+    #productsTable th:first-child {
+        border-radius: 8px 0 0 0 !important;
+    }
+    
+    #inventory .data-table th:last-child,
+    #productsTable th:last-child {
+        border-radius: 0 8px 0 0 !important;
+    }
+    
+    /* Align numeric columns to right */
+    #inventory .data-table th:nth-child(4),
+    #inventory .data-table th:nth-child(5),
+    #productsTable th:nth-child(4),
+    #productsTable th:nth-child(5) {
+        text-align: right !important;
+    }
+    
+    /* Stock and Status columns center */
+    #inventory .data-table th:nth-child(6),
+    #inventory .data-table th:nth-child(7),
+    #productsTable th:nth-child(6),
+    #productsTable th:nth-child(7) {
+        text-align: center !important;
+    }
+    
+    /* Actions center */
+    #inventory .data-table th:last-child,
+    #productsTable th:last-child {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table tbody tr,
+    #productsTable tbody tr {
+        background: white !important;
+        border-bottom: 1px solid #e5e7eb !important;
+    }
+    
+    #inventory .data-table tbody tr:hover,
+    #productsTable tbody tr:hover {
+        background: #f9fafb !important;
+    }
+    
+    #inventory .data-table td,
+    #productsTable td {
+        padding: 16px !important;
+        font-size: 14px !important;
+        color: #374151 !important;
+        text-align: left !important;
+        vertical-align: middle !important;
+        border: none !important;
+    }
+    
+    /* Product name - bold and dark */
+    #inventory .data-table td:nth-child(1),
+    #productsTable td:nth-child(1) {
+        font-weight: 600 !important;
+        color: #1f2937 !important;
+    }
+    
+    /* SKU - medium gray */
+    #inventory .data-table td:nth-child(2),
+    #productsTable td:nth-child(2) {
+        color: #6b7280 !important;
+        font-size: 13px !important;
+    }
+    
+    /* Category */
+    #inventory .data-table td:nth-child(3),
+    #productsTable td:nth-child(3) {
+        color: #6b7280 !important;
+    }
+    
+    /* Cost and Price - right aligned */
+    #inventory .data-table td:nth-child(4),
+    #inventory .data-table td:nth-child(5),
+    #productsTable td:nth-child(4),
+    #productsTable td:nth-child(5) {
+        text-align: right !important;
+        font-weight: 500 !important;
+        color: #1f2937 !important;
+    }
+    
+    /* Stock column - center */
+    #inventory .data-table td:nth-child(6),
+    #productsTable td:nth-child(6) {
+        text-align: center !important;
+        font-size: 13px !important;
+    }
+    
+    /* Status - center with green badge */
+    #inventory .data-table td:nth-child(7),
+    #productsTable td:nth-child(7) {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table td:nth-child(7) .badge,
+    #productsTable td:nth-child(7) .badge,
+    #inventory .data-table td:nth-child(7) span,
+    #productsTable td:nth-child(7) span {
+        background: #d1fae5 !important;
+        color: #065f46 !important;
+        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        font-weight: 500 !important;
+        display: inline-block !important;
+    }
+    
+    /* Actions - center with inline buttons */
+    #inventory .data-table td:last-child,
+    #productsTable td:last-child {
+        text-align: center !important;
+    }
+    
+    #inventory .data-table td button,
+    #inventory .data-table td .btn,
+    #productsTable td button,
+    #productsTable td .btn {
+        padding: 8px 12px !important;
+        font-size: 12px !important;
+        margin: 0 4px !important;
+        border-radius: 6px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    /* 3. Stock Control - compact single line layout */
+    #stock table {
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+    
+    #stock th,
+    #stock td {
+        padding: 8px 6px !important;
+        font-size: 12px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    
+    #stock .table-responsive {
+        overflow-x: auto !important;
+    }
+    
+    /* 4. Order History - compact single line layout */
+    #orders table {
+        width: 100% !important;
+        table-layout: fixed !important;
+    }
+    
+    #orders th,
+    #orders td {
+        padding: 8px 6px !important;
+        font-size: 12px !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+    
+    #orders .table-responsive {
+        overflow-x: auto !important;
+    }
+    
+    /* 5. Sales channel - make bars shorter */
+    .sales-channel-icon {
+        font-size: 20px !important;
+        width: 24px !important;
+        min-width: 24px !important;
+    }
+    
+    .monthly-summary-item {
+        display: flex !important;
+        align-items: center !important;
+        gap: 10px !important;
+        padding: 8px !important;
+    }
+    
+    .year-bar,
+    .chart-bar {
+        max-width: 150px !important;
+        height: 20px !important;
+    }
+    
+    /* 6. Financial Report - force landscape table layout */
+    #reports .report-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+    
+    #reports .report-card {
+        padding: 14px !important;
+        min-height: auto !important;
+    }
+    
+    #reports .stat-value {
+        font-size: 22px !important;
+    }
+    
+    #reports .stat-label {
+        font-size: 12px !important;
+    }
+    
+    #reports table {
+        font-size: 12px !important;
+    }
+    
+    #reports th,
+    #reports td {
+        padding: 8px 6px !important;
+    }
+    
+    /* 7. Profit & Loss chart - force bar chart display */
+    #profitLossChart {
+        max-height: 300px !important;
+        height: 300px !important;
+    }
+    
+    .profit-loss-chart-container {
+        padding: 16px !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+    
+    /* 8. Balance Sheet save button - standard size */
+    #balance-sheet button[onclick*="saveBalanceSheet"],
+    #balance-sheet button.btn-primary {
+        padding: 10px 16px !important;
+        font-size: 13px !important;
+        min-height: 38px !important;
+        min-width: 100px !important;
+        font-weight: normal !important;
+    }
+    
+    /* 9. Delivery commission table - wider with better colors */
+    .delivery-platforms-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .delivery-platform-card {
+        background: #ffffff !important;
+        border: 2px solid #3b82f6 !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+        width: 100% !important;
+    }
+    
+    .delivery-platform-card.active {
+        background: #eff6ff !important;
+        border-color: #2563eb !important;
+    }
+    
+    .delivery-platform-card h4 {
+        color: #1e293b !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .delivery-platform-card label {
+        color: #1e293b !important;
+        font-size: 13px !important;
+        font-weight: 500 !important;
+        margin-bottom: 6px !important;
+        display: block !important;
+    }
+    
+    .delivery-platform-card input {
+        background: white !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #1e293b !important;
+        font-size: 14px !important;
+        padding: 10px 12px !important;
+        width: 100% !important;
+        font-weight: 500 !important;
+    }
+    
+    .delivery-platform-card input[type="number"] {
+        -webkit-appearance: none !important;
+        -moz-appearance: textfield !important;
+        appearance: none !important;
+    }
+    
+    /* 10. Document numbering - dark text, bigger font */
+    .document-numbering-section {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        padding: 16px !important;
+    }
+    
+    .document-numbering-section h3 {
+        color: #0f172a !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        margin-bottom: 12px !important;
+    }
+    
+    .document-numbering-section label {
+        color: #0f172a !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        display: block !important;
+        margin-bottom: 6px !important;
+    }
+    
+    .document-numbering-section input {
+        background: white !important;
+        border: 2px solid #64748b !important;
+        color: #0f172a !important;
+        font-size: 14px !important;
+        padding: 10px 12px !important;
+        font-weight: 600 !important;
+    }
+    
+    .document-numbering-section .form-grid {
+        gap: 14px !important;
+    }
+    
     /* Stats grid - 2 columns on tablet with compact sizing */
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -18863,7 +19384,9 @@ img {
     
     table {
         min-width: 600px;
-    width: 100%;
+        width: 100%;
+    }
+    
     /* Forms - better spacing */
     .form-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -18877,9 +19400,10 @@ img {
     
     /* Buttons */
     .btn-primary, .btn-secondary {
-    padding: 10px 16px;
-    font-size: 13px;
-    min-height: 38px;
+        padding: 10px 16px;
+        font-size: 13px;
+        min-height: 38px;
+    }
     
     /* Modals - full screen on tablet */
     .modal-content {
@@ -19366,5 +19890,299 @@ img {
         page-break-after: auto;
     }
 }
+
+/* ==================== END RESPONSIVE DESIGN v2.19.0 ==================== */
+
+/* ==================== UI POLISH v2.19.4 - COMPREHENSIVE REFINEMENTS ==================== */
+
+/* Issue 2,3: Stock Movement & Orders tables - wider layout */
+.table-responsive,
+.table-container {
+    overflow-x: auto;
+    width: 100%;
+}
+
+.table-responsive table,
+.table-container table {
+    min-width: 100%;
+    width: 100%;
+}
+
+/* Issue 4,5: BOM & Supplier buttons - standard size */
+button[onclick*="createBOM"],
+button[onclick*="Create BOM"],
+button[onclick*="addSupplier"],
+button[onclick*="Add Supplier"],
+.btn-add-bom,
+.btn-add-supplier {
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    min-height: 38px !important;
+}
+
+/* Issue 6: Transaction table container - increase visible rows */
+.transaction-list,
+#allTransactions {
+    max-height: none;
+    min-height: 600px;
+}
+
+.day-transactions {
+    max-height: none;
+}
+
+/* Issue 7: Monthly Report - Compact layout */
+.monthly-summary-card {
+    padding: 16px;
+}
+
+.sales-channel-icon {
+    font-size: 16px !important;
+    width: 20px;
+}
+
+.chart-section canvas {
+    max-height: 250px !important;
+}
+
+.year-bar,
+.chart-bar {
+    max-width: 400px;
+}
+
+/* Issue 8: Monthly breakdown table - better spacing */
+.monthly-breakdown-table {
+    font-size: 13px;
+}
+
+.monthly-breakdown-table td,
+.monthly-breakdown-table th {
+    padding: 10px 14px;
+}
+
+/* Issue 9: Financial report icons - standard 16px */
+#reports .report-card i,
+.financial-report-icon {
+    font-size: 16px !important;
+}
+
+.report-card .stat-icon {
+    font-size: 20px;
+}
+
+/* Issue 10: Profit & Loss chart - better styling */
+.profit-loss-chart-container {
+    background: #f8fafc;
+    padding: 20px;
+    border-radius: 12px;
+}
+
+.profit-loss-chart-container canvas {
+    max-height: 300px !important;
+}
+
+/* Issue 11: Balance Sheet - compact header bar, bigger save button */
+#balance-sheet .card-header,
+.balance-sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+#balance-sheet .card-header h2 {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+#balance-sheet .card-header .filter-actions {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 10px;
+}
+
+#balance-sheet button[onclick*="save"],
+#balance-sheet .btn-save {
+    min-width: 140px !important;
+    padding: 10px 24px !important;
+    font-size: 14px !important;
+}
+
+/* Issue 12: Audit log - one line per entry */
+.audit-log-table td {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.audit-log-table td:first-child {
+    max-width: 120px;
+}
+
+/* Issue 13: Settings page - day mode colors */
+.delivery-platform-card {
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.delivery-platform-card.active {
+    background: #eff6ff !important;
+    border-color: #3b82f6 !important;
+}
+
+.document-numbering-section {
+    background: white !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.document-numbering-preview {
+    background: #f8fafc !important;
+    color: #1e293b !important;
+}
+
+/* Financial Reports - Compact icons and better alignment */
+.report-card {
+    padding: 18px;
+}
+
+.report-card h3 {
+    font-size: 15px;
+    margin-bottom: 12px;
+}
+
+.chart-container canvas {
+    max-height: 280px !important;
+}
+
+/* Audit Log - Better table layout */
+.audit-log-table {
+    font-size: 13px;
+}
+
+.audit-log-table th {
+    padding: 10px 12px;
+    font-size: 12px;
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+/* LHDN Export - Compact styling */
+#lhdnExportContent .content-card {
+    padding: 18px;
+}
+
+#lhdnExportContent h3 {
+    font-size: 15px;
+}
+
+#lhdnExportContent .btn-primary,
+#lhdnExportContent .btn-secondary {
+    padding: 8px 14px;
+    font-size: 13px;
+}
+
+/* Branches/Outlet - Better sub-page layout */
+.branch-card {
+    padding: 16px;
+}
+
+.branch-card h4 {
+    font-size: 14px;
+}
+
+.branch-stats {
+    gap: 10px;
+}
+
+.branch-stats .stat-card {
+    padding: 10px;
+}
+
+/* Global button consistency */
+button.btn-outline,
+button.btn-secondary,
+button.btn-primary {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-height: 38px;
+    line-height: 1.4;
+}
+
+/* Form buttons in modals */
+.modal-footer button,
+.form-actions button {
+    padding: 10px 16px;
+    font-size: 13px;
+    min-height: 38px;
+}
+
+/* Cancel buttons specific */
+button[onclick*="close"],
+button[onclick*="Cancel"],
+.btn-cancel {
+    padding: 10px 16px !important;
+    font-size: 13px !important;
+    min-height: 38px !important;
+}
+
+/* Filter bars - more compact */
+.filter-bar {
+    gap: 8px;
+}
+
+.filter-bar input,
+.filter-bar select {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-height: 36px;
+}
+
+.filter-bar button {
+    padding: 8px 14px;
+    font-size: 13px;
+    min-height: 36px;
+}
+
+/* Ensure all icons are consistently sized */
+.content-card i,
+.card-header i,
+.nav-btn i,
+button i {
+    font-size: 14px;
+}
+
+.stat-card i {
+    font-size: 16px;
+}
+
+h2 i, h3 i {
+    font-size: inherit;
+}
+
+/* Table improvements */
+.data-table,
+.table-container table {
+    width: 100%;
+    font-size: 13px;
+}
+
+.data-table th,
+.table-container th {
+    padding: 10px 12px;
+    font-size: 12px;
+    background: #f8fafc;
+    color: #1e293b;
+}
+
+.data-table td,
+.table-container td {
+    padding: 10px 12px;
+    color: #475569;
+    background: white;
+}
+
+/* ==================== END UI POLISH v2.19.4 ==================== */
 
 /* ==================== END RESPONSIVE DESIGN v2.19.0 ==================== */

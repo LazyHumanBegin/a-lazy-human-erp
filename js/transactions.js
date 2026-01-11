@@ -662,8 +662,10 @@ function confirmDeleteTransaction(transactionId) {
 function clearFilters() {
     const categoryEl = document.getElementById('filterCategory');
     const monthEl = document.getElementById('filterMonth');
+    const dayEl = document.getElementById('filterDay');
     if (categoryEl) categoryEl.value = '';
     if (monthEl) monthEl.value = '';
+    if (dayEl) dayEl.value = '';
     loadTransactions();
 }
 
@@ -675,6 +677,7 @@ function filterTransactions() {
 function loadTransactions() {
     const categoryFilter = document.getElementById('filterCategory')?.value || '';
     const monthFilter = document.getElementById('filterMonth')?.value || '';
+    const dayFilter = document.getElementById('filterDay')?.value || '';
     
     let filteredTransactions = [...businessData.transactions];
     
@@ -684,7 +687,9 @@ function loadTransactions() {
         filteredTransactions = filteredTransactions.filter(tx => tx.type === 'expense');
     }
     
-    if (monthFilter) {
+    if (dayFilter) {
+        filteredTransactions = filteredTransactions.filter(tx => tx.date === dayFilter);
+    } else if (monthFilter) {
         filteredTransactions = filteredTransactions.filter(tx => tx.date.startsWith(monthFilter));
     }
     

@@ -231,6 +231,12 @@ function updateReports() {
     document.getElementById('reportIncome').textContent = formatCurrency(periodIncome);
     document.getElementById('reportExpenses').textContent = formatCurrency(periodExpenses + periodCOGS);  // Total for backward compat
     
+    // Update Profit & Loss horizontal bar chart
+    if (window.profitLossChart) {
+        window.profitLossChart.data.datasets[0].data = [periodIncome, periodExpenses + periodCOGS];
+        window.profitLossChart.update();
+    }
+    
     // Update COGS and Gross Profit if elements exist (v2.8.2)
     const cogsEl = document.getElementById('reportCOGS');
     const grossProfitEl = document.getElementById('reportGrossProfit');
